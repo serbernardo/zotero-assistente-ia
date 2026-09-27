@@ -1,0 +1,46 @@
+/* Preferências por omissão do Assistente IA */
+// Motor escolhido: "anthropic", "claude" (Claude Code), "openai", "codex" (conta ChatGPT) ou "gemini". Vazio até à configuração.
+pref("extensions.zoteroia.engine", "");
+// Língua da interface: "auto" (a do Zotero), "pt-PT" ou "en"
+pref("extensions.zoteroia.ui.lang", "auto");
+// Língua das respostas: "ui" (a mesma da interface), "pt-PT", "en", "auto" (a do documento)...
+pref("extensions.zoteroia.answerLang", "ui");
+pref("extensions.zoteroia.context.annotations", false);
+pref("extensions.zoteroia.fichas.autoSave", true);
+pref("extensions.zoteroia.custom.prompts", "");
+pref("extensions.zoteroia.ui.group", "compreender");
+
+// Claude com chave da API da Anthropic (a chave fica encriptada, nunca em texto simples)
+pref("extensions.zoteroia.anthropic.key", "");
+pref("extensions.zoteroia.anthropic.model", "claude-opus-5");
+pref("extensions.zoteroia.anthropic.maxChars", 400000);
+
+// Claude com a subscrição, através do Claude Code instalado no computador
+pref("extensions.zoteroia.claude.enabled", false);
+pref("extensions.zoteroia.claude.path", "");
+pref("extensions.zoteroia.claude.model", "sonnet");
+pref("extensions.zoteroia.claude.ignoreApiKey", true);
+pref("extensions.zoteroia.claude.maxChars", 600000);
+
+// ChatGPT com chave da API da OpenAI (a chave fica encriptada)
+pref("extensions.zoteroia.openai.key", "");
+pref("extensions.zoteroia.openai.model", "gpt-6-sol");
+pref("extensions.zoteroia.openai.maxChars", 400000);
+
+// ChatGPT com a conta do utilizador (gratuita ou paga), através do Codex
+pref("extensions.zoteroia.codex.enabled", false);
+pref("extensions.zoteroia.codex.path", "");
+pref("extensions.zoteroia.codex.model", "");
+pref("extensions.zoteroia.codex.maxChars", 400000);
+
+// Gemini com chave da API do Google (a chave fica encriptada)
+pref("extensions.zoteroia.gemini.key", "");
+pref("extensions.zoteroia.gemini.model", "gemini-3.8-flash");
+pref("extensions.zoteroia.gemini.maxChars", 400000);
+
+// Aviso de privacidade aceite, por motor
+pref("extensions.zoteroia.privacy.ack.anthropic", false);
+pref("extensions.zoteroia.privacy.ack.claude", false);
+pref("extensions.zoteroia.privacy.ack.openai", false);
+pref("extensions.zoteroia.privacy.ack.codex", false);
+pref("extensions.zoteroia.privacy.ack.gemini", false);

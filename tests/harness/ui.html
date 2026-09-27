@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<title>Teste da interface do Assistente IA</title>
+<link rel="stylesheet" href="../../addon/content/zoteroia.css">
+<style>
+	html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+	body { background: #f2f2f2; }
+	/* Simula o painel lateral do Zotero */
+	#section-host { width: 380px; margin: 12px; padding: 8px; background: #fff; border: 1px solid #ddd; border-radius: 6px; }
+	#window-host { position: fixed; inset: 0; display: flex; flex-direction: column; background: #fff; }
+	body.dark { background: #1e1e1e; }
+	body.dark #section-host { background: #2a2a2a; border-color: #444; }
+	body.dark, body.dark #window-host {
+		--fill-primary: #f2f2f2; --fill-secondary: #c8c8c8; --fill-tertiary: #9a9a9a; --fill-quinary: #444;
+		--material-background: #262626; --material-sidepane: #303030; --accent-blue: #7ea6ff; --accent-blue10: rgba(126,166,255,.16);
+		--accent-red: #ff6b5f; --accent-orange: #f0a64a;
+	}
+	body.dark #window-host { background: #262626; }
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script>
+	// ---- Zotero simulado ----
+	const items = new Map();
+	let nid = 1;
+	function paper(title, year, authors, key, pages) {
+		const parent = { id: nid++, key: "P" + key, libraryID: 1, isAttachment: () => false, isRegularItem: () => true, isPDFAttachment: () => false,
+			getCreators: () => authors.map(a => ({ lastName: a })), getField: f => ({ title, date: String(year) })[f] || "",
+			getDisplayTitle: () => title, getNotes: () => [] };
+		const att = { id: nid++, key, libraryID: 1, parentItem: parent, dateModified: "x", isAttachment: () => true, isRegularItem: () => false,
+			isPDFAttachment: () => true, getField: () => "", getFilePathAsync: async () => "/pdf/" + key, _pages: pages };
+		parent.getBestAttachment = async () => att;
+		parent.getAttachments = () => [att.id];
+		items.set(parent.id, parent); items.set(att.id, att);
+		return parent;
+	}
+	const P = (n, s) => Array.from({ length: n }, (_, i) => `${s} página ${i + 1}. ` + "Texto de teste. ".repeat(40));
+	const A = paper("Assistentes conversacionais em bibliotecas universitárias portuguesas", 2021, ["Silva", "Costa", "Reis"], "SILVAPDF", P(6, "Silva"));
+	const B = paper("Library chatbots after deployment: a qualitative study", 2023, ["García", "Ortega"], "GARCIAPDF", P(5, "García"));
+	window.opened = [];
+	window.Zotero = {
+		debug: () => {}, logError: e => console.error(e), locale: "pt-PT",
+		Items: { get: id => items.get(id) },
+		launchURL: u => window.opened.push(u),
+		getMainWindow: () => null,
+		Utilities: { Internal: { openPreferences: () => window.opened.push("prefs") } },
+	};
+	const params = new URLSearchParams(location.search);
+	const prefs = {
+		engine: "claude", "claude.enabled": true, "gemini.key": "oskv1:simulada", answerLang: params.get("lang") || "ui",
+		"privacy.ack.claude": true, "privacy.ack.gemini": true, "ui.group": "compreender",
+		"fichas.autoSave": true, "claude.maxChars": 600000, "gemini.maxChars": 400000, "anthropic.maxChars": 400000,
+		"custom.prompts": params.get("custom") || "", "ui.lang": params.get("ui") || "auto",
+	};
+	if (params.get("setup")) { prefs.engine = ""; prefs["claude.enabled"] = false; prefs["gemini.key"] = ""; }
+	if (params.get("noack")) { prefs["privacy.ack.claude"] = false; }
+	window.MOCK = { answer: "", error: null, delayMs: 8 };
+</script>
+<script src="../../addon/content/i18n.js"></script>
+<script src="../../addon/content/lib.js"></script>
+<script src="../../addon/content/chatview.js"></script>
+<script src="../../addon/content/zoteroia.js"></script>
+<script>
+	const core = ZoteroIA;
+	core.init({ id: "t", version: "t", rootURI: "" });
+	core.pref = k => prefs[k];
+	core.setPref = (k, v) => { prefs[k] = v; };
+	core.applyLanguage();
+	core.selectedItems = () => [A, B];
+	core.selectedCollectionIDs = () => [];
+	core.loadText = async doc => {
+		const att = items.get(doc.attachmentID);
+		await new Promise(r => setTimeout(r, 150));
+		doc.pages = att._pages; doc.pagesReliable = true; doc.chars = att._pages.join("").length;
+		return doc;
+	};
+	core.openAtPage = async (d, p) => window.opened.push(`${d.attachmentKey}#${p}`);
+	core.copyToClipboard = t => { window.copied = t; };
+	core.saveNote = async ({ heading }) => ({ id: 999, parentID: heading.startsWith("Comparação") ? null : 1 });
+	core.saveCSV = async () => "/tmp/tabela.csv";
+	core.addTags = async (id, tags) => { window.tagged = { id, tags: Array.from(tags) }; return tags.length; };
+	core.selectedCollectionItems = () => ({ name: "Tese", id: 7, items: [A, B] });
+	core.openWindow = o => { window.openedWindow = o; };
+	core.runEngine = async (engine, { onDelta, signal, system, prompt }) => {
+		window.lastEngine = engine;
+		window.lastSystem = system;
+		window.lastPrompt = prompt;
+		if (MOCK.error) {
+			await new Promise(r => setTimeout(r, 300));
+			const e = new Error(MOCK.error.message); e.kind = MOCK.error.kind; throw e;
+		}
+		let all = "";
+		const words = MOCK.answer.split(/(?<=\s)/);
+		for (const w of words) {
+			if (signal && signal.aborted) { const e = new Error("x"); e.kind = "aborted"; throw e; }
+			all += w; onDelta(w, all);
+			await new Promise(r => setTimeout(r, MOCK.delayMs));
+		}
+		return { text: all, model: engine === "gemini" ? "gemini-3.8-flash" : "claude-sonnet-5" };
+	};
+	const mode = params.get("mode") || "window";
+	if (params.get("dark")) document.body.classList.add("dark");
+	const host = document.getElementById("host");
+	host.id = mode === "window" ? "window-host" : "section-host";
+	window.view = new core.ChatView({ doc: document, win: window, container: host, mode, core });
+	window.ready = (async () => {
+		if (mode === "section") await view.showItem(A);
+		else await view.setItems([]);
+	})();
+</script>
+</body>
+</html>
