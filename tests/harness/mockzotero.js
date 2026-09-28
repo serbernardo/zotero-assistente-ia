@@ -190,8 +190,9 @@ function createEnv({ prefs = {}, log = null, noOSKeyStore = false } = {}) {
 			writeUTF8: async (p, s) => fs.writeFileSync(p, s, "utf8"),
 			readUTF8: async p => fs.readFileSync(p, "utf8"),
 			remove: async (p, o) => fs.rmSync(p, { recursive: !!(o && o.recursive), force: true }),
+			getChildren: async p => fs.readdirSync(p).map(n => path.join(p, n)),
 		},
-		PathUtils: { join: (...a) => path.join(...a), parent: p => path.dirname(p) },
+		PathUtils: { join: (...a) => path.join(...a), parent: p => path.dirname(p), filename: p => path.basename(p) },
 		TextDecoder, TextEncoder, setTimeout, clearTimeout, fetch, console, AbortController,
 	};
 	vm.createContext(ctx);

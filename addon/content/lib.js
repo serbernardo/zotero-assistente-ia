@@ -1373,7 +1373,24 @@ var ZIALib = (function () {
 		if (status === 400 && /token|too long|exceeds/i.test(msg)) {
 			return { kind: "size", message: withDetail(t("err.tooLong"), msg) };
 		}
+		if (status === 500 || status === 502 || status === 503 || status === 504) {
+			return { kind: "busy", message: t("err.gemini.busy", { status }) };
+		}
 		return { kind: "other", message: withDetail(t("err.api.other", { provider: "Gemini", status }), msg) };
+	}
+
+	function geminiVersion(name) {
+		const m = /gemini-(\d+(?:\.\d+)?)/.exec(name);
+		return m ? parseFloat(m[1]) : 0;
+	}
+
+	/** Modelos Gemini alternativos quando o escolhido está sobrecarregado: flash estáveis e mais recentes primeiro. */
+	function geminiFallbacks(current, available, max = 2) {
+		const cands = (available || []).filter(n => n !== current && /flash/i.test(n) && !/(thinking|exp)/i.test(n));
+		const score = n => (/preview/i.test(n) ? 0 : 2) + (/lite/i.test(n) ? 0 : 1);
+		cands.sort((a, b) => (geminiVersion(b) - geminiVersion(a)) || (score(b) - score(a)));
+		const stable = cands.filter(n => !/preview/i.test(n));
+		return (stable.length ? stable : cands).slice(0, max);
 	}
 
 	function formatRateLimit(info) {
@@ -1507,7 +1524,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS,
-		classifyClaudeError, classifyGeminiError, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, geminiFallbacks, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 

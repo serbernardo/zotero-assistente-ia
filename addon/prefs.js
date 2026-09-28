@@ -38,6 +38,13 @@ pref("extensions.zoteroia.gemini.key", "");
 pref("extensions.zoteroia.gemini.model", "gemini-3.8-flash");
 pref("extensions.zoteroia.gemini.maxChars", 400000);
 
+// Resultado do último teste nas definições, por motor: "", "ok" ou "fail"
+pref("extensions.zoteroia.anthropic.lastTest", "");
+pref("extensions.zoteroia.claude.lastTest", "");
+pref("extensions.zoteroia.openai.lastTest", "");
+pref("extensions.zoteroia.codex.lastTest", "");
+pref("extensions.zoteroia.gemini.lastTest", "");
+
 // Aviso de privacidade aceite, por motor
 pref("extensions.zoteroia.privacy.ack.anthropic", false);
 pref("extensions.zoteroia.privacy.ack.claude", false);

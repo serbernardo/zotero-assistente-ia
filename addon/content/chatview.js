@@ -691,6 +691,7 @@ var ZIAChatView = class {
 				if (botMsg.tags.length) botMsg.text = this.L.removeTagLine(botMsg.text);
 			}
 			botMsg.pending = false;
+			this.core.setPref(engine + ".lastTest", "ok");
 			const secs = Math.round((Date.now() - t0) / 1000);
 			this._setStatus(this.T("chat.done", { s: secs, engine: this.core.engineLabel(engine) }) + (botMsg.usageNote ? ` ${botMsg.usageNote}.` : ""));
 		}
@@ -701,6 +702,8 @@ var ZIAChatView = class {
 			if (botMsg.errorKind === "aborted") {
 				botMsg.error = this.T("err.aborted");
 			}
+			// Estado nas definições: o motor não está a funcionar (falta programa, chave ou sessão)
+			if (botMsg.errorKind === "notfound" || botMsg.errorKind === "auth") this.core.setPref(engine + ".lastTest", "fail");
 			this.core.log("Erro: " + botMsg.error);
 			this._setStatus(this.T(botMsg.errorKind === "aborted" ? "chat.cancelled" : "chat.error"), botMsg.errorKind === "aborted" ? null : "error");
 		}

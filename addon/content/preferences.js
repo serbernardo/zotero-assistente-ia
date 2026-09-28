@@ -32,22 +32,10 @@ window.ZIAPrefs = {
 			const el = this.$(id);
 			if (el) el.addEventListener("command", fn);
 		};
-		for (const name of ["anthropic", "openai"]) {
+		for (const name of ["anthropic", "openai", "gemini"]) {
 			on(`zia-${name}-save`, () => this.saveKey(name));
 			on(`zia-${name}-clear`, () => this.clearKey(name));
-			on(`zia-${name}-test`, () => this.testKeyModels(name));
-		}
-		on("zia-gemini-save", () => this.saveKey("gemini"));
-		on("zia-gemini-clear", () => this.clearKey("gemini"));
-		on("zia-gemini-list", () => this.listGemini());
-		for (const tool of ["claude", "codex"]) {
-			on(`zia-${tool}-detect`, () => this.detect(tool));
-			on(`zia-${tool}-test`, () => this.testLocal(tool));
-		}
-		on("zia-clear-all", () => this.clearAll());
-		on("zia-reset-privacy", () => this.resetPrivacy());
-		// Enter no campo da chave guarda
-		for (const name of ["anthropic", "openai", "gemini"]) {
+			// Enter no campo da chave guarda e testa
 			const input = this.$(`zia-${name}-key`);
 			if (input) {
 				input.addEventListener("keydown", ev => {
@@ -58,8 +46,14 @@ window.ZIAPrefs = {
 				});
 			}
 		}
+		on("zia-gemini-list", () => this.listGemini());
+		for (const tool of ["claude", "codex"]) {
+			on(`zia-${tool}-detect`, () => this.detect(tool));
+			on(`zia-${tool}-test`, () => this.test(tool));
+		}
+		on("zia-clear-all", () => this.clearAll());
+		on("zia-reset-privacy", () => this.resetPrivacy());
 		this.initUILanguage();
-		this.initDefaultEngine();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
 		this.initAnswerLanguage();
@@ -77,9 +71,12 @@ window.ZIAPrefs = {
 			const el = this.$(id);
 			if (el) el.setAttribute("placeholder", this.T("prefs.path.placeholder"));
 		}
+		for (const name of ["anthropic", "openai", "gemini"]) {
+			const el = this.$(`zia-${name}-key`);
+			if (el) el.setAttribute("aria-label", this.T("prefs.apiKey"));
+		}
 		const ta = this.$("zia-custom-prompts");
 		if (ta) ta.setAttribute("placeholder", this.T("prefs.prompts.placeholder"));
-		this.fillDefaultEngine();
 		this.fillAnswerLanguage();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
@@ -104,7 +101,7 @@ window.ZIAPrefs = {
 	},
 
 	// ------------------------------------------------------------------
-	// Línguas e motor por omissão
+	// Línguas
 	// ------------------------------------------------------------------
 
 	initUILanguage() {
@@ -124,29 +121,6 @@ window.ZIAPrefs = {
 		});
 	},
 
-	initDefaultEngine() {
-		const sel = this.$("zia-default-engine");
-		if (!sel) return;
-		sel.addEventListener("change", () => this.core().setPref("engine", sel.value));
-	},
-
-	fillDefaultEngine() {
-		const core = this.core();
-		const sel = this.$("zia-default-engine");
-		if (!sel) return;
-		const items = [["", this.T("prefs.defaultEngine.none")]]
-			.concat(core.ENGINE_ORDER.map(e => [e, this.T("prefs.engine." + e)]));
-		this.fillSelect(sel, items, core.defaultEngine());
-	},
-
-	setDefaultIfNone(engine) {
-		const core = this.core();
-		if (!core.defaultEngine()) {
-			core.setPref("engine", engine);
-			this.fillDefaultEngine();
-		}
-	},
-
 	initAnswerLanguage() {
 		const sel = this.$("zia-answer-lang");
 		if (!sel) return;
@@ -161,36 +135,100 @@ window.ZIAPrefs = {
 		this.fillSelect(sel, core.lib.LANGUAGES.map(l => [l.id, l.label]), core.lib.LANGUAGES.some(l => l.id === cur) ? cur : "ui");
 	},
 
-	/** Estado de cada motor, no topo do painel. */
+	// ------------------------------------------------------------------
+	// Escolha do motor e estado de cada um
+	// ------------------------------------------------------------------
+
+	/** Estado simples de um motor: ok (pronto), fail (último teste falhou), saved (falta testar), todo (por configurar). */
+	engineState(e) {
+		const core = this.core();
+		const last = core.pref(e + ".lastTest") || "";
+		if (core.ENGINES[e].kind === "key") {
+			if (!core.hasSecret(e)) return "todo";
+			return last === "fail" ? "fail" : last === "ok" ? "ok" : "saved";
+		}
+		if (last === "fail" || last === "ok") return last;
+		return core.pref(e + ".enabled") ? "saved" : "todo";
+	},
+
+	selectEngine(e) {
+		this.core().setPref("engine", e);
+		this.setText("zia-test-result", "");
+		this.refresh();
+	},
+
 	refresh() {
 		const core = this.core();
-		const keyText = name => {
-			const st = core.secretState(name);
-			if (st === "encrypted") return this.T("prefs.st.keyEncrypted");
-			if (st === "login") return this.T("prefs.st.keyLogin");
-			if (st === "plain") return this.T("prefs.st.keyPlain");
-			return null;
-		};
-		const set = (id, ok, text) => {
-			const el = this.$(id);
-			if (!el) return;
-			el.textContent = (ok ? "✓ " : "○ ") + text;
-			el.className = "zia-prefs-status " + (ok ? "ok" : "");
-		};
-		for (const e of core.ENGINE_ORDER) {
-			const label = this.T("prefs.engine." + e) + ": ";
-			if (core.ENGINES[e].kind === "key") {
-				const k = keyText(e);
-				set("zia-status-" + e, !!k, label + (k || this.T("prefs.st.noKey")));
-				this.setText(`zia-${e}-keystate`, k ? this.T("prefs.st.state", { s: k }) : this.T("prefs.st.none"));
-			}
-			else {
-				const ok = !!core.pref(e + ".enabled");
-				const selected = !ok && core.pref("engine") === e;
-				const key = ok ? "prefs.st.active" : (selected ? "prefs.st.selected" : "prefs.st.inactive");
-				set("zia-status-" + e, ok, label + this.T(key));
+		const current = core.defaultEngine();
+		const box = this.$("zia-engines");
+		if (box) {
+			while (box.firstChild) box.removeChild(box.firstChild);
+			for (const e of core.ENGINE_ORDER) {
+				const st = this.engineState(e);
+				const card = this.html("div");
+				card.className = "zia-engine-card" + (e === current ? " selected" : "");
+				card.setAttribute("role", "radio");
+				card.setAttribute("aria-checked", e === current ? "true" : "false");
+				card.setAttribute("tabindex", "0");
+				const radio = this.html("span");
+				radio.className = "zia-engine-radio";
+				const text = this.html("span");
+				text.className = "zia-engine-text";
+				const name = this.html("span", this.T("prefs.engine." + e));
+				name.className = "zia-engine-name";
+				const sub = this.html("span", this.T("prefs.engine." + e + ".sub"));
+				sub.className = "zia-engine-sub";
+				text.append(name, sub);
+				const badge = this.html("span", this.T("prefs.badge." + st));
+				badge.className = "zia-badge zia-badge-" + st;
+				card.append(radio, text, badge);
+				card.addEventListener("click", () => this.selectEngine(e));
+				card.addEventListener("keydown", ev => {
+					if (ev.key === "Enter" || ev.key === " ") {
+						ev.preventDefault();
+						this.selectEngine(e);
+					}
+				});
+				box.appendChild(card);
 			}
 		}
+		for (const panel of document.querySelectorAll(".zia-engine-panel")) {
+			panel.hidden = panel.getAttribute("data-engine") !== current;
+		}
+		const step2 = document.querySelector("[data-zia='prefs.step2']");
+		if (step2) step2.textContent = current ? this.T("prefs.step2", { engine: this.T("prefs.engine." + current) }) : this.T("prefs.step2.none");
+		for (const name of ["anthropic", "openai", "gemini"]) {
+			const st = core.secretState(name);
+			const k = st === "encrypted" ? "prefs.st.keyEncrypted" : st === "login" ? "prefs.st.keyLogin" : st === "plain" ? "prefs.st.keyPlain" : null;
+			this.setText(`zia-${name}-keystate`, k ? this.T("prefs.st.state", { s: this.T(k) }) : this.T("prefs.st.none"));
+		}
+	},
+
+	// ------------------------------------------------------------------
+	// Teste único: um pedido real e curto ao motor
+	// ------------------------------------------------------------------
+
+	async test(engine) {
+		const core = this.core();
+		const out = "zia-test-result";
+		const el = this.$(out);
+		if (el) el.className = "zia-test-result busy";
+		this.setText(out, this.T("prefs.testing"));
+		try {
+			const r = await core.testEngine(engine, window);
+			core.setPref(engine + ".lastTest", "ok");
+			if (el) el.className = "zia-test-result ok";
+			this.setText(out, this.T("prefs.testOk", { engine: this.T("prefs.engine." + engine), model: r.model || "?" })
+				+ (r.path ? "\n" + this.T("prefs.testProgram", { path: r.path, version: r.version || "?" }) : ""));
+			if (engine === "anthropic" || engine === "openai") this.loadModels(engine);
+		}
+		catch (e) {
+			core.setPref(engine + ".lastTest", "fail");
+			if (core.ENGINES[engine].kind !== "key") core.setPref(engine + ".enabled", false);
+			if (el) el.className = "zia-test-result fail";
+			this.setText(out, this.T("prefs.testFail") + "\n" + (e.message || String(e)));
+		}
+		this.refresh();
 	},
 
 	// ------------------------------------------------------------------
@@ -204,15 +242,14 @@ window.ZIAPrefs = {
 		return null;
 	},
 
-	resultID(name) {
-		return `zia-${name}-result`;
-	},
-
 	async saveKey(name) {
+		const core = this.core();
 		const input = this.$(`zia-${name}-key`);
 		const key = (input.value || "").trim();
 		const state = `zia-${name}-keystate`;
 		if (!key) {
+			// Sem chave nova: testa a que já está guardada
+			if (core.hasSecret(name)) return this.test(name);
 			this.setText(state, this.T("prefs.pasteFirst"), true);
 			return;
 		}
@@ -222,12 +259,11 @@ window.ZIAPrefs = {
 			return;
 		}
 		try {
-			await this.core().setSecret(name, key);
+			await core.setSecret(name, key);
 			input.value = "";
-			this.setDefaultIfNone(name);
+			core.setPref(name + ".lastTest", "");
 			this.refresh();
-			if (name === "gemini") await this.listGemini();
-			else await this.testKeyModels(name);
+			await this.test(name);
 		}
 		catch (e) {
 			this.setText(state, e.message || String(e), true);
@@ -235,14 +271,19 @@ window.ZIAPrefs = {
 	},
 
 	async clearKey(name) {
-		await this.core().setSecret(name, "");
+		const core = this.core();
+		await core.setSecret(name, "");
+		core.setPref(name + ".lastTest", "");
 		this.refresh();
-		this.setText(this.resultID(name), this.T("prefs.keyDeleted"));
+		this.setText("zia-test-result", this.T("prefs.keyDeleted"));
+		this.$("zia-test-result").className = "zia-test-result";
 	},
 
 	async clearAll() {
+		const core = this.core();
 		try {
-			await this.core().clearAllSecrets();
+			await core.clearAllSecrets();
+			for (const e of core.ENGINE_ORDER) if (core.ENGINES[e].kind === "key") core.setPref(e + ".lastTest", "");
 			this.refresh();
 			this.setText("zia-security-result", this.T("prefs.allDeleted"));
 		}
@@ -286,22 +327,14 @@ window.ZIAPrefs = {
 		}
 	},
 
-	async testKeyModels(name) {
+	/** Acrescenta à lista os modelos que a conta tem (em segundo plano, sem mensagens). */
+	async loadModels(name) {
 		const core = this.core();
-		const out = this.resultID(name);
-		this.setText(out, this.T("prefs.testingKey"));
 		try {
 			const models = name === "openai" ? await core.listOpenAIModels(window) : await core.listAnthropicModels(window);
 			this.initModelSelect(name, models);
-			const cur = this._models(name).current;
-			const has = models.some(m => m.id === cur);
-			this.setText(out, this.T("prefs.keyValid", { n: models.length })
-				+ (has || !models.length ? "" : "\n" + this.T("prefs.modelMissing", { m: cur })));
 		}
-		catch (e) {
-			this.setText(out, e.message || String(e), true);
-		}
-		this.refresh();
+		catch (e) { core.log("Lista de modelos: " + e); }
 	},
 
 	// ------------------------------------------------------------------
@@ -313,43 +346,32 @@ window.ZIAPrefs = {
 		const old = core.pref(tool + ".path");
 		core.setPref(tool + ".path", "");
 		core._toolCache[tool] = null;
+		const el = this.$("zia-test-result");
 		try {
 			const p = await core.findToolExecutable(tool);
-			this.setText(this.resultID(tool), this.T("prefs.found", { p }));
+			if (el) el.className = "zia-test-result";
+			this.setText("zia-test-result", this.T("prefs.found", { p }));
 		}
 		catch (e) {
 			core.setPref(tool + ".path", old || "");
-			this.setText(this.resultID(tool), e.message, true);
-		}
-	},
-
-	async testLocal(tool) {
-		const core = this.core();
-		const out = this.resultID(tool);
-		this.setText(out, this.T("prefs.testing"));
-		try {
-			const r = tool === "codex" ? await core.testCodex() : await core.testClaude();
-			this.setDefaultIfNone(tool);
-			this.setText(out, this.T("prefs.testOk", { path: r.path, version: r.version, model: r.model || "?", reply: r.reply }));
-		}
-		catch (e) {
-			this.setText(out, e.message || String(e), true);
+			if (el) el.className = "zia-test-result fail";
+			this.setText("zia-test-result", e.message);
 		}
 		this.refresh();
 	},
 
 	// ------------------------------------------------------------------
-	// Gemini
+	// Gemini: lista de modelos da conta
 	// ------------------------------------------------------------------
 
 	async listGemini() {
-		const box = this.$("zia-gemini-result");
-		this.setText("zia-gemini-result", this.T("prefs.testingKey"));
+		const box = this.$("zia-gemini-models");
+		this.setText("zia-gemini-models", this.T("prefs.loadingModels"));
 		try {
 			const models = await this.core().listGeminiModels(window);
 			box.textContent = "";
 			if (!models.length) {
-				this.setText("zia-gemini-result", this.T("prefs.geminiNoModels"));
+				this.setText("zia-gemini-models", this.T("prefs.geminiNoModels"));
 				return;
 			}
 			box.appendChild(this.html("div", this.T("prefs.geminiPick")));
@@ -367,9 +389,8 @@ window.ZIAPrefs = {
 			}
 		}
 		catch (e) {
-			this.setText("zia-gemini-result", e.message || String(e), true);
+			this.setText("zia-gemini-models", e.message || String(e), true);
 		}
-		this.refresh();
 	},
 
 	// ------------------------------------------------------------------

@@ -73,6 +73,15 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   processo e morto se aparecer um item `command_execution`, `file_change`,
   `mcp_tool_call` ou `web_search`. As variaveis `OPENAI_API_KEY` e
   `ANTHROPIC_API_KEY` sao retiradas do ambiente (usa-se a conta).
+- **Gemini sobrecarregado (erros 500 a 504):** `runGemini` repete o pedido duas
+  vezes (2 s e 5 s) e depois tenta até dois modelos flash estáveis da conta
+  (`geminiFallbacks` em `lib.js`), só se ainda nada foi mostrado ao utilizador.
+- **Definições:** uma secção principal com um cartão por motor (estado:
+  Pronto, Falta testar, Não funciona, Por configurar), só o motor escolhido
+  mostra a sua configuração e o botão Testar faz um pedido real curto
+  (`testEngine`). O estado vem das prefs `<motor>.lastTest`, atualizadas
+  também pelos pedidos reais na conversa. O Claude Code tambem e procurado na
+  pasta da aplicacao Claude para computador.
 - **Contas gratuitas:** ChatGPT (Codex) e Gemini funcionam com contas
   gratuitas. A conta gratuita do Claude nao da acesso ao Claude Code nem a API.
 

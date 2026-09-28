@@ -161,5 +161,30 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 
 	// Motor não configurado
 	await assert.rejects(core.runEngine("", { system: "s", prompt: "p" }), e => e.kind === "notconfigured");
+
+	// Claude Code descarregado pela aplicação Claude para computador (macOS)
+	{
+		const fs = require("fs"), os = require("os"), path = require("path");
+		const home = fs.mkdtempSync(path.join(os.tmpdir(), "zia-home-"));
+		const base = path.join(home, "Library", "Application Support", "Claude", "claude-code");
+		for (const v of ["2.1.9", "2.1.10", "2.0.99"]) {
+			fs.mkdirSync(path.join(base, v), { recursive: true });
+			fs.writeFileSync(path.join(base, v, "claude"), "");
+		}
+		env.Zotero.isWin = false;
+		env.Zotero.isMac = true;
+		core.homeDir = () => home;
+		core.toolCandidates = () => [];
+		core._subprocess = { pathSearch: async () => { throw new Error("não está no PATH"); } };
+		core._toolCache.claude = null;
+		core.setPref("claude.path", "");
+		assert.equal(await core.findClaudeExecutable(), path.join(base, "2.1.10", "claude"), "usa a versão mais recente");
+		core._toolCache.claude = null;
+		fs.rmSync(base, { recursive: true, force: true });
+		core.setPref("claude.enabled", true);
+		await assert.rejects(core.findClaudeExecutable(), e => e.kind === "notfound");
+		assert.equal(core.pref("claude.enabled"), false, "deixa de aparecer como ativo quando o programa desaparece");
+		console.log("OK Claude Code: encontra a cópia da aplicação Claude e desativa o motor quando o programa desaparece");
+	}
 	console.log("\nTodos os testes do Claude API e do cofre de chaves passaram.");
 })().catch(e => { console.error("FALHOU:", e); process.exit(1); });

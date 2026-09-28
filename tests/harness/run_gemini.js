@@ -69,5 +69,49 @@ function sseResponse(events, status = 200) {
 	] }), { status: 200 }) };
 	assert.equal(JSON.stringify(await core.listGeminiModels(listWin)), JSON.stringify(["gemini-3.8-flash", "gemini-3.5-flash-lite"]));
 	console.log("OK Gemini: lista só modelos de texto");
+
+	// Sobrecarga (503): repete o pedido e depois tenta modelos alternativos
+	core.GEMINI_RETRY_MS = [0, 0];
+	const busy = () => new Response(JSON.stringify({ error: { code: 503, message: "This model is currently experiencing high demand.", status: "UNAVAILABLE" } }), { status: 503 });
+	const modelList = () => new Response(JSON.stringify({ models: [
+		{ name: "models/gemini-3.8-flash", supportedGenerationMethods: ["generateContent"] },
+		{ name: "models/gemini-3.7-flash-lite", supportedGenerationMethods: ["generateContent"] },
+		{ name: "models/gemini-3.9-flash-preview", supportedGenerationMethods: ["generateContent"] },
+		{ name: "models/gemini-3.7-pro", supportedGenerationMethods: ["generateContent"] },
+	] }), { status: 200 });
+	let calls = [];
+	const recoverWin = { fetch: async url => {
+		calls.push(url);
+		return calls.length < 3 ? busy() : sseResponse([{ candidates: [{ content: { parts: [{ text: "Recuperado" }] }, finishReason: "STOP" }] }]);
+	} };
+	const r3 = await core.runGemini({ system: "s", prompt: "p", win: recoverWin });
+	assert.equal(r3.text, "Recuperado");
+	assert.equal(calls.length, 3, "duas falhas e uma tentativa bem sucedida no mesmo modelo");
+	calls = [];
+	const fallbackWin = { fetch: async url => {
+		calls.push(url);
+		if (url.includes("/models?")) return modelList();
+		if (url.includes("gemini-3.7-flash-lite")) return sseResponse([{ candidates: [{ content: { parts: [{ text: "Com outro modelo" }] }, finishReason: "STOP" }] }]);
+		return busy();
+	} };
+	const r4 = await core.runGemini({ system: "s", prompt: "p", win: fallbackWin });
+	assert.equal(r4.text, "Com outro modelo");
+	assert.equal(r4.model, "gemini-3.7-flash-lite");
+	assert.equal(calls.filter(u => u.includes("gemini-3.8-flash:")).length, 3, "três tentativas no modelo escolhido");
+	assert.ok(!calls.some(u => u.includes("pro:") || u.includes("preview")), "só modelos flash estáveis como alternativa");
+	calls = [];
+	const deadWin = { fetch: async url => { calls.push(url); return url.includes("/models?") ? modelList() : busy(); } };
+	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: deadWin }), e => e.kind === "busy" && /sobrecarregados/.test(e.message));
+	// Erros que não são sobrecarga não se repetem
+	calls = [];
+	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: { fetch: async u => { calls.push(u); return errWin(429).fetch(); } } }), e => e.kind === "limit");
+	assert.equal(calls.length, 1);
+	assert.equal(JSON.stringify(core.lib.geminiFallbacks("gemini-3.8-flash", ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.9-flash-preview"])), JSON.stringify(["gemini-3.7-flash", "gemini-3.7-flash-lite"]));
+	console.log("OK Gemini: sobrecarga (503) com novas tentativas, modelo alternativo e mensagem clara no fim");
+
+	// Teste único das definições
+	const t = await core.testEngine("gemini", { fetch: async () => sseResponse([{ candidates: [{ content: { parts: [{ text: "OK" }] }, finishReason: "STOP" }] }]) });
+	assert.equal(t.reply, "OK");
+	console.log("OK Gemini: botão Testar faz um pedido real curto");
 	console.log("\nTodos os testes do Gemini passaram.");
 })().catch(e => { console.error("FALHOU:", e); process.exit(1); });

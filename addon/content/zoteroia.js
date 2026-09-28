@@ -300,6 +300,27 @@ var ZoteroIA = {
 		return this.toolCandidates("claude");
 	},
 
+	/** Cópia do Claude Code descarregada pela aplicação Claude para computador (versão mais recente). */
+	async bundledClaudeCandidates() {
+		const env = n => { try { return Services.env.get(n); } catch (e) { return ""; } };
+		const base = Zotero.isWin
+			? (env("APPDATA") && PathUtils.join(env("APPDATA"), "Claude", "claude-code"))
+			: Zotero.isMac ? PathUtils.join(this.homeDir(), "Library", "Application Support", "Claude", "claude-code") : null;
+		if (!base) return [];
+		let dirs = [];
+		try { dirs = await IOUtils.getChildren(base); }
+		catch (e) { return []; }
+		const ver = p => PathUtils.filename(p).split(/[.\-]/).map(n => parseInt(n, 10) || 0);
+		dirs.sort((a, b) => {
+			const va = ver(a), vb = ver(b);
+			for (let i = 0; i < Math.max(va.length, vb.length); i++) {
+				if ((vb[i] || 0) !== (va[i] || 0)) return (vb[i] || 0) - (va[i] || 0);
+			}
+			return 0;
+		});
+		return dirs.map(d => PathUtils.join(d, Zotero.isWin ? "claude.exe" : "claude"));
+	},
+
 	_toolCache: {},
 
 	/** Localiza o executável de um programa (definição manual, locais habituais, PATH). */
@@ -313,25 +334,26 @@ var ZoteroIA = {
 		}
 		const cached = this._toolCache[name];
 		if (cached && await IOUtils.exists(cached)) return cached;
-		for (const p of this.toolCandidates(name)) {
-			try {
-				if (await IOUtils.exists(p)) {
-					this._toolCache[name] = p;
-					return p;
+		const firstExisting = async list => {
+			for (const p of list) {
+				try {
+					if (await IOUtils.exists(p)) return p;
 				}
+				catch (e) { /* caminho inválido nesta plataforma */ }
 			}
-			catch (e) { /* caminho inválido nesta plataforma */ }
-		}
+			return null;
+		};
+		let found = await firstExisting(this.toolCandidates(name));
 		const names = Zotero.isWin ? [name + ".exe", name + ".cmd"] : [name];
 		for (const n of names) {
-			try {
-				const found = await this.Subprocess.pathSearch(n);
-				if (found) {
-					this._toolCache[name] = found;
-					return found;
-				}
-			}
+			if (found) break;
+			try { found = await this.Subprocess.pathSearch(n); }
 			catch (e) { /* não está no PATH */ }
+		}
+		if (!found && name === "claude") found = await firstExisting(await this.bundledClaudeCandidates());
+		if (found) {
+			this._toolCache[name] = found;
+			return found;
 		}
 		this.setPref(name + ".enabled", false);
 		throw this.error("notfound", this.t(name === "codex" ? "err.codexNotFound" : "err.claudeNotFound"));
@@ -742,12 +764,57 @@ var ZoteroIA = {
 		return String(this.pref("gemini.model") || "gemini-3.8-flash").replace(/^models\//, "").trim();
 	},
 
+	GEMINI_RETRY_MS: [2000, 5000],
+
+	_sleep(ms, signal) {
+		return new Promise(resolve => {
+			const timer = setTimeout(resolve, ms);
+			if (signal) signal.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
+		});
+	},
+
+	/**
+	 * Gemini com tolerância a sobrecarga (erros 500 a 504): repete o pedido e, se o modelo
+	 * continuar indisponível, tenta até dois modelos flash alternativos da mesma conta.
+	 */
 	async runGemini({ system, prompt, model, onDelta, signal, win }) {
 		const key = await this.getSecret("gemini");
 		if (!key) {
 			throw this.error("auth", this.t("err.noKey", { label: this.t("key.gemini") }));
 		}
 		model = String(model || this.geminiModel()).replace(/^models\//, "");
+		let streamed = false;
+		const opts = { system, prompt, signal, win, key, onDelta: (d, all) => { streamed = true; if (onDelta) onDelta(d, all); } };
+		const retryable = e => e.kind === "busy" && !streamed && !(signal && signal.aborted);
+		let lastErr;
+		for (let i = 0; i <= this.GEMINI_RETRY_MS.length; i++) {
+			try { return await this._geminiOnce(model, opts); }
+			catch (e) {
+				if (!retryable(e)) throw e;
+				lastErr = e;
+				if (i < this.GEMINI_RETRY_MS.length) {
+					this.log(`Gemini ${model} sobrecarregado, nova tentativa em ${this.GEMINI_RETRY_MS[i]} ms`);
+					await this._sleep(this.GEMINI_RETRY_MS[i], signal);
+				}
+			}
+		}
+		let alternatives = [];
+		try { alternatives = this.lib.geminiFallbacks(model, await this.listGeminiModels(win)); }
+		catch (e) { this.log("Lista de modelos Gemini: " + e); }
+		for (const alt of alternatives) {
+			try {
+				this.log(`Gemini: a tentar o modelo alternativo ${alt}`);
+				return await this._geminiOnce(alt, opts);
+			}
+			catch (e) {
+				if (!retryable(e)) throw e;
+				lastErr = e;
+			}
+		}
+		throw lastErr;
+	},
+
+	async _geminiOnce(model, { system, prompt, onDelta, signal, win, key }) {
 		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
 		const body = {
 			systemInstruction: { parts: [{ text: system }] },
@@ -1180,6 +1247,14 @@ var ZoteroIA = {
 
 	readyEngines() {
 		return this.ENGINE_ORDER.filter(e => this.isEngineReady(e));
+	},
+
+	/** Teste real de qualquer motor: um pedido mínimo. Devolve { model, reply, path?, version? }. */
+	async testEngine(engine, win) {
+		if (engine === "claude") return this.testClaude();
+		if (engine === "codex") return this.testCodex();
+		const r = await this.runEngine(engine, { system: this.t("test.reply"), prompt: this.t("test.prompt"), win });
+		return { model: r.model, reply: (r.text || "").trim().slice(0, 80) };
 	},
 
 	maxCharsFor(engine) {
