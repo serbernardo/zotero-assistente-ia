@@ -3,7 +3,7 @@
  * chatview.js: componente de conversa, usado no painel lateral e na janela.
  */
 
-/* global Zotero, ZIALib, setTimeout, clearTimeout */
+/* global Zotero, ZIALib, Services, setTimeout, clearTimeout */
 
 var ZIAChatView = class {
 	/**
@@ -955,6 +955,9 @@ var ZIAChatView = class {
 		if (m.error) {
 			el.appendChild(this._el("div", "zia-error", m.error));
 			const row = this._el("div", "zia-msg-tools");
+			if (m.engine === "claude" && (m.errorKind === "notfound" || m.errorKind === "auth")) {
+				row.appendChild(this._button(this.T("chat.claudeSetup"), "zia-btn-small zia-btn-primary", () => this._setupClaude()));
+			}
 			if (m.errorKind !== "notconfigured") {
 				row.appendChild(this._button(this.T("chat.retry"), "zia-btn-small", () => this._retry(m, m.engine)));
 			}
@@ -1083,6 +1086,23 @@ var ZIAChatView = class {
 	_openLink(href) {
 		if (!/^https?:\/\//i.test(String(href || ""))) return;
 		Zotero.launchURL(href);
+	}
+
+	/** Instala o Claude Code (se faltar) e abre o início de sessão numa janela visível. */
+	async _setupClaude() {
+		const msg = this.T("prefs.claude.installConfirm");
+		const ok = (typeof Services !== "undefined" && Services.prompt)
+			? Services.prompt.confirm(this.win, this.T("chat.claudeSetup"), msg)
+			: this.win.confirm(msg);
+		if (!ok) return;
+		try {
+			const r = await this.core.openClaudeSetup();
+			if (r.opened) this._setStatus(this.T("chat.claudeSetupOpened"));
+			else this._openPrefs();
+		}
+		catch (e) {
+			this._setStatus(e.message || String(e), "error");
+		}
 	}
 
 	_openPrefs() {

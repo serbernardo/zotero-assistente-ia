@@ -185,6 +185,35 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 		await assert.rejects(core.findClaudeExecutable(), e => e.kind === "notfound");
 		assert.equal(core.pref("claude.enabled"), false, "deixa de aparecer como ativo quando o programa desaparece");
 		console.log("OK Claude Code: encontra a cópia da aplicação Claude e desativa o motor quando o programa desaparece");
+
+		// Instalar e iniciar sessão: script com o comando oficial, numa janela visível
+		const win = core.claudeSetupScript("win", null);
+		assert.ok(win.includes('powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"'));
+		assert.ok(win.includes('set "CLAUDE_EXE=%USERPROFILE%\\.local\\bin\\claude.exe"'));
+		assert.ok(win.includes('call "%CLAUDE_EXE%"'));
+		assert.ok(win.split("\r\n").filter(l => l.startsWith("echo ") && l !== "echo.").every(l => !/[^\^][&|<>]/.test(l.slice(5))), "echo sem caracteres especiais por escapar");
+		const winExisting = core.claudeSetupScript("win", "C:\\Users\\Ana Silva\\AppData\\Roaming\\npm\\claude.cmd");
+		assert.ok(winExisting.includes('set "CLAUDE_EXE=C:\\Users\\Ana Silva\\AppData\\Roaming\\npm\\claude.cmd"'));
+		assert.ok(core.claudeSetupScript("win", 'C:\\x"&calc').includes("%USERPROFILE%"), "caminho com aspas é recusado");
+		const mac = core.claudeSetupScript("unix", null, "/Users/ana");
+		assert.ok(mac.startsWith("#!/bin/bash"));
+		assert.ok(mac.includes("curl -fsSL https://claude.ai/install.sh | bash"));
+		assert.ok(mac.includes('CLAUDE_EXE="/Users/ana/.local/bin/claude"'));
+		assert.ok(core.claudeSetupScript("unix", "/tmp/$(rm -rf ~)/claude", "/Users/ana").includes('CLAUDE_EXE="/Users/ana/.local/bin/claude"'), "caminho com $ é recusado");
+		const calls = [];
+		core.runProcess = async (cmd, args) => { calls.push({ cmd, args }); return { exitCode: 0, stdout: "", stderr: "" }; };
+		env.Zotero.isMac = false;
+		env.Zotero.isWin = true;
+		core.setPref("claude.lastTest", "fail");
+		const r = await core.openClaudeSetup();
+		assert.equal(r.opened, true);
+		assert.equal(JSON.stringify(calls[0].args.slice(0, 3)), JSON.stringify(["/c", "start", "Claude Code"]));
+		assert.ok(calls[0].args[3].endsWith("claude-code-setup.cmd"));
+		assert.ok(fs.readFileSync(calls[0].args[3], "utf8").includes("install.ps1"));
+		assert.equal(core.pref("claude.lastTest"), "", "volta a Falta testar");
+		env.Zotero.isWin = false;
+		assert.equal((await core.openClaudeSetup()).opened, false, "Linux: usa a alternativa manual");
+		console.log("OK Claude Code: botão Instalar e iniciar sessão abre o comando oficial numa janela visível, sem aceitar caminhos perigosos");
 	}
 	console.log("\nTodos os testes do Claude API e do cofre de chaves passaram.");
 })().catch(e => { console.error("FALHOU:", e); process.exit(1); });

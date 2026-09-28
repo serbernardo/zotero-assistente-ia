@@ -82,6 +82,16 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   (`testEngine`). O estado vem das prefs `<motor>.lastTest`, atualizadas
   também pelos pedidos reais na conversa. O Claude Code tambem e procurado na
   pasta da aplicacao Claude para computador.
+- **Instalar e iniciar sessao no Claude Code** (`openClaudeSetup`): depois de
+  uma confirmacao, escreve um script na pasta temporaria e abre-o numa janela
+  visivel (Windows: `cmd /c start` com um `.cmd`, Mac: Terminal com um
+  `.command`). O script usa so o comando oficial fixo
+  (`CLAUDE_INSTALL_WIN`/`CLAUDE_INSTALL_UNIX`), instala se faltar e corre
+  `claude` para a pessoa entrar na conta. Caminhos com caracteres perigosos
+  sao recusados. No Linux mostra-se so o comando para copiar.
+- **Painel lateral em destaque:** o CSS carregado na janela principal usa
+  `collapsible-section[data-pane$="zoteroia-section"]` (o Zotero junta o id
+  do plugin ao paneID) para o fundo cinza, a barra azul e o titulo azul.
 - **Contas gratuitas:** ChatGPT (Codex) e Gemini funcionam com contas
   gratuitas. A conta gratuita do Claude nao da acesso ao Claude Code nem a API.
 

@@ -869,3 +869,46 @@
 .zia-test-result.busy { border-color: var(--zia-accent); background: var(--zia-accent-soft); }
 
 .zia-hero-foot { margin-top: 10px; }
+
+/* ---------- Painel lateral em destaque: fundo cinza mais escuro e cabeçalho azul ---------- */
+
+collapsible-section[data-pane$="zoteroia-section"] {
+	--zia-panel: #e4e6ea;
+	--zia-panel-border: #c9ccd2;
+	background: var(--zia-panel);
+	border: 1px solid var(--zia-panel-border);
+	border-left: 4px solid var(--accent-blue, #4072e5);
+	border-radius: 6px;
+	margin: 6px 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+	collapsible-section[data-pane$="zoteroia-section"] {
+		--zia-panel: #34363b;
+		--zia-panel-border: #4a4d54;
+	}
+}
+
+collapsible-section[data-pane$="zoteroia-section"] > .head {
+	padding-inline-start: 8px;
+}
+
+collapsible-section[data-pane$="zoteroia-section"] > .head .title {
+	color: var(--accent-blue, #4072e5);
+	font-weight: 700;
+}
+
+.zia-mode-section {
+	padding: 2px 8px 8px;
+}
+
+.zia-command {
+	font-family: ui-monospace, Consolas, Menlo, monospace;
+	font-size: 12px;
+	padding: 3px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--zia-border);
+	background: var(--zia-accent-soft);
+	user-select: all;
+	-moz-user-select: all;
+}

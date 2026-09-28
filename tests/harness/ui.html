@@ -8,10 +8,17 @@
 	html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 	body { background: #f2f2f2; }
 	/* Simula o painel lateral do Zotero */
-	#section-host { width: 380px; margin: 12px; padding: 8px; background: #fff; border: 1px solid #ddd; border-radius: 6px; }
+	/* Painel lateral: moldura igual à do Zotero (collapsible-section com data-pane do plugin) */
+	body.section { background: #fff; }
+	.pane { width: 400px; margin: 8px; }
+	.pane collapsible-section { display: block; }
+	.pane .fake-section { border-bottom: 1px solid #e0e0e0; padding: 8px 10px; color: #555; font-size: 13px; }
+	.pane .head { padding: 6px 4px; font-size: 13px; }
+	body.dark.section { background: #262626; }
+	body.dark .pane .fake-section { border-color: #444; color: #bbb; }
 	#window-host { position: fixed; inset: 0; display: flex; flex-direction: column; background: #fff; }
 	body.dark { background: #1e1e1e; }
-	body.dark #section-host { background: #2a2a2a; border-color: #444; }
+
 	body.dark, body.dark #window-host {
 		--fill-primary: #f2f2f2; --fill-secondary: #c8c8c8; --fill-tertiary: #9a9a9a; --fill-quinary: #444;
 		--material-background: #262626; --material-sidepane: #303030; --accent-blue: #7ea6ff; --accent-blue10: rgba(126,166,255,.16);
@@ -105,6 +112,15 @@
 	if (params.get("dark")) document.body.classList.add("dark");
 	const host = document.getElementById("host");
 	host.id = mode === "window" ? "window-host" : "section-host";
+	if (mode === "section") {
+		document.body.classList.add("section");
+		const pane = document.createElement("div");
+		pane.className = "pane";
+		pane.innerHTML = '<div class="fake-section">0 Tags</div><div class="fake-section">0 Related</div>'
+			+ '<collapsible-section data-pane="assistente-ia\\@sbhg\\.pt-zoteroia-section"><div class="head"><div class="title-box"><span class="title">Assistente IA</span></div></div></collapsible-section>';
+		host.replaceWith(pane);
+		pane.querySelector("collapsible-section").appendChild(host);
+	}
 	window.view = new core.ChatView({ doc: document, win: window, container: host, mode, core });
 	window.ready = (async () => {
 		if (mode === "section") await view.showItem(A);

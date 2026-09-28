@@ -41,10 +41,16 @@
 		<html:div class="zia-engine-panel" data-engine="claude">
 			<html:div class="zia-prefs-note" data-zia="prefs.claude.note"/>
 			<html:div class="zia-prefs-row">
-				<button id="zia-claude-test" class="zia-main-btn" data-zia-label="prefs.test"/>
+				<button id="zia-claude-install" class="zia-main-btn" data-zia-label="prefs.claude.install"/>
+				<button id="zia-claude-test" data-zia-label="prefs.test"/>
 			</html:div>
 			<html:details class="zia-advanced">
 				<html:summary data-zia="prefs.advanced"/>
+				<html:div class="zia-prefs-note" data-zia="prefs.claude.manual"/>
+				<html:div class="zia-prefs-row">
+					<html:code id="zia-claude-command" class="zia-command"/>
+					<button id="zia-claude-copy" data-zia-label="prefs.copy"/>
+				</html:div>
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.model"/>
 					<html:input type="text" id="zia-pref-claude-model" preference="extensions.zoteroia.claude.model" class="zia-short"/>

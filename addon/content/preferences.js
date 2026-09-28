@@ -2,7 +2,7 @@
  * Assistente IA para Zotero: painel de definições.
  */
 
-/* global Zotero, window, document, setTimeout, clearTimeout */
+/* global Zotero, Services, window, document, setTimeout, clearTimeout */
 
 window.ZIAPrefs = {
 	core() {
@@ -51,6 +51,8 @@ window.ZIAPrefs = {
 			on(`zia-${tool}-detect`, () => this.detect(tool));
 			on(`zia-${tool}-test`, () => this.test(tool));
 		}
+		on("zia-claude-install", () => this.installClaude());
+		on("zia-claude-copy", () => this.copyClaudeCommand());
 		on("zia-clear-all", () => this.clearAll());
 		on("zia-reset-privacy", () => this.resetPrivacy());
 		this.initUILanguage();
@@ -77,6 +79,8 @@ window.ZIAPrefs = {
 		}
 		const ta = this.$("zia-custom-prompts");
 		if (ta) ta.setAttribute("placeholder", this.T("prefs.prompts.placeholder"));
+		const cmd = this.$("zia-claude-command");
+		if (cmd) cmd.textContent = this.core().claudeInstallCommand();
 		this.fillAnswerLanguage();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
@@ -358,6 +362,41 @@ window.ZIAPrefs = {
 			this.setText("zia-test-result", e.message);
 		}
 		this.refresh();
+	},
+
+	/** Janela visível que instala o Claude Code (se faltar) e abre o início de sessão. */
+	async installClaude() {
+		const core = this.core();
+		const el = this.$("zia-test-result");
+		const msg = this.T("prefs.claude.installConfirm");
+		const ok = (typeof Services !== "undefined" && Services.prompt)
+			? Services.prompt.confirm(window, this.T("prefs.claude.install"), msg)
+			: window.confirm(msg);
+		if (!ok) return;
+		try {
+			const r = await core.openClaudeSetup();
+			if (el) el.className = r.opened ? "zia-test-result busy" : "zia-test-result fail";
+			this.setText("zia-test-result", this.T(r.opened ? "prefs.claude.opened" : "prefs.claude.unsupported"));
+			if (!r.opened) {
+				const adv = document.querySelector(".zia-engine-panel[data-engine='claude'] .zia-advanced");
+				if (adv) adv.open = true;
+			}
+		}
+		catch (e) {
+			if (el) el.className = "zia-test-result fail";
+			this.setText("zia-test-result", e.message || String(e));
+		}
+		this.refresh();
+	},
+
+	copyClaudeCommand() {
+		const core = this.core();
+		try {
+			Zotero.Utilities.Internal.copyTextToClipboard(core.claudeInstallCommand());
+			this.setText("zia-test-result", this.T("prefs.copied"));
+			this.$("zia-test-result").className = "zia-test-result";
+		}
+		catch (e) { core.log("Copiar: " + e); }
 	},
 
 	// ------------------------------------------------------------------

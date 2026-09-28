@@ -300,6 +300,97 @@ var ZoteroIA = {
 		return this.toolCandidates("claude");
 	},
 
+	// Comandos oficiais de instalação (code.claude.com/docs/en/setup). Fixos: nunca vêm de fora.
+	CLAUDE_INSTALL_WIN: "irm https://claude.ai/install.ps1 | iex",
+	CLAUDE_INSTALL_UNIX: "curl -fsSL https://claude.ai/install.sh | bash",
+
+	/** Comando para instalar à mão, mostrado como alternativa nas definições. */
+	claudeInstallCommand() {
+		return Zotero.isWin ? this.CLAUDE_INSTALL_WIN : this.CLAUDE_INSTALL_UNIX;
+	},
+
+	/** Conteúdo do script que instala o Claude Code (se faltar) e abre o início de sessão. */
+	claudeSetupScript(platform, existing, home) {
+		const msg = k => this.t(k);
+		if (platform === "win") {
+			// Em .cmd, o texto de echo não pode ter caracteres especiais sem escape
+			const echo = s => "echo " + String(s).replace(/[\^&|<>%]/g, c => (c === "%" ? "%%" : "^" + c));
+			const exe = existing && !/["%]/.test(existing) ? existing : "%USERPROFILE%\\.local\\bin\\claude.exe";
+			return [
+				"@echo off",
+				"chcp 65001 >nul",
+				"title Claude Code",
+				`set "CLAUDE_EXE=${exe}"`,
+				"if exist \"%CLAUDE_EXE%\" goto login",
+				echo(msg("setup.script.installing")),
+				"echo.",
+				`powershell -NoProfile -ExecutionPolicy Bypass -Command "${this.CLAUDE_INSTALL_WIN}"`,
+				"if exist \"%CLAUDE_EXE%\" goto login",
+				"echo.",
+				echo(msg("setup.script.failed")),
+				"pause",
+				"exit /b 1",
+				":login",
+				"echo.",
+				echo(msg("setup.script.login")),
+				"echo.",
+				"call \"%CLAUDE_EXE%\"",
+				"",
+			].join("\r\n");
+		}
+		const say = s => "printf '%s\\n' '" + String(s).replace(/'/g, "'\\''") + "'";
+		const exe = existing && !/["$`\\]/.test(existing) ? existing : `${home}/.local/bin/claude`;
+		return [
+			"#!/bin/bash",
+			"clear",
+			`CLAUDE_EXE="${exe.replace(/["$`\\]/g, "")}"`,
+			"if [ ! -x \"$CLAUDE_EXE\" ]; then",
+			"  " + say(msg("setup.script.installing")),
+			"  " + this.CLAUDE_INSTALL_UNIX,
+			"fi",
+			"if [ ! -x \"$CLAUDE_EXE\" ]; then",
+			"  " + say(msg("setup.script.failed")),
+			"  read -r",
+			"  exit 1",
+			"fi",
+			say(msg("setup.script.login")),
+			"\"$CLAUDE_EXE\"",
+			"",
+		].join("\n");
+	},
+
+	/**
+	 * Abre uma janela visível (PowerShell/cmd no Windows, Terminal no Mac) que instala o
+	 * Claude Code a partir do site oficial, se ainda não estiver instalado, e inicia a sessão.
+	 * Devolve { opened: true } ou { opened: false } quando o sistema não é suportado (Linux).
+	 */
+	async openClaudeSetup() {
+		if (!Zotero.isWin && !Zotero.isMac) return { opened: false };
+		let existing = null;
+		try { existing = await this.findClaudeExecutable(); }
+		catch (e) { /* ainda não instalado */ }
+		const dir = await this.workDir();
+		if (Zotero.isWin) {
+			const script = PathUtils.join(dir, "claude-code-setup.cmd");
+			await IOUtils.writeUTF8(script, this.claudeSetupScript("win", existing));
+			let comspec = "";
+			try { comspec = Services.env.get("COMSPEC"); }
+			catch (e) { /* sem variável */ }
+			const cmd = comspec || "C:\\Windows\\System32\\cmd.exe";
+			// start abre sempre uma janela nova e visível. O título evita que o caminho seja lido como título.
+			await this.runProcess(cmd, ["/c", "start", "Claude Code", script], { timeoutMs: 15000 });
+		}
+		else {
+			const script = PathUtils.join(dir, "claude-code-setup.command");
+			await IOUtils.writeUTF8(script, this.claudeSetupScript("unix", existing, this.homeDir()));
+			await IOUtils.setPermissions(script, 0o755);
+			await this.runProcess("/usr/bin/open", ["-a", "Terminal", script], { timeoutMs: 15000 });
+		}
+		this._toolCache.claude = null;
+		this.setPref("claude.lastTest", "");
+		return { opened: true, installed: !!existing };
+	},
+
 	/** Cópia do Claude Code descarregada pela aplicação Claude para computador (versão mais recente). */
 	async bundledClaudeCandidates() {
 		const env = n => { try { return Services.env.get(n); } catch (e) { return ""; } };
