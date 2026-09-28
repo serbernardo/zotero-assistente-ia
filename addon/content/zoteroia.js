@@ -308,6 +308,7 @@ var ZoteroIA = {
 		const manual = (this.pref(name + ".path") || "").trim();
 		if (manual) {
 			if (await IOUtils.exists(manual)) return manual;
+			this.setPref(name + ".enabled", false);
 			throw this.error("notfound", this.t("err.pathMissing", { tool: label, path: manual }));
 		}
 		const cached = this._toolCache[name];
@@ -332,6 +333,7 @@ var ZoteroIA = {
 			}
 			catch (e) { /* não está no PATH */ }
 		}
+		this.setPref(name + ".enabled", false);
 		throw this.error("notfound", this.t(name === "codex" ? "err.codexNotFound" : "err.claudeNotFound"));
 	},
 

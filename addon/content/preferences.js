@@ -185,8 +185,10 @@ window.ZIAPrefs = {
 				this.setText(`zia-${e}-keystate`, k ? this.T("prefs.st.state", { s: k }) : this.T("prefs.st.none"));
 			}
 			else {
-				const ok = core.isEngineReady(e);
-				set("zia-status-" + e, ok, label + this.T(ok ? "prefs.st.active" : "prefs.st.inactive"));
+				const ok = !!core.pref(e + ".enabled");
+				const selected = !ok && core.pref("engine") === e;
+				const key = ok ? "prefs.st.active" : (selected ? "prefs.st.selected" : "prefs.st.inactive");
+				set("zia-status-" + e, ok, label + this.T(key));
 			}
 		}
 	},
