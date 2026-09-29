@@ -43,7 +43,7 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 		assert.ok(!prefStore.get("extensions.zoteroia.anthropic.key").includes("sk-ant"), "chave encriptada");
 		assert.equal(await core.getSecret("anthropic"), "sk-ant-api03-TESTE-0123456789");
 		assert.equal(core.secretState("anthropic"), "encrypted");
-		assert.deepEqual([...core.readyEngines()], ["anthropic", "gemini"]);
+		assert.deepEqual([...core.readyEngines()], ["gemini", "anthropic"]);
 		await core.clearAllSecrets();
 		assert.equal(core.hasSecret("anthropic") || core.hasSecret("gemini"), false);
 		console.log("OK cofre: migração da 0.1, encriptação, leitura e apagar tudo");
@@ -84,6 +84,7 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 	assert.equal(c.opts.headers["anthropic-beta"], "server-side-fallback-2026-07-01");
 	assert.ok(!c.url.includes("sk-ant"), "a chave não vai no URL");
 	assert.equal(c.body.model, "claude-opus-5");
+	assert.equal(c.body.output_config.effort, "medium", "esforço médio: menos tokens de raciocínio a ler artigos");
 	assert.equal(c.body.stream, true);
 	assert.equal(c.body.system, "SIS");
 	assert.equal(c.body.fallbacks, "default");

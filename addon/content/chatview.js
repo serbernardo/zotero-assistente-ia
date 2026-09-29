@@ -112,6 +112,11 @@ var ZIAChatView = class {
 		this.statusEl = this._el("div", "zia-status");
 		root.appendChild(this.statusEl);
 
+		// Pedido escolhido (ação à espera de ser enviada)
+		this.pendingEl = this._el("div", "zia-pending");
+		this.pendingEl.hidden = true;
+		root.appendChild(this.pendingEl);
+
 		// Entrada
 		const input = this._el("div", "zia-input");
 		this.textarea = this._el("textarea", "zia-textarea");
@@ -143,6 +148,7 @@ var ZIAChatView = class {
 		root.appendChild(tail);
 
 		this.container.appendChild(root);
+		this._renderPending();
 		this._renderEngines();
 		this._renderTabs();
 		this._renderDocs();
@@ -224,8 +230,10 @@ var ZIAChatView = class {
 			o.value = "";
 			sel.appendChild(o);
 		}
+		const main = this.core.MAIN_ENGINES || this.core.ENGINE_ORDER;
 		for (const id of this.core.ENGINE_ORDER) {
 			const ready = this.core.isEngineReady(id);
+			if (!main.includes(id) && !ready && id !== this.engine) continue;
 			const o = this._el("option", null, this.core.engineLabel(id) + (ready ? "" : this.T("chat.engine.notReady")));
 			o.value = id;
 			sel.appendChild(o);
@@ -275,7 +283,7 @@ var ZIAChatView = class {
 	_renderTabs() {
 		const box = this.tabsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
-		const groups = this.L.ACTION_GROUPS.filter(g => g.id !== "meus" || this._customActions().length);
+		const groups = this.L.ACTION_GROUPS;
 		if (!groups.some(g => g.id === this.group)) this.group = groups[0].id;
 		for (const g of groups) {
 			const t = this._button(g.label, "zia-tab", () => {
@@ -288,8 +296,6 @@ var ZIAChatView = class {
 			t.dataset.group = g.id;
 			box.appendChild(t);
 		}
-		box.appendChild(this._button("+", "zia-tab zia-tab-add", () => this._openPrefs(),
-			this.T("chat.addPrompts.tip")));
 		this._renderActions();
 	}
 
@@ -297,8 +303,16 @@ var ZIAChatView = class {
 		const box = this.actionsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
 		this.actionButtons = {};
-		for (const a of this._actionsOfGroup(this.group)) {
-			const b = this._button(a.label, "zia-action", () => this.runAction(a.id), a.hint);
+		const list = this._actionsOfGroup(this.group);
+		if (this.group === "meus" && !list.length) {
+			// Separador sempre visível: explica como criar as próprias ações
+			const hint = this._el("div", "zia-meus-empty");
+			hint.appendChild(this._el("span", null, this.T("chat.meus.empty")));
+			hint.appendChild(this._button(this.T("chat.meus.create"), "zia-btn-small", () => this._openPrefs()));
+			box.appendChild(hint);
+		}
+		for (const a of list) {
+			const b = this._button(a.label, "zia-action", () => this.selectAction(a.id), a.hint);
 			b.dataset.action = a.id;
 			this.actionButtons[a.id] = b;
 			box.appendChild(b);
@@ -319,10 +333,21 @@ var ZIAChatView = class {
 		this.stop();
 		if (this._pendingPrivacy) this._pendingPrivacy(false);
 		this.sessionKey = key;
+		this.historyKey = item && item.key ? `${item.libraryID}_${item.key}` : null;
+		this.selectedAction = null;
+		this._renderPending();
 		const saved = key && this.core.sessions.get(key);
 		this.state = saved || this._emptyState();
 		if (!saved && item) {
 			await this._addItems([item], { quiet: true });
+			// Conversa guardada de uma sessão anterior do Zotero
+			const old = this.core.loadConversation ? await this.core.loadConversation(this.historyKey) : null;
+			if (old && old.length && this.sessionKey === key) {
+				this.state.messages = old.map(m => Object.assign({}, m, { collapsed: m.role === "assistant" }));
+				const last = [...this.state.messages].reverse().find(m => m.role === "assistant");
+				if (last) last.collapsed = false;
+				this._setStatus(this.T("chat.historyLoaded", { n: this.state.messages.filter(m => m.role === "assistant").length }));
+			}
 		}
 		this._renderDocs();
 		this._renderMessages();
@@ -445,6 +470,9 @@ var ZIAChatView = class {
 			const a = this._action(id);
 			if (!a) continue;
 			b.disabled = this.busy || n < a.minDocs;
+			b.classList.toggle("zia-selected", this.selectedAction === id);
+			b.setAttribute("aria-pressed", this.selectedAction === id ? "true" : "false");
+			b.classList.toggle("zia-done", !!this._lastAnswerFor(id));
 			if (a.minDocs > 1 && n < a.minDocs) {
 				b.title = this.mode === "section"
 					? this.T("chat.needDocs.section")
@@ -454,7 +482,7 @@ var ZIAChatView = class {
 				b.title = a.hint || "";
 			}
 		}
-		this.sendBtn.textContent = this.busy ? this.T("chat.stop") : this.T("chat.send");
+		this.sendBtn.textContent = this.busy ? this.T("chat.stop") : this.T(this.selectedAction ? "chat.sendAction" : "chat.send");
 		this.sendBtn.classList.toggle("zia-stop", this.busy);
 		this.sendBtn.disabled = !this.busy && !n;
 		this.engineSel.disabled = this.busy;
@@ -487,16 +515,87 @@ var ZIAChatView = class {
 		}
 	}
 
+	_persist() {
+		if (this.historyKey && this.core.saveConversation) this.core.saveConversation(this.historyKey, this.state.messages);
+	}
+
 	clearConversation() {
 		if (this.busy) return;
 		this.state.messages = [];
+		this._persist();
 		this._renderMessages();
 		this._setStatus("");
 	}
 
+	/** Escolhe uma ação (não a corre): o pedido segue com Enviar ou Enter. */
+	selectAction(actionID) {
+		if (this.busy) return;
+		this.selectedAction = this.selectedAction === actionID ? null : actionID;
+		const a = this.selectedAction && this._action(this.selectedAction);
+		if (a) {
+			const prev = this._lastAnswerFor(a.id);
+			if (prev) {
+				// Já foi pedido: mostra a resposta anterior em vez de a repetir sem querer
+				prev.collapsed = false;
+				this._renderMessage(prev);
+				this._applyCollapse();
+				if (prev.el && prev.el.scrollIntoView) prev.el.scrollIntoView({ block: "start", behavior: "smooth" });
+				if (prev.el) {
+					prev.el.classList.add("zia-flash");
+					setTimeout(() => prev.el && prev.el.classList.remove("zia-flash"), 1600);
+				}
+				this._setStatus(this.T("chat.alreadyAsked", { label: a.label }));
+			}
+			else {
+				this._setStatus(this.T("chat.actionChosen", { label: a.label }));
+			}
+			this.textarea.focus();
+		}
+		else {
+			this._setStatus("");
+		}
+		this._renderPending();
+		this._updateButtons();
+	}
+
+	_renderPending() {
+		const box = this.pendingEl;
+		while (box.firstChild) box.removeChild(box.firstChild);
+		const a = this.selectedAction && this._action(this.selectedAction);
+		box.hidden = !a;
+		this.textarea.setAttribute("placeholder", this.T(a ? "chat.placeholder.action" : "chat.placeholder"));
+		if (!a) return;
+		box.appendChild(this._el("span", "zia-pending-label", this.T("chat.pending")));
+		const chip = this._el("span", "zia-pending-chip", a.label);
+		const x = this._button("✕", "zia-chip-x", () => this.selectAction(a.id), this.T("chat.pending.cancel"));
+		chip.appendChild(x);
+		box.appendChild(chip);
+	}
+
+	_lastAnswerFor(actionID) {
+		const docIDs = this.state.docs.map(d => d.id).join(",");
+		for (let i = this.state.messages.length - 1; i >= 0; i--) {
+			const m = this.state.messages[i];
+			if (m.role === "assistant" && m.actionID === actionID && !m.error && !m.pending && m.text
+				&& (!m.docIDs || m.docIDs.join(",") === docIDs)) return m;
+		}
+		return null;
+	}
+
 	async sendQuestion(text) {
+		if (this.busy) return;
+		if (text == null && this.selectedAction) {
+			const id = this.selectedAction;
+			const extra = this.textarea.value.trim();
+			this.selectedAction = null;
+			this._renderPending();
+			this.textarea.value = "";
+			this._autoGrow();
+			await this.runAction(id, { extra });
+			return;
+		}
 		const q = (text != null ? text : this.textarea.value).trim();
-		if (!q || this.busy) return;
+		if (!q) return;
 		if (!this.state.docs.length) {
 			this._setStatus(this.T("chat.addOne"), "warn");
 			return;
@@ -515,10 +614,15 @@ var ZIAChatView = class {
 		});
 	}
 
-	async runAction(actionID) {
+	async runAction(actionID, { extra } = {}) {
 		if (this.busy) return;
-		const a = this._action(actionID);
-		if (!a) return;
+		const base = this._action(actionID);
+		if (!base) return;
+		// Indicações escritas pelo utilizador juntam-se ao pedido da ação
+		const a = extra ? Object.assign({}, base, {
+			prompt: (base.prompt || "") + "\n\n" + this.T("chat.extraPrefix") + " " + extra,
+			label: `${base.label} · ${extra.length > 80 ? extra.slice(0, 77) + "…" : extra}`,
+		}) : base;
 		const docs = this.state.docs.slice();
 		if (docs.length < a.minDocs) {
 			this._setStatus(this.T("chat.actionNeeds", { label: a.label, n: a.minDocs }), "warn");
@@ -624,10 +728,19 @@ var ZIAChatView = class {
 			role: "assistant", text: "", pending: true, heading, actionID, engine,
 			actionLabel: action ? action.label : null,
 			docIDs: docs.map(d => d.id), request: { promptText, display, heading, actionID, docs, noHistory },
+			asked: display, time: Date.now(),
 		};
+		// As respostas anteriores ficam recolhidas (só o título): a conversa não fica corrida
+		for (const m of this.state.messages) {
+			if (m.role === "assistant" && !m.pending && !m.collapsed) {
+				m.collapsed = true;
+				this._renderMessage(m);
+			}
+		}
 		this.state.messages.push(userMsg, botMsg);
 		this._appendMessage(userMsg);
 		this._appendMessage(botMsg);
+		this._applyCollapse();
 		this.busy = true;
 		this.abort = new this.win.AbortController();
 		this._updateButtons();
@@ -701,6 +814,7 @@ var ZIAChatView = class {
 			botMsg.pending = false;
 			botMsg.error = (e && e.message) || String(e);
 			botMsg.errorKind = (e && e.kind) || "other";
+			botMsg.errorDetail = (e && e.detail) || null;
 			if (botMsg.errorKind === "aborted") {
 				botMsg.error = this.T("err.aborted");
 			}
@@ -714,6 +828,7 @@ var ZIAChatView = class {
 			this.abort = null;
 			this._cancelRender();
 			this._renderMessage(botMsg);
+			this._persist();
 			this._updateButtons();
 			this._saveSession();
 		}
@@ -869,7 +984,12 @@ var ZIAChatView = class {
 			if (this.state.docs.length) {
 				const sug = this._el("div", "zia-suggestions");
 				for (const q of this._suggestions()) {
-					const s = this._button(q, "zia-suggestion", () => this.sendQuestion(q));
+					const s = this._button(q, "zia-suggestion", () => {
+						this.textarea.value = q;
+						this._autoGrow();
+						this.textarea.focus();
+						this._setStatus(this.T("chat.suggestionReady"));
+					});
 					sug.appendChild(s);
 				}
 				help.appendChild(sug);
@@ -879,6 +999,7 @@ var ZIAChatView = class {
 			return;
 		}
 		for (const m of this.state.messages) this._appendMessage(m);
+		this._applyCollapse();
 	}
 
 	_appendMessage(m) {
@@ -890,6 +1011,17 @@ var ZIAChatView = class {
 		else this.messagesEl.appendChild(m.el);
 		this._renderMessage(m);
 		this._scrollToEnd(true);
+	}
+
+	/** Esconde a pergunta de cada resposta recolhida (o título da resposta já diz o que foi pedido). */
+	_applyCollapse() {
+		const list = this.state.messages;
+		for (let i = 0; i < list.length; i++) {
+			const m = list[i];
+			if (m.role !== "user" || !m.el) continue;
+			const next = list[i + 1];
+			m.el.hidden = !!(next && next.role === "assistant" && next.collapsed);
+		}
 	}
 
 	_scheduleRender(m) {
@@ -926,11 +1058,37 @@ var ZIAChatView = class {
 			el.appendChild(this._el("div", "zia-user-text", m.display));
 			return;
 		}
-		// Resposta
+		// Resposta: o título abre e fecha a resposta
 		const head = this._el("div", "zia-msg-head");
-		if (m.actionLabel) head.appendChild(this._el("span", "zia-action-tag", m.actionLabel));
+		const canFold = !m.pending;
+		el.classList.toggle("zia-collapsed", !!m.collapsed);
+		if (canFold) {
+			head.classList.add("zia-foldable");
+			head.setAttribute("role", "button");
+			head.setAttribute("tabindex", "0");
+			head.setAttribute("aria-expanded", m.collapsed ? "false" : "true");
+			head.title = this.T(m.collapsed ? "chat.expand" : "chat.collapse");
+			const toggle = () => {
+				m.collapsed = !m.collapsed;
+				this._renderMessage(m);
+				this._applyCollapse();
+			};
+			head.addEventListener("click", toggle);
+			head.addEventListener("keydown", ev => {
+				if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); }
+			});
+			head.appendChild(this._el("span", "zia-fold", m.collapsed ? "▸" : "▾"));
+		}
+		head.appendChild(this._el("span", "zia-action-tag", m.actionLabel || this.T("chat.question")));
 		head.appendChild(this._el("span", "zia-engine-tag", this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "")));
 		el.appendChild(head);
+		if (m.collapsed) {
+			const asked = !m.actionLabel && m.asked ? m.asked + ": " : "";
+			const plain = String(m.error || m.text || "").replace(/\[D\d+[^\]]*\]/g, "").replace(/[#*_>`|]/g, "").replace(/\s+/g, " ").trim();
+			el.appendChild(this._el("div", "zia-preview" + (m.error ? " zia-preview-error" : ""),
+				(asked + plain).slice(0, 150) + ((asked + plain).length > 150 ? "…" : "")));
+			return;
+		}
 		if (m.warnings && m.warnings.length) {
 			const w = this._el("div", "zia-warn");
 			for (const t of m.warnings) w.appendChild(this._el("div", null, t));
@@ -955,15 +1113,24 @@ var ZIAChatView = class {
 		}
 		el.appendChild(body);
 		if (m.error) {
-			el.appendChild(this._el("div", "zia-error", m.error));
+			const errBox = this._el("div", "zia-error");
+			errBox.setAttribute("role", "alert");
+			errBox.appendChild(this._el("div", "zia-error-text", m.error));
+			if (m.errorDetail) {
+				const det = this._el("details", "zia-error-detail");
+				det.appendChild(this._el("summary", null, this.T("err.details")));
+				det.appendChild(this._el("div", null, m.errorDetail));
+				errBox.appendChild(det);
+			}
+			el.appendChild(errBox);
 			const row = this._el("div", "zia-msg-tools");
 			if (m.engine === "claude" && (m.errorKind === "notfound" || m.errorKind === "auth")) {
 				row.appendChild(this._button(this.T("chat.claudeSetup"), "zia-btn-small zia-btn-primary", () => this._setupClaude()));
 			}
-			if (m.errorKind !== "notconfigured") {
+			if (m.errorKind !== "notconfigured" && m.request) {
 				row.appendChild(this._button(this.T("chat.retry"), "zia-btn-small", () => this._retry(m, m.engine)));
 			}
-			for (const other of this._otherReadyEngines(m.engine)) {
+			for (const other of (m.request ? this._otherReadyEngines(m.engine) : [])) {
 				row.appendChild(this._button(this.T("chat.retryWith", { engine: this.core.engineLabel(other) }), "zia-btn-small", () => this._retry(m, other)));
 			}
 			if (["notfound", "auth", "model", "version", "billing", "notconfigured"].includes(m.errorKind)) {

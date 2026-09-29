@@ -46,9 +46,22 @@
 	}
 	const P = (n, s) => Array.from({ length: n }, (_, i) => `${s} página ${i + 1}. ` + "Texto de teste. ".repeat(40));
 	const A = paper("Assistentes conversacionais em bibliotecas universitárias portuguesas", 2021, ["Silva", "Costa", "Reis"], "SILVAPDF", P(6, "Silva"));
+	window.ITEM_A = A;
 	const B = paper("Library chatbots after deployment: a qualitative study", 2023, ["García", "Ortega"], "GARCIAPDF", P(5, "García"));
 	window.opened = [];
+	// Sistema de ficheiros simulado (histórico das conversas)
+	const FILES = new Map();
+	window.FILES = FILES;
+	window.PathUtils = { join: (...a) => a.join("/") };
+	window.IOUtils = {
+		exists: async p => FILES.has(p) || [...FILES.keys()].some(k => k.startsWith(p + "/")),
+		readUTF8: async p => FILES.get(p),
+		writeUTF8: async (p, t) => { FILES.set(p, t); },
+		makeDirectory: async () => {},
+		remove: async p => { for (const k of [...FILES.keys()]) if (k === p || k.startsWith(p + "/")) FILES.delete(k); },
+	};
 	window.Zotero = {
+		DataDirectory: { dir: "/dados" },
 		debug: () => {}, logError: e => console.error(e), locale: "pt-PT",
 		Items: { get: id => items.get(id) },
 		launchURL: u => window.opened.push(u),

@@ -27,7 +27,10 @@ var ZoteroIA = {
 		codex: { provider: "OpenAI", family: "openai", kind: "local" },
 		gemini: { provider: "Google", family: "gemini", kind: "key" },
 	},
-	ENGINE_ORDER: ["anthropic", "claude", "openai", "codex", "gemini"],
+	ENGINE_ORDER: ["gemini", "claude", "codex", "anthropic", "openai"],
+	// Motores que aparecem sempre na lista do painel. Os outros (chaves de API) só quando
+	// estão configurados ou escolhidos.
+	MAIN_ENGINES: ["gemini", "claude", "codex"],
 
 	// Chaves de API guardadas de forma segura (nunca em texto simples nas preferências)
 	SECRETS: { anthropic: "anthropic.key", openai: "openai.key", gemini: "gemini.key" },
@@ -69,9 +72,10 @@ var ZoteroIA = {
 		Zotero.Prefs.set(this.PREF_BRANCH + key, value, true);
 	},
 
-	error(kind, message) {
+	error(kind, message, extra) {
 		const e = new Error(message);
 		e.kind = kind;
+		if (extra) Object.assign(e, extra);
 		return e;
 	},
 
@@ -250,6 +254,56 @@ var ZoteroIA = {
 		try { items = col.getChildItems(false) || []; }
 		catch (e) { this.log("getChildItems: " + e); }
 		return { name: col.name, id: col.id, items: items.filter(i => i.isRegularItem() || (i.isAttachment() && i.isPDFAttachment())) };
+	},
+
+	// ------------------------------------------------------------------
+	// Histórico das conversas por artigo (ficheiros JSON na pasta de dados do Zotero)
+	// ------------------------------------------------------------------
+
+	HISTORY_MAX: 60,
+
+	_conversationPath(key) {
+		const dir = PathUtils.join(Zotero.DataDirectory.dir, "zoteroia", "conversas");
+		return { dir, file: PathUtils.join(dir, String(key).replace(/[^\w.-]/g, "_") + ".json") };
+	},
+
+	async loadConversation(key) {
+		if (!key || this.pref("history.save") === false) return null;
+		try {
+			const { file } = this._conversationPath(key);
+			if (!(await IOUtils.exists(file))) return null;
+			const j = JSON.parse(await IOUtils.readUTF8(file));
+			return Array.isArray(j.messages) ? j.messages : null;
+		}
+		catch (e) {
+			this.log("Histórico: " + e);
+			return null;
+		}
+	},
+
+	async saveConversation(key, messages) {
+		if (!key) return;
+		const { dir, file } = this._conversationPath(key);
+		try {
+			if (!messages.length || this.pref("history.save") === false) {
+				if (await IOUtils.exists(file)) await IOUtils.remove(file);
+				return;
+			}
+			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote"];
+			const out = messages.filter(m => !m.pending).slice(-this.HISTORY_MAX)
+				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
+			await IOUtils.makeDirectory(dir, { ignoreExisting: true, createAncestors: true });
+			await IOUtils.writeUTF8(file, JSON.stringify({ version: 1, saved: Date.now(), messages: out }));
+		}
+		catch (e) {
+			this.log("Histórico: " + e);
+		}
+	},
+
+	async clearAllConversations() {
+		const { dir } = this._conversationPath("x");
+		if (await IOUtils.exists(dir)) await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
 	},
 
 	// ------------------------------------------------------------------
@@ -877,35 +931,73 @@ var ZoteroIA = {
 			throw this.error("auth", this.t("err.noKey", { label: this.t("key.gemini") }));
 		}
 		model = String(model || this.geminiModel()).replace(/^models\//, "");
+		const notify = (k, vars) => { if (onInfo) onInfo({ notice: this.t(k, vars) }); };
+		// Quota diária do modelo escolhido já esgotada hoje: vai direto ao modelo que respondeu
+		const today = new Date().toDateString();
+		const swap = this._geminiSwap;
+		if (swap && swap.day === today && swap.from === model) {
+			const original = model;
+			model = swap.to;
+			notify("chat.geminiAltQuota", { model, original });
+			try {
+				const r = await this.runGemini({ system, prompt, model, onDelta, onInfo, signal, win });
+				r.notice = r.notice || this.t("chat.geminiUsedAltQuota", { model, original });
+				return r;
+			}
+			catch (e) {
+				if (e.kind !== "limit" && e.kind !== "busy") throw e;
+				this._geminiSwap = null;
+				model = original;
+			}
+		}
 		let streamed = false;
 		const opts = { system, prompt, signal, win, key, onDelta: (d, all) => { streamed = true; if (onDelta) onDelta(d, all); } };
 		const aborted = () => !!(signal && signal.aborted);
-		const notify = (k, vars) => { if (onInfo) onInfo({ notice: this.t(k, vars) }); };
-		let busyErr;
+		const stop = () => { if (aborted()) throw this.error("aborted", this.t("err.aborted")); };
+		let firstErr;
+		let waitedMinute = false;
 		for (let i = 0; i <= this.GEMINI_RETRY_MS.length; i++) {
 			try { return await this._geminiOnce(model, opts); }
 			catch (e) {
-				if (e.kind !== "busy" || streamed || aborted()) throw e;
-				busyErr = e;
+				if (streamed || aborted() || !["busy", "limit", "model"].includes(e.kind)) throw e;
+				firstErr = e;
+				const q = e.quota || {};
+				// Limite por minuto com espera curta: espera o tempo indicado pela Google e repete
+				if (e.kind === "limit" && q.period === "minute" && !waitedMinute && q.retrySec > 0 && q.retrySec <= 40) {
+					waitedMinute = true;
+					notify("chat.geminiWaitMinute", { model, s: q.retrySec });
+					await this._sleep(q.retrySec * 1000, signal);
+					stop();
+					continue;
+				}
+				// Quota esgotada (diária ou sem pormenores): este modelo não vai responder, passa aos outros
+				if (e.kind === "limit") break;
+				if (e.kind === "model") break;
 				if (i < this.GEMINI_RETRY_MS.length) {
 					const ms = this.GEMINI_RETRY_MS[i];
 					this.log(`Gemini ${model} sobrecarregado, nova tentativa em ${ms} ms`);
 					notify("chat.geminiRetry", { model, s: Math.round(ms / 1000), n: i + 1, total: this.GEMINI_RETRY_MS.length });
 					await this._sleep(ms, signal);
-					if (aborted()) throw this.error("aborted", this.t("err.aborted"));
+					stop();
 				}
 			}
 		}
 		let alternatives = [];
 		try { alternatives = this.lib.geminiFallbacks(model, await this.listGeminiModels(win)); }
 		catch (e) { this.log("Lista de modelos Gemini: " + e); }
+		const tried = [];
 		for (const alt of alternatives) {
-			if (aborted()) throw this.error("aborted", this.t("err.aborted"));
-			notify("chat.geminiAlt", { model: alt });
+			stop();
+			const why = firstErr.kind === "limit" ? "Quota" : firstErr.kind === "model" ? "Model" : "";
+			notify("chat.geminiAlt" + why, { model: alt, original: model });
+			tried.push(alt);
 			try {
 				this.log(`Gemini: a tentar o modelo alternativo ${alt}`);
 				const r = await this._geminiOnce(alt, opts);
-				r.notice = this.t("chat.geminiUsedAlt", { model: alt, original: model });
+				r.notice = this.t("chat.geminiUsedAlt" + why, { model: alt, original: model });
+				if (firstErr.kind === "limit" && (firstErr.quota || {}).period !== "minute") {
+					this._geminiSwap = { day: new Date().toDateString(), from: model, to: alt };
+				}
 				return r;
 			}
 			catch (e) {
@@ -914,7 +1006,8 @@ var ZoteroIA = {
 				await this._sleep(this.GEMINI_ALT_PAUSE_MS, signal);
 			}
 		}
-		throw busyErr;
+		if (tried.length) firstErr.message += "\n" + this.t("err.gemini.triedOthers", { models: tried.join(", ") });
+		throw firstErr;
 	},
 
 	async _geminiOnce(model, { system, prompt, onDelta, signal, win, key }) {
@@ -940,7 +1033,7 @@ var ZoteroIA = {
 			if (!res.ok) {
 				const t = await res.text();
 				const c = this.lib.classifyGeminiError(res.status, t);
-				throw this.error(c.kind, c.message);
+				throw this.error(c.kind, c.message, { detail: c.detail, quota: c.quota });
 			}
 			const parser = this.lib.createGeminiSSEParser((d, all) => onDelta && onDelta(d, all));
 			try {
@@ -953,7 +1046,7 @@ var ZoteroIA = {
 			const st = parser.end();
 			if (st.error) {
 				const c = this.lib.classifyGeminiError(st.error.code || 500, JSON.stringify({ error: st.error }));
-				throw this.error(c.kind, c.message);
+				throw this.error(c.kind, c.message, { detail: c.detail, quota: c.quota });
 			}
 			if (!st.text) {
 				if (st.blockReason) throw this.error("blocked", this.t("err.geminiBlocked", { reason: st.blockReason }));
@@ -999,14 +1092,16 @@ var ZoteroIA = {
 	// ------------------------------------------------------------------
 
 	ANTHROPIC_URL: "https://api.anthropic.com/v1",
+	// Sonnet 5.5 por omissão: mesmo preço do Sonnet 5 (2 $ / 10 $ por milhão de tokens), mais
+	// recente, e metade do preço do Opus 5.5, cuja vantagem pouco se nota em resumos e perguntas.
 	ANTHROPIC_MODELS: [
-		{ id: "claude-opus-5", label: "Claude Opus 5", tier: "best" },
-		{ id: "claude-sonnet-5", label: "Claude Sonnet 5", tier: "balanced" },
+		{ id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", tier: "recommended" },
+		{ id: "claude-opus-5-5", label: "Claude Opus 5.5", tier: "best" },
 		{ id: "claude-haiku-4-5", label: "Claude Haiku 4.5", tier: "fast" },
 	],
 
 	anthropicModel() {
-		const m = String(this.pref("anthropic.model") || "claude-opus-5").trim();
+		const m = String(this.pref("anthropic.model") || "claude-sonnet-5-5").trim();
 		return /^[a-z0-9][a-z0-9._-]{2,80}$/i.test(m) ? m : "claude-opus-5";
 	},
 
@@ -1041,9 +1136,11 @@ var ZoteroIA = {
 			system,
 			messages: [{ role: "user", content }],
 		};
+		// Ler e resumir artigos não precisa de raciocínio longo: esforço médio gasta menos tokens
+		if (/^claude-(sonnet|opus)-5/.test(model)) body.output_config = { effort: "medium" };
 		const headers = this._anthropicHeaders(key);
 		// Nos modelos com classificadores de segurança, uma recusa passa para outro modelo
-		let useFallbacks = /^claude-(opus-5|fable)/.test(model);
+		let useFallbacks = /^claude-(opus-5|sonnet-5-5|fable)/.test(model);
 		for (let attempt = 0; attempt < 2; attempt++) {
 			const h = Object.assign({}, headers);
 			const b = Object.assign({}, body);

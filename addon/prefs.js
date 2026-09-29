@@ -8,11 +8,13 @@ pref("extensions.zoteroia.answerLang", "ui");
 pref("extensions.zoteroia.context.annotations", false);
 pref("extensions.zoteroia.fichas.autoSave", true);
 pref("extensions.zoteroia.custom.prompts", "");
+// Guardar as conversas de cada artigo neste computador (pasta de dados do Zotero)
+pref("extensions.zoteroia.history.save", true);
 pref("extensions.zoteroia.ui.group", "compreender");
 
 // Claude com chave da API da Anthropic (a chave fica encriptada, nunca em texto simples)
 pref("extensions.zoteroia.anthropic.key", "");
-pref("extensions.zoteroia.anthropic.model", "claude-opus-5");
+pref("extensions.zoteroia.anthropic.model", "claude-sonnet-5-5");
 pref("extensions.zoteroia.anthropic.maxChars", 400000);
 
 // Claude com a subscrição, através do Claude Code instalado no computador

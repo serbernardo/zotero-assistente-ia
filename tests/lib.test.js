@@ -364,3 +364,14 @@ test("fluxos da OpenAI e do Codex", () => {
 	assert.equal(L.classifyOpenAIError(429, '{"error":{"code":"insufficient_quota","message":"quota"}}').kind, "billing");
 	assert.equal(L.classifyOpenAIError(429, '{"error":{"code":"rate_limit_exceeded","message":"slow down"}}').kind, "limit");
 });
+
+test("modelos Gemini: agrupados e ordenados, com recomendado", () => {
+	const { groups, recommended } = L.sortGeminiModels([
+		"gemini-3.5-flash", "gemini-3.8-pro", "gemini-3.7-flash-lite", "gemini-3.6-flash",
+		"gemini-3.9-flash-preview", "gemini-3.6-flash", "gemma-3-27b",
+	]);
+	assert.deepEqual(groups.free.map(i => i.name), ["gemini-3.7-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash"]);
+	assert.deepEqual(groups.preview.map(i => i.name), ["gemini-3.9-flash-preview"]);
+	assert.deepEqual(groups.paid.map(i => i.name), ["gemini-3.8-pro", "gemma-3-27b"]);
+	assert.equal(recommended, "gemini-3.6-flash", "o flash estável mais recente é o recomendado");
+});

@@ -123,12 +123,57 @@ function sseResponse(events, status = 200) {
 	calls = [];
 	const deadWin = { fetch: async url => { calls.push(url); return url.includes("/models?") ? modelList() : busy(); } };
 	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: deadWin }), e => e.kind === "busy" && /sobrecarregados/.test(e.message));
-	// Erros que não são sobrecarga não se repetem
+	// Quota esgotada: o mesmo modelo não se repete (só se procuram alternativas)
 	calls = [];
 	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: { fetch: async u => { calls.push(u); return errWin(429).fetch(); } } }), e => e.kind === "limit");
-	assert.equal(calls.length, 1);
+	assert.equal(calls.filter(u => u.includes(":streamGenerateContent")).length, 1);
 	assert.equal(JSON.stringify(core.lib.geminiFallbacks("gemini-3.8-flash", ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.9-flash-preview"])), JSON.stringify(["gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.5-flash"]));
 	console.log("OK Gemini: sobrecarga (503) com novas tentativas, modelo alternativo e mensagem clara no fim");
+
+	// Quota diária esgotada (429) num modelo: passa logo a outro e lembra-se disso no resto do dia
+	const quota429 = (model, id, retry) => new Response(JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED",
+		message: `You exceeded your current quota. * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: ${model}\nPlease retry in 36.9s.`,
+		details: [
+			{ "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaMetric: "generativelanguage.googleapis.com/generate_content_free_tier_requests", quotaId: id, quotaDimensions: { model, location: "global" }, quotaValue: "20" }] },
+			{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: retry || "36s" },
+		] } }), { status: 429 });
+	const q = core.lib.parseGeminiQuota(await quota429("gemini-3.6-flash", "GenerateRequestsPerDayPerProjectPerModel-FreeTier").text());
+	assert.equal(JSON.stringify(q), JSON.stringify({ model: "gemini-3.6-flash", limit: "20", period: "day", retrySec: 36 }));
+	core.setPref("gemini.model", "gemini-3.8-flash");
+	core._geminiSwap = null;
+	calls = [];
+	const dayWin = { fetch: async url => {
+		calls.push(url);
+		if (url.includes("/models?")) return modelList();
+		if (url.includes("gemini-3.8-flash:")) return quota429("gemini-3.8-flash", "GenerateRequestsPerDayPerProjectPerModel-FreeTier");
+		return sseResponse([{ candidates: [{ content: { parts: [{ text: "Com quota" }] }, finishReason: "STOP" }] }]);
+	} };
+	const r5 = await core.runGemini({ system: "s", prompt: "p", win: dayWin });
+	assert.equal(r5.text, "Com quota");
+	assert.equal(calls.filter(u => u.includes("gemini-3.8-flash:")).length, 1, "quota diária: não repete o mesmo modelo");
+	assert.match(r5.notice, /quota gratuita do gemini-3\.8-flash acabou/);
+	calls = [];
+	const r6 = await core.runGemini({ system: "s", prompt: "p", win: dayWin });
+	assert.equal(r6.text, "Com quota");
+	assert.equal(calls.filter(u => u.includes("gemini-3.8-flash:")).length, 0, "no resto do dia vai direto ao modelo que respondeu");
+	// Todos sem quota: mensagem clara, com os modelos tentados e os detalhes à parte
+	core._geminiSwap = null;
+	const allOut = { fetch: async url => url.includes("/models?") ? modelList() : quota429(/models\/([^:]+)/.exec(url)[1], "GenerateRequestsPerDayPerProjectPerModel-FreeTier") };
+	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: allOut }), e => e.kind === "limit"
+		&& /Acabou a quota gratuita diária do modelo gemini-3\.8-flash \(20 pedidos por dia\)/.test(e.message)
+		&& /também tentou/.test(e.message) && !/googleapis/.test(e.message) && /googleapis/.test(e.detail));
+	// Limite por minuto: espera o tempo indicado e repete o mesmo modelo
+	calls = [];
+	core._sleep = async () => {};
+	const minuteWin = { fetch: async url => {
+		calls.push(url);
+		return calls.length === 1 ? quota429("gemini-3.8-flash", "GenerateRequestsPerMinutePerProjectPerModel-FreeTier", "20s")
+			: sseResponse([{ candidates: [{ content: { parts: [{ text: "Depois de esperar" }] }, finishReason: "STOP" }] }]);
+	} };
+	const r7 = await core.runGemini({ system: "s", prompt: "p", win: minuteWin });
+	assert.equal(r7.text, "Depois de esperar");
+	assert.equal(calls.length, 2);
+	console.log("OK Gemini: quota esgotada passa a outro modelo, lembra-se no resto do dia, limite por minuto espera, mensagem clara");
 
 	// Teste único das definições
 	const t = await core.testEngine("gemini", { fetch: async () => sseResponse([{ candidates: [{ content: { parts: [{ text: "OK" }] }, finishReason: "STOP" }] }]) });

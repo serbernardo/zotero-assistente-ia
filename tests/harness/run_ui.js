@@ -29,6 +29,11 @@ async function main() {
 		return page;
 	};
 	const tab = (page, group) => page.click(`.zia-tab[data-group="${group}"]`);
+	// Escolher uma ação e depois pedir (clicar numa ação já não envia logo)
+	const act = async (page, id) => {
+		await page.click(`button[data-action="${id}"]`);
+		await page.click(".zia-send");
+	};
 
 	// ---------- Janela: comparar 2 PDFs ----------
 	for (const dark of [false, true]) {
@@ -39,7 +44,7 @@ async function main() {
 		await page.click("button:has-text(\"Selecionados\")");
 		await page.waitForSelector(".zia-chip >> nth=1");
 		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false);
-		await page.click('button[data-action="comparar"]');
+		await act(page, "comparar");
 		// durante o fluxo: botão Parar e indicador de progresso
 		await page.waitForSelector(".zia-send.zia-stop");
 		await page.waitForSelector(".zia-spinner");
@@ -82,7 +87,7 @@ async function main() {
 		assert.equal(await page.isDisabled('button[data-action="comparar"]'), true);
 		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.error = { kind: "limit", message: "Atingiste o limite de utilização da subscrição do Claude. Podes repetir o pedido com o Gemini ou esperar que o limite reinicie." }; });
-		await page.click('button[data-action="pontos"]');
+		await act(page, "pontos");
 		await page.waitForSelector(".zia-error");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_erro_limite.png") });
 		await page.evaluate(a => { window.MOCK.error = null; window.MOCK.answer = a; }, pontos);
@@ -119,6 +124,8 @@ async function main() {
 		const page = await open("?mode=section&lang=en", { width: 420, height: 700 });
 		await page.evaluate(() => { window.MOCK.answer = "The main finding is X [D1:p3]."; });
 		await page.locator(".zia-suggestion").first().click();
+		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "a sugestão só preenche a caixa");
+		await page.click(".zia-send");
 		await page.waitForSelector("text=The main finding");
 		assert.match(await page.evaluate(() => window.lastSystem), /inglês/);
 		assert.match(await page.locator(".zia-msg-user").first().textContent(), /pergunta de investigação/);
@@ -131,10 +138,10 @@ async function main() {
 		const page = await open("?mode=section&ui=en", { width: 420, height: 800 });
 		assert.equal(await page.textContent('button[data-action="resumo"]'), "Summarise");
 		assert.equal(await page.textContent('.zia-tab[data-group="compreender"]'), "Understand");
-		assert.equal(await page.textContent(".zia-send"), "Send");
+		assert.equal(await page.textContent(".zia-send"), "Send ➤");
 		assert.match(await page.locator(".zia-suggestion").first().textContent(), /research question/);
 		await page.evaluate(() => { window.MOCK.answer = "The main finding is X [D1:p3]."; });
-		await page.click('button[data-action="resumo"]');
+		await act(page, "resumo");
 		await page.waitForSelector("text=Save as note");
 		assert.match(await page.evaluate(() => window.lastSystem), /inglês/, "respostas em inglês por omissão");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_ingles.png") });
@@ -150,7 +157,7 @@ async function main() {
 		assert.equal(await page.locator(".zia-setup button[data-engine]").count(), 5, "5 formas de ligação");
 		await page.screenshot({ path: path.join(OUT, "ui_configuracao.png") });
 		// uma ação sem motor mostra o cartão e não envia nada
-		await page.click('button[data-action="resumo"]');
+		await act(page, "resumo");
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined);
 		await page.click('.zia-setup button[data-engine="anthropic"]');
 		assert.deepEqual(await page.evaluate(() => window.opened), ["prefs"]);
@@ -165,19 +172,19 @@ async function main() {
 	{
 		const page = await open("?mode=section&noack=1", { width: 420, height: 800 });
 		await page.evaluate(a => { window.MOCK.answer = a; }, pontos);
-		await page.click('button[data-action="resumo"]');
+		await act(page, "resumo");
 		await page.waitForSelector(".zia-privacy");
 		await page.screenshot({ path: path.join(OUT, "ui_privacidade.png") });
 		await page.click(".zia-privacy >> text=Cancelar");
 		await page.waitForSelector(".zia-privacy", { state: "detached" });
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "cancelar não envia nada");
-		await page.click('button[data-action="resumo"]');
+		await act(page, "resumo");
 		await page.click("text=Aceitar e continuar");
 		await page.waitForSelector("text=Guardar como nota", { timeout: 30000 });
 		assert.equal(await page.evaluate(() => window.lastEngine), "claude");
 		// segundo pedido: já não pergunta
 		await page.evaluate(() => { window.MOCK.answer = "Outra resposta [D1:p1]."; });
-		await page.click('button[data-action="pontos"]');
+		await act(page, "pontos");
 		await page.waitForSelector("text=Outra resposta");
 		assert.equal(await page.locator(".zia-privacy").count(), 0);
 		console.log("OK privacidade: aviso antes do primeiro envio, cancelar não envia, aceitar fica memorizado");
@@ -189,7 +196,7 @@ async function main() {
 		const page = await open("?mode=section", { width: 420, height: 800 });
 		await tab(page, "escrever");
 		await page.evaluate(() => { window.MOCK.answer = "- **bibliotecas universitárias**: contexto do estudo [D1:p1]\n- **chatbots**: tema central [D1:p2]\n\nETIQUETAS: bibliotecas universitárias | chatbots | inquérito"; });
-		await page.click('button[data-action="etiquetas"]');
+		await act(page, "etiquetas");
 		await page.waitForSelector(".zia-tag >> nth=2", { timeout: 30000 });
 		await page.screenshot({ path: path.join(OUT, "ui_etiquetas.png") });
 		await page.click("text=Adicionar ao item");
@@ -206,9 +213,59 @@ async function main() {
 		await tab(page, "meus");
 		await page.evaluate(() => { window.MOCK.answer = "Teoria da aceitação [D1:p2]."; });
 		await page.click("button.zia-action:has-text(\"Teoria\")");
+		await page.click(".zia-send");
 		await page.waitForSelector("text=Teoria da aceitação");
 		assert.match(await page.evaluate(() => window.lastPrompt), /Identifica o enquadramento teórico\./);
 		console.log("OK os meus prompts: separador próprio e pedido com a instrução do utilizador");
+		await page.close();
+	}
+
+	// ---------- Escolher e pedir, respostas recolhidas e histórico guardado ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 900 });
+		await page.evaluate(a => { window.MOCK.answer = a; }, pontos);
+		await page.click('button[data-action="resumo"]');
+		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "clicar numa ação não envia logo");
+		assert.equal(await page.getAttribute('button[data-action="resumo"]', "aria-pressed"), "true");
+		assert.equal(await page.textContent(".zia-pending-chip"), "Resumir✕");
+		assert.equal(await page.textContent(".zia-send"), "Pedir ➤");
+		await page.click('button[data-action="resumo"]');
+		assert.equal(await page.isHidden(".zia-pending"), true, "clicar outra vez cancela a escolha");
+		await page.click('button[data-action="resumo"]');
+		await page.fill(".zia-textarea", "foca a metodologia");
+		await page.keyboard.press("Enter");
+		await page.waitForSelector("text=Guardar como nota");
+		assert.match(await page.evaluate(() => window.lastPrompt), /Indicações adicionais do utilizador: foca a metodologia/);
+		assert.equal(await page.locator('button[data-action="resumo"].zia-done').count(), 1, "ação já pedida fica marcada");
+		await act(page, "pontos");
+		await page.waitForFunction(() => document.querySelectorAll(".zia-msg-assistant").length === 2 && !document.querySelector(".zia-typing"));
+		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1, "a resposta anterior fica recolhida");
+		assert.equal(await page.locator(".zia-msg-user:not([hidden])").count(), 1, "a pergunta da resposta recolhida fica escondida");
+		await page.screenshot({ path: path.join(OUT, "ui_painel_recolhido.png") });
+		// escolher uma ação já pedida mostra a resposta que existe
+		const before = await page.evaluate(() => window.lastPrompt);
+		await page.click('button[data-action="resumo"]');
+		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 0, "a resposta do resumo volta a abrir");
+		assert.match(await page.textContent(".zia-status"), /Já pediste/);
+		assert.equal(await page.evaluate(() => window.lastPrompt), before, "nada foi enviado");
+		await page.click('button[data-action="resumo"]');
+		// o título recolhe e abre
+		await page.locator(".zia-msg-assistant .zia-msg-head").first().click();
+		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1);
+		// histórico: outra sessão do Zotero (memória vazia) recupera a conversa guardada
+		assert.equal(await page.evaluate(() => [...window.FILES.keys()].length), 1, "conversa guardada num ficheiro");
+		await page.evaluate(async () => {
+			await view.showItem(null);
+			ZoteroIA.sessions.clear();
+			await view.showItem(window.ITEM_A);
+		});
+		await page.waitForSelector(".zia-msg-assistant");
+		assert.equal(await page.locator(".zia-msg-assistant").count(), 2, "respostas recuperadas");
+		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1, "só a última fica aberta");
+		assert.match(await page.textContent(".zia-status"), /Conversa anterior recuperada/);
+		await page.click("text=Nova conversa");
+		assert.equal(await page.evaluate(() => [...window.FILES.keys()].length), 0, "nova conversa apaga o ficheiro");
+		console.log("OK ações: escolher e depois pedir, respostas anteriores recolhidas, ação já pedida mostra a resposta, histórico guardado por artigo");
 		await page.close();
 	}
 
@@ -216,12 +273,12 @@ async function main() {
 	{
 		const page = await open("?mode=section", { width: 420, height: 700 });
 		await page.evaluate(a => { window.MOCK.answer = a; window.MOCK.delayMs = 40; }, pontos);
-		await page.click('button[data-action="resumo"]');
+		await act(page, "resumo");
 		await page.waitForSelector(".zia-send.zia-stop");
 		await page.waitForTimeout(600);
 		await page.click(".zia-send");
 		await page.waitForSelector("text=Pedido cancelado.");
-		assert.equal(await page.textContent(".zia-send"), "Enviar");
+		assert.equal(await page.textContent(".zia-send"), "Enviar ➤");
 		console.log("OK cancelamento no painel");
 		await page.close();
 	}
@@ -242,7 +299,7 @@ async function main() {
 		await page.waitForSelector(".zia-chip >> nth=1");
 		await tab(page, "investigar");
 		await page.check(".zia-fichas-toggle input");
-		await page.click('button[data-action="comparar"]');
+		await act(page, "comparar");
 		await page.waitForFunction(() => window.calls.length === 3 && !document.querySelector(".zia-stop"), null, { timeout: 30000 });
 		const calls = await page.evaluate(() => window.calls);
 		assert.match(calls[0], /Preenche uma ficha/);

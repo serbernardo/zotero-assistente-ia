@@ -1356,10 +1356,40 @@ var ZIALib = (function () {
 		return { kind: "other", message: s.trim().slice(0, 1500) || t("err.unknown", { tool: "Codex" }) };
 	}
 
+	/** Lê os pormenores de uma quota esgotada do Gemini (modelo, limite, por dia ou por minuto, espera). */
+	function parseGeminiQuota(bodyText) {
+		const out = { model: "", limit: "", period: "", retrySec: 0 };
+		let j;
+		try { j = typeof bodyText === "string" ? JSON.parse(bodyText) : bodyText; }
+		catch (e) { return out; }
+		const details = (j && j.error && j.error.details) || [];
+		for (const d of details) {
+			const type = String(d["@type"] || "");
+			if (/QuotaFailure/.test(type)) {
+				const v = (d.violations || [])[0] || {};
+				const id = String(v.quotaId || v.quotaMetric || "");
+				out.model = (v.quotaDimensions && v.quotaDimensions.model) || out.model;
+				out.limit = String(v.quotaValue || out.limit || "");
+				out.period = /PerDay/i.test(id) ? "day" : /PerMinute/i.test(id) ? "minute" : out.period;
+			}
+			if (/RetryInfo/.test(type) && d.retryDelay) out.retrySec = Math.ceil(parseFloat(d.retryDelay) || 0);
+		}
+		const msg = String((j && j.error && j.error.message) || "");
+		if (!out.model) { const m = /model:\s*([\w.\-]+)/.exec(msg); if (m) out.model = m[1]; }
+		if (!out.limit) { const m = /limit:\s*(\d+)/.exec(msg); if (m) out.limit = m[1]; }
+		if (!out.retrySec) { const m = /retry in\s*([\d.]+)s/i.exec(msg); if (m) out.retrySec = Math.ceil(parseFloat(m[1])); }
+		return out;
+	}
+
 	function classifyGeminiError(status, bodyText) {
 		const { msg } = parseErrorBody(bodyText);
 		if (status === 429) {
-			return { kind: "limit", message: withDetail(t("err.gemini.limit"), msg) };
+			const q = parseGeminiQuota(bodyText);
+			let message = t("err.gemini.limit");
+			if (q.model && q.period === "day") message = t("err.gemini.limitDay", { model: q.model, n: q.limit || "?" });
+			else if (q.model && q.period === "minute") message = t("err.gemini.limitMinute", { model: q.model, n: q.limit || "?", s: q.retrySec || 60 });
+			else if (q.model) message = t("err.gemini.limitModel", { model: q.model, s: q.retrySec || 60 });
+			return { kind: "limit", message, detail: msg, quota: q };
 		}
 		if (status === 400 && /api key/i.test(msg)) {
 			return { kind: "auth", message: t("err.gemini.key") };
@@ -1374,9 +1404,35 @@ var ZIALib = (function () {
 			return { kind: "size", message: withDetail(t("err.tooLong"), msg) };
 		}
 		if (status === 500 || status === 502 || status === 503 || status === 504) {
-			return { kind: "busy", message: t("err.gemini.busy", { status }) };
+			return { kind: "busy", message: t("err.gemini.busy", { status }), detail: msg };
 		}
 		return { kind: "other", message: withDetail(t("err.api.other", { provider: "Gemini", status }), msg) };
+	}
+
+	/** Classifica um modelo Gemini para a lista das definições. */
+	function geminiModelInfo(name) {
+		const n = String(name || "");
+		const preview = /(preview|exp)/i.test(n);
+		const tier = /lite/i.test(n) ? "lite" : /flash/i.test(n) ? "flash" : /pro/i.test(n) ? "pro" : "other";
+		const free = !preview && (tier === "lite" || tier === "flash");
+		return { name: n, tier, preview, free, version: geminiVersion(n) };
+	}
+
+	/**
+	 * Ordena os modelos Gemini em grupos: quota gratuita (flash e lite estáveis), pré-visualização e
+	 * normalmente pagos. Em cada grupo, os mais recentes primeiro. O primeiro gratuito é o recomendado.
+	 */
+	function sortGeminiModels(list) {
+		const infos = Array.from(new Set(list || [])).map(geminiModelInfo);
+		const tierOrder = { flash: 0, lite: 1, pro: 2, other: 3 };
+		const cmp = (a, b) => (b.version - a.version) || (tierOrder[a.tier] - tierOrder[b.tier]) || a.name.localeCompare(b.name);
+		const groups = {
+			free: infos.filter(i => i.free).sort(cmp),
+			preview: infos.filter(i => i.preview && i.tier !== "pro").sort(cmp),
+			paid: infos.filter(i => !i.free && !(i.preview && i.tier !== "pro")).sort(cmp),
+		};
+		const recommended = (groups.free.find(i => i.tier === "flash") || groups.free[0] || {}).name || null;
+		return { groups, recommended };
 	}
 
 	function geminiVersion(name) {
@@ -1534,7 +1590,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS,
-		classifyClaudeError, classifyGeminiError, geminiFallbacks, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, sortGeminiModels, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 

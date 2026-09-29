@@ -54,7 +54,28 @@ window.ZIAPrefs = {
 		on("zia-claude-install", () => this.installClaude());
 		on("zia-claude-copy", () => this.copyClaudeCommand());
 		on("zia-clear-all", () => this.clearAll());
+		on("zia-history-clear", async () => {
+			try {
+				await this.core().clearAllConversations();
+				this.setText("zia-history-result", this.T("prefs.historyCleared"));
+			}
+			catch (e) { this.setText("zia-history-result", e.message || String(e), true); }
+		});
 		on("zia-reset-privacy", () => this.resetPrivacy());
+		// Ligações: abrem no browser
+		for (const a of document.querySelectorAll("a.zia-link[data-url]")) {
+			a.href = a.getAttribute("data-url");
+			a.addEventListener("click", ev => {
+				ev.preventDefault();
+				try { Zotero.launchURL(a.getAttribute("data-url")); }
+				catch (e) { core.log("Abrir ligação: " + e); }
+			});
+		}
+		this.initClaudeModel();
+		const gsel = this.$("zia-gemini-model");
+		if (gsel) gsel.addEventListener("change", () => core.setPref("gemini.model", gsel.value));
+		this.fillGeminiSelect(null);
+		if (core.hasSecret("gemini")) this.listGemini(true);
 		this.initUILanguage();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
@@ -155,52 +176,89 @@ window.ZIAPrefs = {
 		return core.pref(e + ".enabled") ? "saved" : "todo";
 	},
 
-	selectEngine(e) {
-		this.core().setPref("engine", e);
+	/** Separador aberto (só mostra a configuração, não muda o motor em uso). */
+	showEngine(e) {
+		this._shown = e;
 		this.setText("zia-test-result", "");
+		const el = this.$("zia-test-result");
+		if (el) el.className = "zia-test-result";
+		this.refresh();
+	},
+
+	/** Motor usado pelo assistente. */
+	useEngine(e) {
+		this.core().setPref("engine", e);
 		this.refresh();
 	},
 
 	refresh() {
 		const core = this.core();
 		const current = core.defaultEngine();
+		const main = core.MAIN_ENGINES || core.ENGINE_ORDER;
+		const shown = this._shown || current || main[0];
+		this._shown = shown;
 		const box = this.$("zia-engines");
 		if (box) {
 			while (box.firstChild) box.removeChild(box.firstChild);
-			for (const e of core.ENGINE_ORDER) {
+			const addTab = e => {
 				const st = this.engineState(e);
-				const card = this.html("div");
-				card.className = "zia-engine-card" + (e === current ? " selected" : "");
-				card.setAttribute("role", "radio");
-				card.setAttribute("aria-checked", e === current ? "true" : "false");
-				card.setAttribute("tabindex", "0");
-				const radio = this.html("span");
-				radio.className = "zia-engine-radio";
-				const text = this.html("span");
-				text.className = "zia-engine-text";
-				const name = this.html("span", this.T("prefs.engine." + e));
-				name.className = "zia-engine-name";
-				const sub = this.html("span", this.T("prefs.engine." + e + ".sub"));
-				sub.className = "zia-engine-sub";
-				text.append(name, sub);
-				const badge = this.html("span", this.T("prefs.badge." + st));
-				badge.className = "zia-badge zia-badge-" + st;
-				card.append(radio, text, badge);
-				card.addEventListener("click", () => this.selectEngine(e));
-				card.addEventListener("keydown", ev => {
+				const tab = this.html("div");
+				tab.className = "zia-etab" + (e === shown ? " selected" : "") + (main.includes(e) ? "" : " minor");
+				tab.setAttribute("role", "tab");
+				tab.setAttribute("aria-selected", e === shown ? "true" : "false");
+				tab.setAttribute("tabindex", "0");
+				tab.dataset.engine = e;
+				tab.title = this.T("prefs.badge." + st);
+				const dot = this.html("span");
+				dot.className = "zia-dot zia-dot-" + st;
+				tab.append(dot, this.html("span", this.T("prefs.tab." + e)));
+				if (e === current) {
+					const inUse = this.html("span", "★");
+					inUse.className = "zia-etab-star";
+					inUse.title = this.T("prefs.inUse");
+					tab.appendChild(inUse);
+				}
+				tab.addEventListener("click", () => this.showEngine(e));
+				tab.addEventListener("keydown", ev => {
 					if (ev.key === "Enter" || ev.key === " ") {
 						ev.preventDefault();
-						this.selectEngine(e);
+						this.showEngine(e);
 					}
 				});
-				box.appendChild(card);
+				box.appendChild(tab);
+			};
+			for (const e of main) addTab(e);
+			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e));
+			if (rest.length) {
+				const sep = this.html("span", this.T("prefs.tabs.paid"));
+				sep.className = "zia-etab-sep";
+				box.appendChild(sep);
+				for (const e of rest) addTab(e);
 			}
 		}
+		// Resumo do separador aberto: para quem é, estado e botão para o usar
+		const sum = this.$("zia-engine-summary");
+		if (sum) {
+			while (sum.firstChild) sum.removeChild(sum.firstChild);
+			const st = this.engineState(shown);
+			const text = this.html("div", this.T("prefs.engine." + shown + ".sub"));
+			text.className = "zia-engine-sub";
+			const badge = this.html("span", this.T("prefs.badge." + st));
+			badge.className = "zia-badge zia-badge-" + st;
+			const use = this.html("button", this.T(shown === current ? "prefs.inUse" : "prefs.useThis"));
+			use.className = "zia-use-btn" + (shown === current ? " current" : "");
+			use.disabled = shown === current;
+			use.addEventListener("click", () => this.useEngine(shown));
+			const row = this.html("div");
+			row.className = "zia-engine-summary-row";
+			row.append(badge, use);
+			sum.append(text, row);
+		}
 		for (const panel of document.querySelectorAll(".zia-engine-panel")) {
-			panel.hidden = panel.getAttribute("data-engine") !== current;
+			panel.hidden = panel.getAttribute("data-engine") !== shown;
 		}
 		const step2 = document.querySelector("[data-zia='prefs.step2']");
-		if (step2) step2.textContent = current ? this.T("prefs.step2", { engine: this.T("prefs.engine." + current) }) : this.T("prefs.step2.none");
+		if (step2) step2.textContent = this.T("prefs.step2", { engine: this.T("prefs.engine." + shown) });
 		for (const name of ["anthropic", "openai", "gemini"]) {
 			const st = core.secretState(name);
 			const k = st === "encrypted" ? "prefs.st.keyEncrypted" : st === "login" ? "prefs.st.keyLogin" : st === "plain" ? "prefs.st.keyPlain" : null;
@@ -223,6 +281,7 @@ window.ZIAPrefs = {
 				if (info && info.notice) this.setText(out, this.T("prefs.testing") + "\n" + info.notice);
 			});
 			core.setPref(engine + ".lastTest", "ok");
+			if (!core.defaultEngine()) core.setPref("engine", engine);
 			if (el) el.className = "zia-test-result ok";
 			this.setText(out, this.T("prefs.testOk", { engine: this.T("prefs.engine." + engine), model: r.model || "?" })
 				+ (r.path ? "\n" + this.T("prefs.testProgram", { path: r.path, version: r.version || "?" }) : ""));
@@ -269,6 +328,7 @@ window.ZIAPrefs = {
 			input.value = "";
 			core.setPref(name + ".lastTest", "");
 			this.refresh();
+			if (name === "gemini") await this.listGemini(true);
 			await this.test(name);
 		}
 		catch (e) {
@@ -405,32 +465,77 @@ window.ZIAPrefs = {
 	// Gemini: lista de modelos da conta
 	// ------------------------------------------------------------------
 
-	async listGemini() {
-		const box = this.$("zia-gemini-models");
-		this.setText("zia-gemini-models", this.T("prefs.loadingModels"));
+	/** Claude Code: nomes curtos que o Claude Code resolve sempre para a versão mais recente. */
+	initClaudeModel() {
+		const core = this.core();
+		const sel = this.$("zia-claude-model");
+		if (!sel) return;
+		const cur = core.pref("claude.model") || "sonnet";
+		const items = [["sonnet", this.T("prefs.claude.sonnet")], ["opus", this.T("prefs.claude.opus")], ["haiku", this.T("prefs.claude.haiku")]];
+		if (!items.some(i => i[0] === cur)) items.push([cur, cur]);
+		this.fillSelect(sel, items, cur);
+		if (!sel._ziaBound) {
+			sel._ziaBound = true;
+			sel.addEventListener("change", () => core.setPref("claude.model", sel.value));
+		}
+	},
+
+	/** Lista de modelos Gemini agrupada: gratuitos, pré-visualização e normalmente pagos. */
+	fillGeminiSelect(models) {
+		const core = this.core();
+		const sel = this.$("zia-gemini-model");
+		if (!sel) return;
+		const cur = core.geminiModel();
+		while (sel.firstChild) sel.removeChild(sel.firstChild);
+		const { groups, recommended } = core.lib.sortGeminiModels(models || [cur]);
+		const label = i => {
+			const tags = [];
+			if (i.name === recommended) tags.push(this.T("prefs.gm.recommended"));
+			tags.push(this.T(i.preview ? "prefs.gm.preview" : "prefs.gm." + i.tier));
+			return `${i.name}  (${tags.join(", ")})`;
+		};
+		for (const g of ["free", "preview", "paid"]) {
+			if (!groups[g].length) continue;
+			const og = this.html("optgroup");
+			og.setAttribute("label", this.T("prefs.gm.group." + g));
+			for (const i of groups[g]) {
+				const o = this.html("option", models ? label(i) : i.name);
+				o.value = i.name;
+				og.appendChild(o);
+			}
+			sel.appendChild(og);
+		}
+		const names = [].concat(groups.free, groups.preview, groups.paid).map(i => i.name);
+		if (!names.includes(cur)) {
+			const o = this.html("option", cur);
+			o.value = cur;
+			sel.insertBefore(o, sel.firstChild);
+		}
+		sel.value = cur;
+		return { names, recommended };
+	},
+
+	async listGemini(quiet) {
+		const core = this.core();
+		if (!quiet) this.setText("zia-gemini-models", this.T("prefs.loadingModels"));
 		try {
-			const models = await this.core().listGeminiModels(window);
-			box.textContent = "";
+			const models = await core.listGeminiModels(window);
 			if (!models.length) {
 				this.setText("zia-gemini-models", this.T("prefs.geminiNoModels"));
 				return;
 			}
-			box.appendChild(this.html("div", this.T("prefs.geminiPick")));
-			for (const m of models) {
-				const a = this.html("a", m);
-				a.href = "#";
-				a.style.marginRight = "10px";
-				a.addEventListener("click", ev => {
-					ev.preventDefault();
-					this.$("zia-pref-gemini-model").value = m;
-					this.core().setPref("gemini.model", m);
-				});
-				box.appendChild(a);
-				box.appendChild(document.createTextNode(" "));
+			const { names, recommended } = this.fillGeminiSelect(models);
+			// O modelo guardado já não existe na conta: passa para o recomendado
+			if (!names.includes(core.geminiModel()) && recommended) {
+				core.setPref("gemini.model", recommended);
+				this.fillGeminiSelect(models);
+				this.setText("zia-gemini-models", this.T("prefs.geminiSwitched", { m: recommended }));
+				return;
 			}
+			this.setText("zia-gemini-models", this.T("prefs.geminiCount", { n: models.length }));
 		}
 		catch (e) {
-			this.setText("zia-gemini-models", e.message || String(e), true);
+			if (!quiet) this.setText("zia-gemini-models", e.message || String(e), true);
 		}
 	},
 

@@ -11,7 +11,8 @@
 		<html:div class="zia-hero-steps" data-zia="prefs.hero.steps"/>
 
 		<html:div class="zia-step" data-zia="prefs.step1"/>
-		<html:div id="zia-engines" class="zia-engines" role="radiogroup"/>
+		<html:div id="zia-engines" class="zia-etabs" role="tablist"/>
+		<html:div id="zia-engine-summary" class="zia-engine-summary"/>
 
 		<html:div class="zia-step" data-zia="prefs.step2"/>
 
@@ -19,17 +20,21 @@
 		<html:div class="zia-engine-panel" data-engine="anthropic">
 			<html:div class="zia-prefs-note" data-zia="prefs.anthropic.note"/>
 			<html:div class="zia-prefs-row">
+				<html:a class="zia-link" data-url="https://console.anthropic.com/settings/keys" data-zia="prefs.anthropic.link"/>
+			</html:div>
+			<html:div class="zia-prefs-row">
 				<html:input type="password" id="zia-anthropic-key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"/>
 				<button id="zia-anthropic-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
 				<button id="zia-anthropic-clear" data-zia-label="prefs.delete"/>
 			</html:div>
 			<html:div id="zia-anthropic-keystate" class="zia-prefs-note"/>
+			<html:div class="zia-prefs-row">
+				<label data-zia-label="prefs.model"/>
+				<html:select id="zia-anthropic-model"/>
+			</html:div>
+			<html:div class="zia-prefs-note" data-zia="prefs.anthropic.modelNote"/>
 			<html:details class="zia-advanced">
 				<html:summary data-zia="prefs.advanced"/>
-				<html:div class="zia-prefs-row">
-					<label data-zia-label="prefs.model"/>
-					<html:select id="zia-anthropic-model"/>
-				</html:div>
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-anthropic-max" preference="extensions.zoteroia.anthropic.maxChars" class="zia-num"/>
@@ -44,17 +49,17 @@
 				<button id="zia-claude-install" class="zia-main-btn" data-zia-label="prefs.claude.install"/>
 				<button id="zia-claude-test" data-zia-label="prefs.test"/>
 			</html:div>
+			<html:div class="zia-prefs-row">
+				<label data-zia-label="prefs.model"/>
+				<html:select id="zia-claude-model"/>
+			</html:div>
+			<html:div class="zia-prefs-note" data-zia="prefs.claude.modelNote"/>
 			<html:details class="zia-advanced">
 				<html:summary data-zia="prefs.advanced"/>
 				<html:div class="zia-prefs-note" data-zia="prefs.claude.manual"/>
 				<html:div class="zia-prefs-row">
 					<html:code id="zia-claude-command" class="zia-command"/>
 					<button id="zia-claude-copy" data-zia-label="prefs.copy"/>
-				</html:div>
-				<html:div class="zia-prefs-row">
-					<label data-zia-label="prefs.model"/>
-					<html:input type="text" id="zia-pref-claude-model" preference="extensions.zoteroia.claude.model" class="zia-short"/>
-					<html:span class="zia-prefs-note" data-zia="prefs.claude.models"/>
 				</html:div>
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.path"/>
@@ -72,6 +77,9 @@
 		<!-- ChatGPT com chave da API -->
 		<html:div class="zia-engine-panel" data-engine="openai">
 			<html:div class="zia-prefs-note" data-zia="prefs.openai.note"/>
+			<html:div class="zia-prefs-row">
+				<html:a class="zia-link" data-url="https://platform.openai.com/api-keys" data-zia="prefs.openai.link"/>
+			</html:div>
 			<html:div class="zia-prefs-row">
 				<html:input type="password" id="zia-openai-key" placeholder="sk-..." autocomplete="off" spellcheck="false"/>
 				<button id="zia-openai-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
@@ -118,21 +126,30 @@
 
 		<!-- Gemini com chave da API -->
 		<html:div class="zia-engine-panel" data-engine="gemini">
-			<html:div class="zia-prefs-note" data-zia="prefs.gemini.note"/>
+			<html:ol class="zia-steps">
+				<html:li><html:span data-zia="prefs.gemini.step1"/> <html:a class="zia-link" data-url="https://aistudio.google.com/apikey" data-zia="prefs.gemini.link"/></html:li>
+				<html:li data-zia="prefs.gemini.step2"/>
+				<html:li data-zia="prefs.gemini.step3"/>
+				<html:li data-zia="prefs.gemini.step4"/>
+			</html:ol>
 			<html:div class="zia-prefs-row">
 				<html:input type="password" id="zia-gemini-key" placeholder="AIza..." autocomplete="off" spellcheck="false"/>
 				<button id="zia-gemini-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
 				<button id="zia-gemini-clear" data-zia-label="prefs.delete"/>
 			</html:div>
 			<html:div id="zia-gemini-keystate" class="zia-prefs-note"/>
+			<html:div class="zia-prefs-row">
+				<label data-zia-label="prefs.model"/>
+				<html:select id="zia-gemini-model"/>
+				<button id="zia-gemini-list" data-zia-label="prefs.gemini.list"/>
+			</html:div>
+			<html:div id="zia-gemini-models" class="zia-prefs-note"/>
+			<html:div class="zia-prefs-note" data-zia="prefs.gemini.note"/>
+			<html:div class="zia-prefs-row">
+				<html:a class="zia-link" data-url="https://ai.dev/rate-limit" data-zia="prefs.gemini.usageLink"/>
+			</html:div>
 			<html:details class="zia-advanced">
 				<html:summary data-zia="prefs.advanced"/>
-				<html:div class="zia-prefs-row">
-					<label data-zia-label="prefs.model"/>
-					<html:input type="text" id="zia-pref-gemini-model" preference="extensions.zoteroia.gemini.model" class="zia-short"/>
-					<button id="zia-gemini-list" data-zia-label="prefs.gemini.list"/>
-				</html:div>
-				<html:div id="zia-gemini-models" class="zia-prefs-result"/>
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-gemini-max" preference="extensions.zoteroia.gemini.maxChars" class="zia-num"/>
@@ -152,6 +169,11 @@
 		</html:div>
 		<checkbox id="zia-pref-annotations" preference="extensions.zoteroia.context.annotations" data-zia-label="prefs.annotations"/>
 		<checkbox id="zia-pref-fichas" preference="extensions.zoteroia.fichas.autoSave" data-zia-label="prefs.fichasAuto"/>
+		<checkbox id="zia-pref-history" preference="extensions.zoteroia.history.save" data-zia-label="prefs.historySave"/>
+		<html:div class="zia-prefs-row">
+			<button id="zia-history-clear" data-zia-label="prefs.historyClear"/>
+			<html:span id="zia-history-result" class="zia-prefs-note"/>
+		</html:div>
 	</groupbox>
 
 	<groupbox>
