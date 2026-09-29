@@ -1,4 +1,4 @@
-# Assistente IA para Zotero (versão 0.3)
+# Assistente IA para Zotero (versão 0.4)
 
 *English summary at the end.*
 
@@ -34,7 +34,7 @@ Em **todas as respostas**: citações clicáveis, **Guardar como nota**, **Expor
 
 1. No Zotero: **Ferramentas → Plugins**
 2. Roda dentada → **Install Plugin From File…**
-3. Escolhe o ficheiro `assistente-ia-0.3.0.xpi`
+3. Escolhe o ficheiro `assistente-ia-0.4.0.xpi`
 
 Precisa do Zotero 8 ou superior.
 

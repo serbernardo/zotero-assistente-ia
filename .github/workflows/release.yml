@@ -1,0 +1,32 @@
+# Publica uma versão nova do addon quando se cria uma etiqueta v<versão> (por exemplo v0.4.0).
+# A release fica com o .xpi e o updates.json, que o Zotero consulta para se atualizar sozinho.
+name: Publicar versão
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Confirmar que a etiqueta coincide com a versão do manifest.json
+        run: |
+          V=$(python -c "import json;print(json.load(open('addon/manifest.json'))['version'])")
+          test "v$V" = "${GITHUB_REF_NAME}" || { echo "Etiqueta ${GITHUB_REF_NAME} diferente da versão v$V"; exit 1; }
+      - name: Empacotar
+        run: python build.py
+      - name: Criar a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "dist/assistente-ia-${GITHUB_REF_NAME#v}.xpi" dist/updates.json \
+            --title "Assistente IA ${GITHUB_REF_NAME}" --generate-notes

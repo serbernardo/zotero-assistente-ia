@@ -81,6 +81,10 @@ async function main() {
 	{
 		const page = await open("?mode=section", { width: 420, height: 900 });
 		assert.equal(await page.locator(".zia-chip").count(), 1);
+		assert.equal(JSON.stringify(await page.$$eval(".zia-engine option", os => os.map(o => o.value))), JSON.stringify(["gemini", "claude", "codex"]),
+			"Gemini, Claude Code e Codex, nesta ordem; chaves de API só quando configuradas");
+		assert.equal(await page.locator(".zia-tab-add").count(), 0, "sem botão +");
+		assert.equal(await page.locator('.zia-tab[data-group="meus"]').count(), 1, "separador Os meus sempre visível");
 		assert.equal(await page.locator(".zia-suggestion").count(), 4, "sugestões de perguntas");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
 		await tab(page, "investigar");

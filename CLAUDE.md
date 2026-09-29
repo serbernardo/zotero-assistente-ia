@@ -1,6 +1,6 @@
 # Assistente IA para Zotero
 
-Addon para o Zotero (versao 0.3) que ajuda a ler, avaliar e escrever a partir
+Addon para o Zotero (versao 0.4) que ajuda a ler, avaliar e escrever a partir
 de artigos cientificos, com a conta de IA do proprio utilizador (gratuita ou
 paga). Cinco motores: Claude com chave da API (`anthropic`), Claude com a
 subscricao Pro/Max atraves do Claude Code em subprocesso (`claude`), ChatGPT
@@ -97,6 +97,33 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   O painel usa `contain: inline-size` e a barra de cima pode passar a duas
   linhas: o conteudo nunca obriga o painel do Zotero a alargar (teste
   "painel estreito" em `run_ui.js`).
+- **Ordem dos motores:** `ENGINE_ORDER` = gemini, claude, codex, anthropic,
+  openai. A lista do painel mostra sempre `MAIN_ENGINES` (gemini, claude, codex)
+  e as chaves de API so quando configuradas ou escolhidas. Nas definicoes, os
+  separadores seguem a mesma ordem e "Usar este motor" e um botao a parte.
+- **Gemini sem quota (429):** a quota gratuita conta por modelo. `parseGeminiQuota`
+  le o modelo, o limite e se e por dia ou por minuto. Por minuto com espera curta:
+  espera e repete. Por dia: passa logo aos alternativos e guarda em
+  `_geminiSwap` o modelo que respondeu, para o resto do dia. Modelo inexistente
+  (404) tambem passa aos alternativos. Os detalhes da Google ficam em `e.detail`
+  e aparecem num bloco "Detalhes tecnicos".
+- **Acoes em dois passos:** clicar numa acao so a escolhe (`selectAction`); o
+  pedido segue com "Pedir" ou Enter, com indicacoes opcionais. Respostas
+  anteriores ficam recolhidas (`collapsed`), acoes ja pedidas levam um visto e
+  escolher uma acao ja feita mostra a resposta existente.
+- **Historico por artigo:** `saveConversation`/`loadConversation` guardam as
+  mensagens (sem o texto dos PDFs) em
+  `<pasta de dados do Zotero>/zoteroia/conversas/<biblioteca>_<chave>.json`.
+  Pref `history.save` (ligada por omissao), botao para apagar nas definicoes.
+- **Modelos Claude:** API com `claude-sonnet-5-5` por omissao e esforco
+  `medium` (`output_config.effort`) nos modelos Sonnet/Opus 5. Claude Code
+  com o nome curto `sonnet`, que aponta sempre para o mais recente.
+- **Atualizacoes:** `update_url` do manifest aponta para
+  `releases/latest/download/updates.json` do GitHub. `build.py` gera o
+  `updates.json` com o sha256 do `.xpi`. A acao
+  `.github/workflows/release.yml` publica a release quando se cria a etiqueta
+  `v<versao>`. So funciona com o repositorio publico. Botao "Procurar
+  atualizacoes agora" (`checkForUpdates`, AddonManager).
 - **Contas gratuitas:** ChatGPT (Codex) e Gemini funcionam com contas
   gratuitas. A conta gratuita do Claude nao da acesso ao Claude Code nem a API.
 
@@ -109,7 +136,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (26), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (27), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -140,7 +167,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.3.0.xpi`, pronto a instalar em
+Gera `dist/assistente-ia-0.4.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

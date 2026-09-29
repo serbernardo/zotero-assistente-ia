@@ -54,6 +54,7 @@ window.ZIAPrefs = {
 		on("zia-claude-install", () => this.installClaude());
 		on("zia-claude-copy", () => this.copyClaudeCommand());
 		on("zia-clear-all", () => this.clearAll());
+		on("zia-update-check", () => this.checkUpdates());
 		on("zia-history-clear", async () => {
 			try {
 				await this.core().clearAllConversations();
@@ -100,6 +101,7 @@ window.ZIAPrefs = {
 		}
 		const ta = this.$("zia-custom-prompts");
 		if (ta) ta.setAttribute("placeholder", this.T("prefs.prompts.placeholder"));
+		this.setText("zia-version", this.T("prefs.update.version", { v: this.core().version || "?" }));
 		const cmd = this.$("zia-claude-command");
 		if (cmd) cmd.textContent = this.core().claudeInstallCommand();
 		this.fillAnswerLanguage();
@@ -449,6 +451,18 @@ window.ZIAPrefs = {
 			this.setText("zia-test-result", e.message || String(e));
 		}
 		this.refresh();
+	},
+
+	async checkUpdates() {
+		const out = "zia-update-result";
+		this.setText(out, this.T("prefs.update.checking"));
+		try {
+			const r = await this.core().checkForUpdates();
+			this.setText(out, this.T("prefs.update." + r.status, { v: r.version || "" }), r.status === "failed" || r.status === "error");
+		}
+		catch (e) {
+			this.setText(out, this.T("prefs.update.error") + "\n" + (e.message || String(e)), true);
+		}
 	},
 
 	copyClaudeCommand() {

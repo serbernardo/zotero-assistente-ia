@@ -257,6 +257,31 @@ var ZoteroIA = {
 	},
 
 	// ------------------------------------------------------------------
+	// Atualizações: o Zotero consulta o update_url do manifest.json (releases do GitHub)
+	// ------------------------------------------------------------------
+
+	/** Procura já uma versão nova e instala-a. Devolve { status: "installed"|"none"|"failed"|"error", version }. */
+	async checkForUpdates() {
+		const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+		const addon = await AddonManager.getAddonByID(this.id);
+		if (!addon) return { status: "error" };
+		return new Promise(resolve => {
+			addon.findUpdates({
+				onUpdateAvailable: (a, install) => {
+					install.addListener({
+						onInstallEnded: () => resolve({ status: "installed", version: install.version }),
+						onInstallFailed: () => resolve({ status: "failed", version: install.version }),
+						onDownloadFailed: () => resolve({ status: "failed", version: install.version }),
+					});
+					install.install();
+				},
+				onNoUpdateAvailable: () => resolve({ status: "none" }),
+				onUpdateFinished: (a, error) => { if (error) resolve({ status: "error" }); },
+			}, AddonManager.UPDATE_WHEN_USER_REQUESTED);
+		});
+	},
+
+	// ------------------------------------------------------------------
 	// Histórico das conversas por artigo (ficheiros JSON na pasta de dados do Zotero)
 	// ------------------------------------------------------------------
 
