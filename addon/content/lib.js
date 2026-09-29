@@ -1384,13 +1384,23 @@ var ZIALib = (function () {
 		return m ? parseFloat(m[1]) : 0;
 	}
 
-	/** Modelos Gemini alternativos quando o escolhido está sobrecarregado: flash estáveis e mais recentes primeiro. */
-	function geminiFallbacks(current, available, max = 2) {
+	/**
+	 * Modelos Gemini alternativos quando o escolhido está sobrecarregado: só flash estáveis,
+	 * alternando "lite" (menos procura) e normais, dos mais recentes para os mais antigos.
+	 */
+	function geminiFallbacks(current, available, max = 3) {
 		const cands = (available || []).filter(n => n !== current && /flash/i.test(n) && !/(thinking|exp)/i.test(n));
-		const score = n => (/preview/i.test(n) ? 0 : 2) + (/lite/i.test(n) ? 0 : 1);
-		cands.sort((a, b) => (geminiVersion(b) - geminiVersion(a)) || (score(b) - score(a)));
 		const stable = cands.filter(n => !/preview/i.test(n));
-		return (stable.length ? stable : cands).slice(0, max);
+		const pool = stable.length ? stable : cands;
+		const byVersion = (a, b) => geminiVersion(b) - geminiVersion(a);
+		const lite = pool.filter(n => /lite/i.test(n)).sort(byVersion);
+		const full = pool.filter(n => !/lite/i.test(n)).sort(byVersion);
+		const out = [];
+		for (let i = 0; out.length < max && (i < lite.length || i < full.length); i++) {
+			if (lite[i]) out.push(lite[i]);
+			if (full[i] && out.length < max) out.push(full[i]);
+		}
+		return out;
 	}
 
 	function formatRateLimit(info) {

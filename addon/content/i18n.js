@@ -135,6 +135,9 @@ var ZIAi18n = (function () {
 			"chat.error": "Ocorreu um erro.",
 			"chat.preparing": "A preparar…",
 			"chat.retry": "Tentar de novo",
+			"chat.geminiUsedAlt": "Resposta do modelo {model}, porque o {original} estava sobrecarregado",
+			"chat.geminiAlt": "A tentar outro modelo Gemini: {model}…",
+			"chat.geminiRetry": "A Google está sobrecarregada ({model}). Nova tentativa {n} de {total} daqui a {s} s…",
 			"chat.retryWith": "Repetir com {engine}",
 			"chat.settings": "Definições",
 			"chat.copy": "Copiar",
@@ -268,7 +271,7 @@ var ZIAi18n = (function () {
 			"err.gemini.key": "A chave da API do Gemini é inválida. Confirma-a nas definições do Assistente IA.",
 			"err.gemini.denied": "O Google recusou a chave da API do Gemini ({status}).",
 			"err.gemini.model": "O modelo Gemini configurado não existe ou não está disponível. Nas definições, em Opções avançadas, carrega em \"Ver modelos disponíveis\" e escolhe outro.",
-			"err.gemini.busy": "Os servidores da Google estão sobrecarregados neste momento (erro {status}). O assistente repetiu o pedido e tentou outros modelos Gemini, sem sucesso. É um problema do lado da Google, costuma passar em poucos minutos. Podes tentar mais tarde ou usar outro motor.",
+			"err.gemini.busy": "Os servidores da Google estão sobrecarregados neste momento (erro {status}). O assistente tentou durante cerca de meio minuto e experimentou outros modelos Gemini, sem sucesso. O problema é do lado da Google e costuma passar em poucos minutos. Podes tentar mais tarde ou repetir com outro motor.",
 
 			// Uso
 			"usage.tokens": "Tokens: {input} de entrada{cached}, {output} de saída",
@@ -493,6 +496,9 @@ var ZIAi18n = (function () {
 			"chat.error": "Something went wrong.",
 			"chat.preparing": "Preparing…",
 			"chat.retry": "Try again",
+			"chat.geminiUsedAlt": "Answer from the {model} model, because {original} was overloaded",
+			"chat.geminiAlt": "Trying another Gemini model: {model}…",
+			"chat.geminiRetry": "Google is overloaded ({model}). Retry {n} of {total} in {s} s…",
 			"chat.retryWith": "Retry with {engine}",
 			"chat.settings": "Settings",
 			"chat.copy": "Copy",
@@ -620,7 +626,7 @@ var ZIAi18n = (function () {
 			"err.gemini.key": "The Gemini API key is invalid. Check it in the AI Assistant settings.",
 			"err.gemini.denied": "Google rejected the Gemini API key ({status}).",
 			"err.gemini.model": "The configured Gemini model does not exist or is unavailable. In the settings, under Advanced options, click \"Show available models\" and pick another.",
-			"err.gemini.busy": "Google's servers are overloaded right now (error {status}). The assistant retried and tried other Gemini models, without success. This is a problem on Google's side and usually clears within a few minutes. Try again later or use another engine.",
+			"err.gemini.busy": "Google's servers are overloaded right now (error {status}). The assistant kept trying for about half a minute and tried other Gemini models, without success. The problem is on Google's side and usually clears within a few minutes. Try again later or retry with another engine.",
 
 			"usage.tokens": "Tokens: {input} in{cached}, {output} out",
 			"usage.cached": " ({n} cached)",

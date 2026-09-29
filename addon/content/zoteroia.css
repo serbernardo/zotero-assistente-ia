@@ -879,7 +879,8 @@ collapsible-section[data-pane$="zoteroia-section"] {
 	border: 1px solid var(--zia-panel-border);
 	border-left: 4px solid var(--accent-blue, #4072e5);
 	border-radius: 6px;
-	margin: 6px 4px;
+	margin-block: 6px;
+	min-width: 0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -899,7 +900,53 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 }
 
 .zia-mode-section {
-	padding: 2px 8px 8px;
+	padding: 2px 6px 8px;
+}
+
+/* Painel estreito: nada pode obrigar o painel do Zotero a ficar mais largo.
+   A barra de cima passa para duas linhas e o ⚙ fica sempre visível. */
+.zia-mode-section {
+	contain: inline-size;
+	min-width: 0;
+}
+
+.zia-bar {
+	flex-wrap: wrap;
+	row-gap: 4px;
+}
+
+.zia-docs {
+	flex: 1 1 110px;
+}
+
+.zia-chip {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.zia-bar-tools {
+	flex-shrink: 1;
+	min-width: 0;
+	margin-inline-start: auto;
+}
+
+.zia-engine {
+	flex: 0 1 auto;
+	min-width: 72px;
+}
+
+.zia-bar-tools .zia-btn-icon {
+	flex-shrink: 0;
+}
+
+.zia-textarea {
+	min-width: 0;
+	width: 0;
+}
+
+.zia-footer {
+	flex-wrap: wrap;
+	row-gap: 2px;
 }
 
 .zia-command {

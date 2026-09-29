@@ -71,7 +71,8 @@ function sseResponse(events, status = 200) {
 	console.log("OK Gemini: lista só modelos de texto");
 
 	// Sobrecarga (503): repete o pedido e depois tenta modelos alternativos
-	core.GEMINI_RETRY_MS = [0, 0];
+	core.GEMINI_RETRY_MS = [0, 0, 0];
+	core.GEMINI_ALT_PAUSE_MS = 0;
 	const busy = () => new Response(JSON.stringify({ error: { code: 503, message: "This model is currently experiencing high demand.", status: "UNAVAILABLE" } }), { status: 503 });
 	const modelList = () => new Response(JSON.stringify({ models: [
 		{ name: "models/gemini-3.8-flash", supportedGenerationMethods: ["generateContent"] },
@@ -94,10 +95,30 @@ function sseResponse(events, status = 200) {
 		if (url.includes("gemini-3.7-flash-lite")) return sseResponse([{ candidates: [{ content: { parts: [{ text: "Com outro modelo" }] }, finishReason: "STOP" }] }]);
 		return busy();
 	} };
-	const r4 = await core.runGemini({ system: "s", prompt: "p", win: fallbackWin });
+	const notices = [];
+	const r4 = await core.runGemini({ system: "s", prompt: "p", win: fallbackWin, onInfo: i => notices.push(i.notice) });
 	assert.equal(r4.text, "Com outro modelo");
 	assert.equal(r4.model, "gemini-3.7-flash-lite");
-	assert.equal(calls.filter(u => u.includes("gemini-3.8-flash:")).length, 3, "três tentativas no modelo escolhido");
+	assert.match(r4.notice, /gemini-3\.7-flash-lite.*gemini-3\.8-flash.*sobrecarregado/);
+	assert.equal(calls.filter(u => u.includes("gemini-3.8-flash:")).length, 4, "quatro tentativas no modelo escolhido");
+	assert.equal(notices.filter(n => /Nova tentativa/.test(n)).length, 3, "avisa cada nova tentativa");
+	assert.ok(notices.some(n => /outro modelo Gemini: gemini-3\.7-flash-lite/.test(n)));
+	// Um alternativo sem quota (429) não interrompe: passa ao seguinte
+	calls = [];
+	const quotaWin = { fetch: async url => {
+		calls.push(url);
+		if (url.includes("/models?")) return modelList();
+		if (url.includes("gemini-3.7-flash-lite")) return errWin(429).fetch();
+		return busy();
+	} };
+	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: quotaWin }), e => e.kind === "busy");
+	// Cancelar durante a espera para de imediato
+	core.GEMINI_RETRY_MS = [60000];
+	const ctrl = new AbortController();
+	const pending = core.runGemini({ system: "s", prompt: "p", signal: ctrl.signal, win: { fetch: async () => busy() } });
+	setTimeout(() => ctrl.abort(), 20);
+	await assert.rejects(pending, e => e.kind === "aborted");
+	core.GEMINI_RETRY_MS = [0, 0, 0];
 	assert.ok(!calls.some(u => u.includes("pro:") || u.includes("preview")), "só modelos flash estáveis como alternativa");
 	calls = [];
 	const deadWin = { fetch: async url => { calls.push(url); return url.includes("/models?") ? modelList() : busy(); } };
@@ -106,7 +127,7 @@ function sseResponse(events, status = 200) {
 	calls = [];
 	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: { fetch: async u => { calls.push(u); return errWin(429).fetch(); } } }), e => e.kind === "limit");
 	assert.equal(calls.length, 1);
-	assert.equal(JSON.stringify(core.lib.geminiFallbacks("gemini-3.8-flash", ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.9-flash-preview"])), JSON.stringify(["gemini-3.7-flash", "gemini-3.7-flash-lite"]));
+	assert.equal(JSON.stringify(core.lib.geminiFallbacks("gemini-3.8-flash", ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.9-flash-preview"])), JSON.stringify(["gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.5-flash"]));
 	console.log("OK Gemini: sobrecarga (503) com novas tentativas, modelo alternativo e mensagem clara no fim");
 
 	// Teste único das definições

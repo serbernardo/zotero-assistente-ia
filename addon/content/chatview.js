@@ -678,6 +678,7 @@ var ZIAChatView = class {
 					this._scheduleRender(botMsg);
 				},
 				onInfo: info => {
+					if (info && info.notice) this._setStatus(info.notice, "warn");
 					const rl = this.L.formatRateLimit(info && info.rateLimit);
 					if (rl) botMsg.usageNote = rl;
 				},
@@ -685,6 +686,7 @@ var ZIAChatView = class {
 			botMsg.text = res.text || botMsg.text;
 			botMsg.model = res.model || null;
 			if (res.rateLimit) botMsg.usageNote = this.L.formatRateLimit(res.rateLimit) || botMsg.usageNote;
+			if (res.notice) botMsg.usageNote = res.notice;
 			botMsg.tokensNote = this.L.formatUsage(res.usage, engine);
 			if (actionID === "etiquetas") {
 				botMsg.tags = this.L.parseTagLine(botMsg.text);

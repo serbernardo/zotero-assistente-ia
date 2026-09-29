@@ -73,9 +73,11 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   processo e morto se aparecer um item `command_execution`, `file_change`,
   `mcp_tool_call` ou `web_search`. As variaveis `OPENAI_API_KEY` e
   `ANTHROPIC_API_KEY` sao retiradas do ambiente (usa-se a conta).
-- **Gemini sobrecarregado (erros 500 a 504):** `runGemini` repete o pedido duas
-  vezes (2 s e 5 s) e depois tenta até dois modelos flash estáveis da conta
-  (`geminiFallbacks` em `lib.js`), só se ainda nada foi mostrado ao utilizador.
+- **Gemini sobrecarregado (erros 500 a 504):** `runGemini` repete o pedido tres
+  vezes (3 s, 8 s e 15 s) e depois tenta ate tres modelos flash estaveis da conta,
+  primeiro os "lite" (`geminiFallbacks` em `lib.js`). Um alternativo sem quota
+  passa ao seguinte. So se ainda nada foi mostrado ao utilizador. Cada espera e
+  anunciada na conversa (`onInfo({ notice })`) e a resposta diz que modelo usou.
 - **Definições:** uma secção principal com um cartão por motor (estado:
   Pronto, Falta testar, Não funciona, Por configurar), só o motor escolhido
   mostra a sua configuração e o botão Testar faz um pedido real curto
@@ -92,6 +94,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Painel lateral em destaque:** o CSS carregado na janela principal usa
   `collapsible-section[data-pane$="zoteroia-section"]` (o Zotero junta o id
   do plugin ao paneID) para o fundo cinza, a barra azul e o titulo azul.
+  O painel usa `contain: inline-size` e a barra de cima pode passar a duas
+  linhas: o conteudo nunca obriga o painel do Zotero a alargar (teste
+  "painel estreito" em `run_ui.js`).
 - **Contas gratuitas:** ChatGPT (Codex) e Gemini funcionam com contas
   gratuitas. A conta gratuita do Claude nao da acesso ao Claude Code nem a API.
 

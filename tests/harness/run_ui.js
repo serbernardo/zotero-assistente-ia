@@ -95,6 +95,25 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Painel estreito: nada fica cortado e o painel não força largura ----------
+	{
+		const page = await open("?mode=section", { width: 700, height: 700 });
+		for (const w of [240, 280, 320]) {
+			await page.evaluate(w => { document.querySelector(".pane").style.width = w + "px"; }, w);
+			const r = await page.evaluate(() => {
+				const box = document.querySelector("collapsible-section").getBoundingClientRect();
+				const inside = sel => { const b = document.querySelector(sel).getBoundingClientRect(); return b.left >= box.left && b.right <= box.right + 0.5 && b.width > 0; };
+				return { gear: inside(".zia-bar-tools .zia-btn-icon"), engine: inside(".zia-engine"), send: inside(".zia-send") };
+			});
+			assert.ok(r.gear && r.engine && r.send, `largura ${w}: ⚙, motor e Enviar visíveis ${JSON.stringify(r)}`);
+		}
+		await page.evaluate(() => { document.querySelector(".pane").style.width = "min-content"; });
+		const minW = await page.evaluate(() => document.querySelector(".pane").getBoundingClientRect().width);
+		assert.ok(minW < 200, `o painel não pode exigir largura mínima grande (${minW}px)`);
+		console.log("OK painel estreito: ⚙, motor e Enviar sempre visíveis, sem forçar a largura do Zotero");
+		await page.close();
+	}
+
 	// ---------- Sugestão de pergunta e língua das respostas ----------
 	{
 		const page = await open("?mode=section&lang=en", { width: 420, height: 700 });

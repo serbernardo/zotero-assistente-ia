@@ -855,7 +855,9 @@ var ZoteroIA = {
 		return String(this.pref("gemini.model") || "gemini-3.8-flash").replace(/^models\//, "").trim();
 	},
 
-	GEMINI_RETRY_MS: [2000, 5000],
+	// Esperas entre tentativas no modelo escolhido quando a Google está sobrecarregada
+	GEMINI_RETRY_MS: [3000, 8000, 15000],
+	GEMINI_ALT_PAUSE_MS: 2000,
 
 	_sleep(ms, signal) {
 		return new Promise(resolve => {
@@ -865,10 +867,11 @@ var ZoteroIA = {
 	},
 
 	/**
-	 * Gemini com tolerância a sobrecarga (erros 500 a 504): repete o pedido e, se o modelo
-	 * continuar indisponível, tenta até dois modelos flash alternativos da mesma conta.
+	 * Gemini com tolerância a sobrecarga (erros 500 a 504): repete o pedido com esperas
+	 * crescentes e, se o modelo continuar indisponível, tenta até três modelos alternativos
+	 * da conta (primeiro os "lite", que costumam ter menos procura). Avisa na conversa.
 	 */
-	async runGemini({ system, prompt, model, onDelta, signal, win }) {
+	async runGemini({ system, prompt, model, onDelta, onInfo, signal, win }) {
 		const key = await this.getSecret("gemini");
 		if (!key) {
 			throw this.error("auth", this.t("err.noKey", { label: this.t("key.gemini") }));
@@ -876,16 +879,20 @@ var ZoteroIA = {
 		model = String(model || this.geminiModel()).replace(/^models\//, "");
 		let streamed = false;
 		const opts = { system, prompt, signal, win, key, onDelta: (d, all) => { streamed = true; if (onDelta) onDelta(d, all); } };
-		const retryable = e => e.kind === "busy" && !streamed && !(signal && signal.aborted);
-		let lastErr;
+		const aborted = () => !!(signal && signal.aborted);
+		const notify = (k, vars) => { if (onInfo) onInfo({ notice: this.t(k, vars) }); };
+		let busyErr;
 		for (let i = 0; i <= this.GEMINI_RETRY_MS.length; i++) {
 			try { return await this._geminiOnce(model, opts); }
 			catch (e) {
-				if (!retryable(e)) throw e;
-				lastErr = e;
+				if (e.kind !== "busy" || streamed || aborted()) throw e;
+				busyErr = e;
 				if (i < this.GEMINI_RETRY_MS.length) {
-					this.log(`Gemini ${model} sobrecarregado, nova tentativa em ${this.GEMINI_RETRY_MS[i]} ms`);
-					await this._sleep(this.GEMINI_RETRY_MS[i], signal);
+					const ms = this.GEMINI_RETRY_MS[i];
+					this.log(`Gemini ${model} sobrecarregado, nova tentativa em ${ms} ms`);
+					notify("chat.geminiRetry", { model, s: Math.round(ms / 1000), n: i + 1, total: this.GEMINI_RETRY_MS.length });
+					await this._sleep(ms, signal);
+					if (aborted()) throw this.error("aborted", this.t("err.aborted"));
 				}
 			}
 		}
@@ -893,16 +900,21 @@ var ZoteroIA = {
 		try { alternatives = this.lib.geminiFallbacks(model, await this.listGeminiModels(win)); }
 		catch (e) { this.log("Lista de modelos Gemini: " + e); }
 		for (const alt of alternatives) {
+			if (aborted()) throw this.error("aborted", this.t("err.aborted"));
+			notify("chat.geminiAlt", { model: alt });
 			try {
 				this.log(`Gemini: a tentar o modelo alternativo ${alt}`);
-				return await this._geminiOnce(alt, opts);
+				const r = await this._geminiOnce(alt, opts);
+				r.notice = this.t("chat.geminiUsedAlt", { model: alt, original: model });
+				return r;
 			}
 			catch (e) {
-				if (!retryable(e)) throw e;
-				lastErr = e;
+				// Um alternativo sem quota, inexistente ou também sobrecarregado: passa ao seguinte
+				if (streamed || aborted() || !["busy", "limit", "model"].includes(e.kind)) throw e;
+				await this._sleep(this.GEMINI_ALT_PAUSE_MS, signal);
 			}
 		}
-		throw lastErr;
+		throw busyErr;
 	},
 
 	async _geminiOnce(model, { system, prompt, onDelta, signal, win, key }) {
@@ -1341,10 +1353,10 @@ var ZoteroIA = {
 	},
 
 	/** Teste real de qualquer motor: um pedido mínimo. Devolve { model, reply, path?, version? }. */
-	async testEngine(engine, win) {
+	async testEngine(engine, win, onInfo) {
 		if (engine === "claude") return this.testClaude();
 		if (engine === "codex") return this.testCodex();
-		const r = await this.runEngine(engine, { system: this.t("test.reply"), prompt: this.t("test.prompt"), win });
+		const r = await this.runEngine(engine, { system: this.t("test.reply"), prompt: this.t("test.prompt"), win, onInfo });
 		return { model: r.model, reply: (r.text || "").trim().slice(0, 80) };
 	},
 

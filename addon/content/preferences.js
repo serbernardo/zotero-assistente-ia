@@ -219,7 +219,9 @@ window.ZIAPrefs = {
 		if (el) el.className = "zia-test-result busy";
 		this.setText(out, this.T("prefs.testing"));
 		try {
-			const r = await core.testEngine(engine, window);
+			const r = await core.testEngine(engine, window, info => {
+				if (info && info.notice) this.setText(out, this.T("prefs.testing") + "\n" + info.notice);
+			});
 			core.setPref(engine + ".lastTest", "ok");
 			if (el) el.className = "zia-test-result ok";
 			this.setText(out, this.T("prefs.testOk", { engine: this.T("prefs.engine." + engine), model: r.model || "?" })
