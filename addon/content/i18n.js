@@ -667,7 +667,7 @@ var ZIAi18n = (function () {
 			"chat.pending.cancel": "Cancel this request",
 			"chat.pending": "Request:",
 			"chat.placeholder.action": "Extra instructions (optional). Click Ask to send.",
-			"chat.actionChosen": "\"{label}\" selected. Add instructions if you want, then click Ask or press Enter.",
+			"chat.actionChosen": "\"{label}\" selected. Add instructions if you want, then click Ask.",
 			"chat.alreadyAsked": "You already asked for \"{label}\": the answer is open above. To ask again, click Ask.",
 			"chat.meus.empty": "Create your own actions here, with a name and what the AI should do.",
 			"chat.sendAction": "Ask ➤",
