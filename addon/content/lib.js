@@ -57,6 +57,18 @@ var ZIALib = (function () {
 		}
 		lines.push(
 			"",
+			"FIDELIDADE AOS DOCUMENTOS (regra principal, acima de todas as outras)",
+			"- Usa apenas a informação que está escrita nos documentos fornecidos. Não uses conhecimento",
+			"  geral, outros estudos, a tua memória nem informação da internet.",
+			"- Não inventes, não suponhas e não completes lacunas. Se algo não está nos documentos,",
+			"  diz claramente que não consta, mesmo que isso deixe a resposta curta ou incompleta.",
+			"- Não atribuas aos autores opiniões, intenções ou resultados que eles não escreveram.",
+			"- Números, nomes, datas, amostras e resultados são copiados tal como aparecem, sem arredondar",
+			"  nem recalcular. Se um valor não aparece, não o estimes.",
+			"- Se o pedido do utilizador pressupõe algo que os documentos não dizem, avisa em vez de responder",
+			"  como se fosse verdade.",
+			"- Em caso de dúvida entre dizer algo e não dizer, não digas.",
+			"",
 			"REGRAS DE EVIDÊNCIA (obrigatórias)",
 			"1. Cada afirmação sobre um documento termina com uma citação no formato [D1:p5],",
 			"   que significa documento D1, página 5 do PDF. Para intervalos usa [D1:p5-6].",
@@ -69,7 +81,9 @@ var ZIALib = (function () {
 			"   Nunca completes com conhecimento geral nem com suposições.",
 			"4. Em conclusões, comparações e lacunas distingue sempre:",
 			"   [Declarado] o que os autores escrevem, e",
-			"   [Inferência] o que concluis a partir do conjunto, indicando os documentos em que te apoias.",
+			"   [Inferência] uma ligação lógica direta entre factos citados dos documentos (por exemplo,",
+			"   D1 e D2 usam amostras de países diferentes), sempre com as citações de apoio.",
+			"   Uma inferência nunca acrescenta factos novos, causas não referidas ou especulação.",
 			"5. Não inventes DOIs, números, páginas, autores ou citações.",
 			"6. Se um documento não tiver texto legível, di-lo e não o analises.",
 			"7. Se parte de um documento foi omitida por limite de tamanho (marca <omitido>),",
@@ -117,6 +131,7 @@ var ZIALib = (function () {
 		{ id: "avaliar" },
 		{ id: "escrever" },
 		{ id: "investigar" },
+		{ id: "comparar" },
 		{ id: "meus" },
 	];
 
@@ -229,7 +244,7 @@ var ZIALib = (function () {
 				+ "ETIQUETAS: etiqueta 1 | etiqueta 2 | etiqueta 3",
 		},
 		comparar: {
-			group: "investigar",
+			group: "comparar",
 			minDocs: 2,
 			fichasOK: true,
 			prompt: "Compara os documentos entre si.\n"
@@ -240,6 +255,47 @@ var ZIALib = (function () {
 				+ "3. ## Divergências: resultados ou interpretações em conflito e possíveis explicações "
 				+ "(método, contexto, amostra), marcadas como [Inferência].\n"
 				+ "4. ## Leitura de conjunto: 3 a 5 frases.",
+		},
+		cmp_metodos: {
+			group: "comparar",
+			minDocs: 2,
+			fichasOK: true,
+			prompt: "Compara os métodos dos documentos.\n"
+				+ "1. Tabela Markdown com uma linha por documento e as colunas: Documento, Tipo de estudo e desenho, "
+				+ "Amostra e contexto, Dados e instrumentos, Análise, Limitações indicadas pelos autores.\n"
+				+ "2. ## Diferenças de método que importam: só as diferenças que os documentos tornam evidentes "
+				+ "e que afetam a comparação dos resultados, cada uma com citações.\n"
+				+ "Se um documento não descreve um campo, escreve que não consta.",
+		},
+		cmp_resultados: {
+			group: "comparar",
+			minDocs: 2,
+			fichasOK: true,
+			prompt: "Compara os resultados dos documentos.\n"
+				+ "1. Tabela Markdown com uma linha por tema, variável ou relação estudada em pelo menos dois "
+				+ "documentos e uma coluna por documento, com o resultado de cada um (valores numéricos tal como "
+				+ "aparecem) e a citação. Numa última coluna indica: mesmo sentido, sentido oposto ou não comparável.\n"
+				+ "2. ## Resultados que só um documento estuda: lista curta, com citações.\n"
+				+ "Não compares o que os documentos não mediram.",
+		},
+		cmp_conceitos: {
+			group: "comparar",
+			minDocs: 2,
+			fichasOK: true,
+			prompt: "Compara como os documentos definem e medem os conceitos e as teorias que têm em comum.\n"
+				+ "1. Tabela Markdown: Conceito ou teoria, e uma coluna por documento com a definição, a teoria de "
+				+ "base ou a forma de medir (escala, indicador), com citações.\n"
+				+ "2. ## Diferenças de definição: onde o mesmo termo significa coisas diferentes e isso impede "
+				+ "comparar resultados diretamente.",
+		},
+		cmp_sintese: {
+			group: "comparar",
+			minDocs: 2,
+			fichasOK: true,
+			prompt: "Escreve uma síntese de literatura dos documentos, organizada por temas e não documento a documento, "
+				+ "em parágrafos corridos prontos a adaptar numa revisão de literatura. Cada frase com as citações "
+				+ "dos documentos em que se apoia. Mostra onde os documentos concordam e onde discordam.\n"
+				+ "No fim: ## O que estes documentos não permitem concluir.",
 		},
 		lacunas: {
 			group: "investigar",

@@ -14,7 +14,9 @@ pref `ui.lang`: auto, pt-PT, en). Todas as respostas citam a pagina do PDF em fo
 Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`):
 Compreender (resumo, pontos, simples, conceitos, esquema), Avaliar (critica,
 metodos, conclusoes), Escrever (ficha, excertos, revisao, etiquetas),
-Investigar (comparar, lacunas, perguntas) e "Os meus" (prompts do utilizador,
+Investigar (lacunas, perguntas), Comparar (visao geral, metodos, resultados,
+conceitos, sintese; abre sozinho quando a conversa passa a ter 2 PDFs) e
+Personalizado (prompts do utilizador,
 pref `custom.prompts`, uma linha "Nome: instrucao").
 
 ## Estrutura do projeto
@@ -60,6 +62,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Pedido em duas partes** (`buildRequestParts`): documentos e pergunta.
   No motor `anthropic` os documentos levam `cache_control` para as perguntas
   seguintes custarem menos.
+- **Fidelidade:** `buildSystemPrompt` comeca pela regra "FIDELIDADE AOS
+  DOCUMENTOS": so a informacao escrita nos documentos, sem conhecimento geral
+  nem suposicoes. [Inferencia] so para ligacoes diretas entre factos citados.
 - **Seguranca do conteudo:** `neutralizeTags` impede um PDF de imitar as
   marcas `<documento>`, `<pedido>` etc. As instrucoes de sistema dizem que o
   texto dos documentos nunca sao instrucoes. O Markdown e renderizado para
@@ -149,7 +154,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (27), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (28), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -180,7 +185,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.4.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.4.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

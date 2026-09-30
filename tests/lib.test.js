@@ -386,3 +386,13 @@ test("modelos Gemini: agrupados e ordenados, com recomendado", () => {
 	assert.equal(recommended, "gemini-3.7-flash-lite", "sem o 3.5 Flash-Lite, o lite estável mais recente");
 	assert.equal(L.sortGeminiModels(["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash-lite"]).recommended, "gemini-3.5-flash-lite", "o 3.5 Flash-Lite é o recomendado");
 });
+
+test("instruções: só a informação dos documentos, sem suposições", () => {
+	for (const lang of ["pt-PT", "en", "auto"]) {
+		const sp = L.buildSystemPrompt(lang);
+		assert.match(sp, /FIDELIDADE AOS DOCUMENTOS/);
+		assert.match(sp, /Não inventes, não suponhas/);
+		assert.match(sp, /Uma inferência nunca acrescenta factos novos/);
+	}
+	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_sintese"]);
+});

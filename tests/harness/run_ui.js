@@ -39,7 +39,7 @@ async function main() {
 	for (const dark of [false, true]) {
 		const page = await open("?mode=window" + (dark ? "&dark=1" : ""), { width: 820, height: 900 });
 		await page.evaluate(a => { window.MOCK.answer = a; }, comparar);
-		await tab(page, "investigar");
+		await tab(page, "comparar");
 		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false, "comparar ativo: abre o seletor de PDFs");
 		await page.click("button:has-text(\"Selecionados\")");
 		await page.waitForSelector(".zia-chip >> nth=1");
@@ -58,7 +58,7 @@ async function main() {
 		const opened = await page.evaluate(() => window.opened);
 		assert.match(opened[0], /SILVAPDF#\d/);
 		assert.equal(await page.locator(".zia-table").count(), 1);
-		assert.equal(await page.locator(".zia-action-tag").first().textContent(), "Comparar PDFs");
+		assert.equal(await page.locator(".zia-action-tag").first().textContent(), "Visão geral");
 		await page.screenshot({ path: path.join(OUT, dark ? "ui_janela_comparar_escuro.png" : "ui_janela_comparar.png"), fullPage: false });
 		// copiar converte citações
 		await page.click("text=Copiar");
@@ -88,7 +88,7 @@ async function main() {
 		assert.equal(await page.locator(".zia-suggestion").count(), 4, "sugestões de perguntas");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
 		// comparar com um só PDF: abre o seletor, escolhe-se o segundo e fica pronto a pedir
-		await tab(page, "investigar");
+		await tab(page, "comparar");
 		await page.click('button[data-action="comparar"]');
 		await page.waitForSelector(".zia-picker-row");
 		assert.match(await page.textContent(".zia-picker-title"), /precisa de mais 1 PDF/);
@@ -102,6 +102,8 @@ async function main() {
 		await page.screenshot({ path: path.join(OUT, "ui_painel_seletor.png") });
 		await page.click(".zia-picker button:has-text(\"Juntar (1)\")");
 		await page.waitForSelector(".zia-chip >> nth=1");
+		assert.equal(await page.getAttribute('.zia-tab[data-group="comparar"]', "aria-selected"), "true", "com 2 PDFs fica no separador Comparar");
+		assert.equal(await page.locator('.zia-actions button[data-action^="cmp_"]').count(), 4, "ações de comparação");
 		assert.equal(await page.isHidden(".zia-picker"), true);
 		assert.match(await page.textContent(".zia-status"), /Pronto: carrega em Pedir/);
 		assert.equal(await page.getAttribute('button[data-action="comparar"]', "aria-pressed"), "true", "comparar continua escolhido");
@@ -366,7 +368,7 @@ async function main() {
 		});
 		await page.click("button:has-text(\"+ Coleção\")");
 		await page.waitForSelector(".zia-chip >> nth=1");
-		await tab(page, "investigar");
+		await tab(page, "comparar");
 		await page.check(".zia-fichas-toggle input");
 		await act(page, "comparar");
 		await page.waitForFunction(() => window.calls.length === 3 && !document.querySelector(".zia-stop"), null, { timeout: 30000 });

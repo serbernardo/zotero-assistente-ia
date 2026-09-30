@@ -478,6 +478,7 @@ var ZIAChatView = class {
 	async _addItems(items, { quiet }) {
 		const skipped = [];
 		let added = 0;
+		const before = this.state.docs.length;
 		for (const item of items) {
 			let d = null;
 			try {
@@ -498,6 +499,12 @@ var ZIAChatView = class {
 			added++;
 		}
 		this._renderDocs();
+		// Passou a haver vários PDFs: abre logo o separador Comparar (sem mudar uma ação já escolhida)
+		if (!quiet && before < 2 && this.state.docs.length >= 2 && this.group !== "comparar"
+			&& !(this.selectedAction && (this._action(this.selectedAction) || {}).group !== "comparar")) {
+			this.group = "comparar";
+			this._renderTabs();
+		}
 		this._updateButtons();
 		if (this.state.docs.length >= 6 && !this.useFichas.checked) {
 			this.useFichas.checked = true;

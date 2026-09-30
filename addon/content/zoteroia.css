@@ -1323,3 +1323,44 @@ collapsible-section[data-pane$="zoteroia-section"] {
 .zia-picker-row:hover { background: var(--zia-accent-soft); }
 .zia-picker-row[hidden] { display: none; }
 .zia-picker-row input { margin-top: 2px; flex: none; }
+
+/* ---------- Azul mais sóbrio e separadores a preto ---------- */
+
+.zia-root.zia-mode-section,
+.zia-hero {
+	--zia-accent: #1c4f96;
+	--zia-accent-soft: rgba(28, 79, 150, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+	.zia-root.zia-mode-section,
+	.zia-hero {
+		--zia-accent: #a3c0f0;
+		--zia-accent-soft: rgba(163, 192, 240, 0.18);
+	}
+}
+
+collapsible-section[data-pane$="zoteroia-section"] {
+	border-left-color: #1c4f96;
+}
+
+collapsible-section[data-pane$="zoteroia-section"] > .head .title { color: #1c4f96; }
+
+@media (prefers-color-scheme: dark) {
+	collapsible-section[data-pane$="zoteroia-section"] { border-left-color: #a3c0f0; }
+	collapsible-section[data-pane$="zoteroia-section"] > .head .title { color: #a3c0f0; }
+}
+
+.zia-mode-section .zia-tab {
+	color: #000;
+	font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+	.zia-mode-section .zia-tab { color: #fff; }
+}
+
+.zia-mode-section .zia-tab[aria-selected="true"] {
+	color: var(--zia-accent);
+	border-bottom-width: 3px;
+}
