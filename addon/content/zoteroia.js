@@ -365,7 +365,13 @@ var ZoteroIA = {
 			if (!ok) continue;
 			const creators = it.getCreators ? it.getCreators() : [];
 			const label = `${this.lib.shortAuthor(creators)} ${this.lib.yearFrom(it.getField("date"))} · ${it.getField("title") || this.t("ref.noTitle")}`;
-			out.push({ item: it, label });
+			const first = creators[0] || {};
+			out.push({
+				item: it, label,
+				added: it.dateAdded || "",
+				author: (first.lastName || first.name || "").toLowerCase(),
+				date: String(it.getField("date") || ""),
+			});
 		}
 		return out;
 	},

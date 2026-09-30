@@ -1364,3 +1364,6 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title { color: #1c4f
 	color: var(--zia-accent);
 	border-bottom-width: 3px;
 }
+
+.zia-picker-sort { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.zia-picker-sortsel { min-width: 0; flex: 1; }

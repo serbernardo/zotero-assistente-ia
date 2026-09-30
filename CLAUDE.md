@@ -125,6 +125,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   ids estaveis `custom:<nome>`). Botao "+ PDF" abre um seletor com os artigos
   da lista central do Zotero (`pickableItems`, `getSortedItems`), com pesquisa.
   Uma acao que precisa de mais PDFs (Comparar) abre o seletor.
+- **Enviar so com o botao:** Enter na caixa de texto muda de linha, nunca envia. O seletor "+ PDF" ordena por data de adicao (omissao), autor ou data de publicacao.
 - **Acoes em dois passos:** clicar numa acao so a escolhe (`selectAction`); o
   pedido segue com "Pedir" ou Enter, com indicacoes opcionais. Respostas
   anteriores ficam recolhidas (`collapsed`), acoes ja pedidas levam um visto e
@@ -185,7 +186,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.4.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.4.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

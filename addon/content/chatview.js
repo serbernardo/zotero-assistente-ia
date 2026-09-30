@@ -119,11 +119,7 @@ var ZIAChatView = class {
 		this.textarea.setAttribute("rows", "2");
 		this.textarea.setAttribute("placeholder", this.T("chat.placeholder"));
 		this.textarea.addEventListener("keydown", ev => {
-			if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
-				ev.preventDefault();
-				this.sendQuestion();
-			}
-			else if (ev.key === "Escape" && this.busy) {
+			if (ev.key === "Escape" && this.busy) {
 				ev.preventDefault();
 				this.stop();
 			}
@@ -529,7 +525,15 @@ var ZIAChatView = class {
 		this._updateButtons();
 	}
 
+	/** Texto da caixa: singular com um PDF, plural com vários. */
+	_updatePlaceholder() {
+		const a = this.selectedAction && this._action(this.selectedAction);
+		const key = a ? "chat.placeholder.action" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
+		this.textarea.setAttribute("placeholder", this.T(key));
+	}
+
 	_renderDocs() {
+		this._updatePlaceholder();
 		const box = this.docsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
 		if (!this.state.docs.length) {
@@ -580,6 +584,17 @@ var ZIAChatView = class {
 			box.appendChild(this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()));
 			return;
 		}
+		const sortRow = this._el("div", "zia-picker-sort");
+		sortRow.appendChild(this._el("span", "zia-muted", this.T("chat.picker.sort")));
+		const sortSel = this._el("select", "zia-picker-sortsel");
+		sortSel.setAttribute("aria-label", this.T("chat.picker.sort"));
+		for (const k of ["added", "author", "date"]) {
+			const o = this._el("option", null, this.T("chat.picker.sort." + k));
+			o.setAttribute("value", k);
+			sortSel.appendChild(o);
+		}
+		sortRow.appendChild(sortSel);
+		box.appendChild(sortRow);
 		const search = this._el("input", "zia-picker-search");
 		search.setAttribute("type", "search");
 		search.setAttribute("placeholder", this.T("chat.picker.search"));
@@ -599,6 +614,12 @@ var ZIAChatView = class {
 		});
 		addBtn.disabled = true;
 		const rows = [];
+		const cmp = {
+			added: (a, b) => (b.added || "").localeCompare(a.added || ""),
+			author: (a, b) => (a.author || "").localeCompare(b.author || "", undefined, { sensitivity: "base" }) || (b.date || "").localeCompare(a.date || ""),
+			date: (a, b) => (b.date || "").localeCompare(a.date || ""),
+		};
+		list.sort(cmp.added);
 		for (const x of list) {
 			const row = this._el("label", "zia-picker-row");
 			const cb = this._el("input");
@@ -610,9 +631,13 @@ var ZIAChatView = class {
 				addBtn.disabled = !chosen.size;
 			});
 			row.append(cb, this._el("span", null, x.label));
-			rows.push({ row, text: x.label.toLowerCase() });
+			rows.push({ row, text: x.label.toLowerCase(), x });
 			ul.appendChild(row);
 		}
+		sortSel.addEventListener("change", () => {
+			rows.sort((r1, r2) => cmp[sortSel.value](r1.x, r2.x));
+			for (const r of rows) ul.appendChild(r.row);
+		});
 		search.addEventListener("input", () => {
 			const q = search.value.trim().toLowerCase();
 			for (const r of rows) r.row.hidden = !!q && !r.text.includes(q);
@@ -736,7 +761,7 @@ var ZIAChatView = class {
 		while (box.firstChild) box.removeChild(box.firstChild);
 		const a = this.selectedAction && this._action(this.selectedAction);
 		box.hidden = !a;
-		this.textarea.setAttribute("placeholder", this.T(a ? "chat.placeholder.action" : "chat.placeholder"));
+		this._updatePlaceholder();
 		if (!a) return;
 		box.appendChild(this._el("span", "zia-pending-label", this.T("chat.pending")));
 		const chip = this._el("span", "zia-pending-chip", a.label);

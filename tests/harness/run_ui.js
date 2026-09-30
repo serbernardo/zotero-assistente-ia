@@ -70,7 +70,7 @@ async function main() {
 		// pergunta de seguimento usa o histórico
 		await page.evaluate(() => { window.MOCK.answer = "Resposta de seguimento [D2:p4]."; });
 		await page.fill(".zia-textarea", "E quanto à confiança dos utilizadores?");
-		await page.keyboard.press("Enter");
+		await page.click(".zia-send");
 		await page.waitForSelector("text=Resposta de seguimento");
 		assert.match(await page.evaluate(() => window.lastPrompt), /<historico>/);
 		console.log(`OK janela ${dark ? "(escuro)" : ""}: comparação com ${cites} citações, abrir página, copiar, nota, seguimento`);
@@ -258,6 +258,8 @@ async function main() {
 		await page.click('button[data-action="resumo"]');
 		await page.fill(".zia-textarea", "foca a metodologia");
 		await page.keyboard.press("Enter");
+		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "Enter não envia");
+		await page.click(".zia-send");
 		await page.waitForSelector("text=Guardar como nota");
 		assert.match(await page.evaluate(() => window.lastPrompt), /Indicações adicionais do utilizador: foca a metodologia/);
 		assert.equal(await page.locator('button[data-action="resumo"].zia-done').count(), 1, "ação já pedida fica marcada");
