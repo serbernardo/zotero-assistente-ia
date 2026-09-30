@@ -40,7 +40,7 @@ async function main() {
 		const page = await open("?mode=window" + (dark ? "&dark=1" : ""), { width: 820, height: 900 });
 		await page.evaluate(a => { window.MOCK.answer = a; }, comparar);
 		await tab(page, "investigar");
-		assert.equal(await page.isDisabled('button[data-action="comparar"]'), true, "comparar desativado sem PDFs");
+		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false, "comparar ativo: abre o seletor de PDFs");
 		await page.click("button:has-text(\"Selecionados\")");
 		await page.waitForSelector(".zia-chip >> nth=1");
 		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false);
@@ -87,8 +87,26 @@ async function main() {
 		assert.equal(await page.locator('.zia-tab[data-group="meus"]').count(), 1, "separador Os meus sempre visível");
 		assert.equal(await page.locator(".zia-suggestion").count(), 4, "sugestões de perguntas");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
+		// comparar com um só PDF: abre o seletor, escolhe-se o segundo e fica pronto a pedir
 		await tab(page, "investigar");
-		assert.equal(await page.isDisabled('button[data-action="comparar"]'), true);
+		await page.click('button[data-action="comparar"]');
+		await page.waitForSelector(".zia-picker-row");
+		assert.match(await page.textContent(".zia-picker-title"), /precisa de mais 1 PDF/);
+		assert.equal(await page.locator(".zia-picker-row").count(), 1, "só aparecem os artigos que ainda não estão na conversa");
+		await page.fill(".zia-picker-search", "garcía");
+		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 1);
+		await page.fill(".zia-picker-search", "xyz");
+		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 0, "pesquisa filtra a lista");
+		await page.fill(".zia-picker-search", "");
+		await page.check(".zia-picker-row input");
+		await page.screenshot({ path: path.join(OUT, "ui_painel_seletor.png") });
+		await page.click(".zia-picker button:has-text(\"Juntar (1)\")");
+		await page.waitForSelector(".zia-chip >> nth=1");
+		assert.equal(await page.isHidden(".zia-picker"), true);
+		assert.match(await page.textContent(".zia-status"), /Pronto: carrega em Pedir/);
+		assert.equal(await page.getAttribute('button[data-action="comparar"]', "aria-pressed"), "true", "comparar continua escolhido");
+		await page.click('button[data-action="comparar"]');
+		await page.click(".zia-chip:has-text(\"García\") .zia-chip-x");
 		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.error = { kind: "limit", message: "Atingiste o limite de utilização da subscrição do Claude. Podes repetir o pedido com o Gemini ou esperar que o limite reinicie." }; });
 		await act(page, "pontos");

@@ -64,6 +64,8 @@
 		DataDirectory: { dir: "/dados" },
 		debug: () => {}, logError: e => console.error(e), locale: "pt-PT",
 		Items: { get: id => items.get(id) },
+		// Lista central do Zotero simulada (o que o utilizador tem aberto)
+		getActiveZoteroPane: () => ({ getSortedItems: () => [A, B] }),
 		launchURL: u => window.opened.push(u),
 		getMainWindow: () => null,
 		Utilities: { Internal: { openPreferences: () => window.opened.push("prefs") } },

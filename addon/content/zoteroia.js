@@ -340,6 +340,36 @@ var ZoteroIA = {
 		if (await IOUtils.exists(dir)) await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
 	},
 
+	/**
+	 * Artigos com PDF que o utilizador está a ver na lista central do Zotero (coleção, pesquisa
+	 * ou biblioteca), para os juntar à conversa. Devolve { item, label } pela ordem da lista.
+	 */
+	async pickableItems(limit = 400) {
+		const zp = Zotero.getActiveZoteroPane && Zotero.getActiveZoteroPane();
+		let items = [];
+		try { items = (zp && zp.getSortedItems && zp.getSortedItems()) || []; }
+		catch (e) { this.log("getSortedItems: " + e); }
+		const out = [];
+		for (const it of items) {
+			if (out.length >= limit) break;
+			let ok = false;
+			if (it.isRegularItem && it.isRegularItem()) {
+				ok = (it.getAttachments ? it.getAttachments() : []).some(id => {
+					const a = Zotero.Items.get(id);
+					return a && a.isPDFAttachment && a.isPDFAttachment();
+				});
+			}
+			else if (it.isAttachment && it.isAttachment() && it.isPDFAttachment() && !it.parentItemID) {
+				ok = true;
+			}
+			if (!ok) continue;
+			const creators = it.getCreators ? it.getCreators() : [];
+			const label = `${this.lib.shortAuthor(creators)} ${this.lib.yearFrom(it.getField("date"))} · ${it.getField("title") || this.t("ref.noTitle")}`;
+			out.push({ item: it, label });
+		}
+		return out;
+	},
+
 	// ------------------------------------------------------------------
 	// Motor 1: Claude (subscrição Pro através do Claude Code instalado)
 	// ------------------------------------------------------------------

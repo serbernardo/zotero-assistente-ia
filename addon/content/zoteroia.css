@@ -1259,3 +1259,67 @@ collapsible-section[data-pane$="zoteroia-section"] {
 	font-weight: 600;
 	margin-top: 6px;
 }
+
+/* ---------- Seletor de PDFs para juntar à conversa ---------- */
+
+.zia-chip-add {
+	display: inline-flex;
+	align-items: center;
+	border-radius: 10px;
+	font-size: 12px;
+	border: 1px dashed var(--zia-accent);
+	background: none;
+	color: var(--zia-accent);
+	font-weight: 600;
+	cursor: pointer;
+	padding: 1px 8px;
+}
+
+.zia-picker {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+	border: 1px solid var(--zia-accent);
+	border-radius: 6px;
+	background: var(--zia-bg);
+}
+
+.zia-picker[hidden] { display: none; }
+
+.zia-picker-title { font-size: 12px; font-weight: 600; }
+
+.zia-picker-search {
+	font: inherit;
+	font-size: 12.5px;
+	padding: 4px 6px;
+	border: 1px solid var(--zia-border);
+	border-radius: 5px;
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	min-width: 0;
+}
+
+.zia-picker-list {
+	max-height: 220px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--zia-border);
+	border-radius: 5px;
+}
+
+.zia-picker-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 4px 6px;
+	font-size: 12px;
+	cursor: pointer;
+	border-bottom: 1px solid var(--zia-border);
+}
+
+.zia-picker-row:last-child { border-bottom: none; }
+.zia-picker-row:hover { background: var(--zia-accent-soft); }
+.zia-picker-row[hidden] { display: none; }
+.zia-picker-row input { margin-top: 2px; flex: none; }

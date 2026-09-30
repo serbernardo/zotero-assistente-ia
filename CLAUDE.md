@@ -100,13 +100,26 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Ordem dos motores:** `ENGINE_ORDER` = gemini, claude, codex, anthropic,
   openai. A lista do painel mostra sempre `MAIN_ENGINES` (gemini, claude, codex)
   e as chaves de API so quando configuradas ou escolhidas. Nas definicoes, os
-  separadores seguem a mesma ordem e "Usar este motor" e um botao a parte.
+  separadores seguem a mesma ordem (Gemini, Claude Pro/Max, ChatGPT conta,
+  Outros), "Outros" junta o Claude API e o ChatGPT API, e "Usar este motor" e
+  um botao a parte. Gemini por omissao: `GEMINI_DEFAULT` = gemini-3.5-flash-lite
+  (migracao unica com a pref `gemini.defaultApplied`).
 - **Gemini sem quota (429):** a quota gratuita conta por modelo. `parseGeminiQuota`
   le o modelo, o limite e se e por dia ou por minuto. Por minuto com espera curta:
   espera e repete. Por dia: passa logo aos alternativos e guarda em
   `_geminiSwap` o modelo que respondeu, para o resto do dia. Modelo inexistente
   (404) tambem passa aos alternativos. Os detalhes da Google ficam em `e.detail`
   e aparecem num bloco "Detalhes tecnicos".
+- **Notas:** `saveNote` define sempre `libraryID` antes de `parentID` (o Zotero
+  le a biblioteca ao consultar o item-pai; sem isso da "Library ID not
+  provided"). O `mockzotero.js` imita esta regra. Todas as respostas, mesmo
+  recolhidas, tem "Guardar como nota".
+- **Painel:** caixa de texto por cima das respostas e a resposta mais recente
+  logo abaixo dela. Separador "Personalizado" (grupo `meus`) com formulario
+  para criar, editar e apagar acoes (`setCustomPrompt`/`removeCustomPrompt`,
+  ids estaveis `custom:<nome>`). Botao "+ PDF" abre um seletor com os artigos
+  da lista central do Zotero (`pickableItems`, `getSortedItems`), com pesquisa.
+  Uma acao que precisa de mais PDFs (Comparar) abre o seletor.
 - **Acoes em dois passos:** clicar numa acao so a escolhe (`selectAction`); o
   pedido segue com "Pedir" ou Enter, com indicacoes opcionais. Respostas
   anteriores ficam recolhidas (`collapsed`), acoes ja pedidas levam um visto e
@@ -167,7 +180,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.4.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.4.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

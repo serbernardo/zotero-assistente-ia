@@ -89,6 +89,11 @@ var ZIAChatView = class {
 		bar.appendChild(tools);
 		root.appendChild(bar);
 
+		// Seletor de PDFs para juntar à conversa (por exemplo, para comparar)
+		this.pickerEl = this._el("div", "zia-picker");
+		this.pickerEl.hidden = true;
+		root.appendChild(this.pickerEl);
+
 		// Separadores de ações
 		this.tabsEl = this._el("div", "zia-tabs");
 		this.tabsEl.setAttribute("role", "tablist");
@@ -539,6 +544,83 @@ var ZIAChatView = class {
 			}
 			box.appendChild(chip);
 		}
+		if (this.core.pickableItems) {
+			const add = this._button(this.T("chat.addPdf"), "zia-chip-add", () => this._openPicker(), this.T("chat.addPdf.tip"));
+			box.appendChild(add);
+		}
+	}
+
+	/** Mostra os artigos da lista do Zotero, para escolher os que se juntam à conversa. */
+	async _openPicker(reason) {
+		if (this.busy) return;
+		const box = this.pickerEl;
+		if (!box.hidden && !reason) {
+			this._closePicker();
+			return;
+		}
+		while (box.firstChild) box.removeChild(box.firstChild);
+		box.hidden = false;
+		box.appendChild(this._el("div", "zia-picker-title", reason || this.T("chat.picker.title")));
+		box.appendChild(this._el("div", "zia-muted", this.T("chat.picker.loading")));
+		let list = [];
+		try { list = await this.core.pickableItems(); }
+		catch (e) { this.core.log("pickableItems: " + e); }
+		const inConv = new Set(this.state.docs.map(d => d.parentID || d.itemID));
+		list = list.filter(x => !inConv.has(x.item.id));
+		while (box.children.length > 1) box.removeChild(box.lastChild);
+		if (!list.length) {
+			box.appendChild(this._el("div", "zia-muted", this.T("chat.picker.empty")));
+			box.appendChild(this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()));
+			return;
+		}
+		const search = this._el("input", "zia-picker-search");
+		search.setAttribute("type", "search");
+		search.setAttribute("placeholder", this.T("chat.picker.search"));
+		search.setAttribute("aria-label", this.T("chat.picker.search"));
+		box.appendChild(search);
+		const ul = this._el("div", "zia-picker-list");
+		ul.setAttribute("role", "listbox");
+		ul.setAttribute("aria-multiselectable", "true");
+		const chosen = new Set();
+		const addBtn = this._button(this.T("chat.picker.add", { n: 0 }), "zia-btn-small zia-btn-primary", async () => {
+			const items = list.filter(x => chosen.has(x.item.id)).map(x => x.item);
+			this._closePicker();
+			if (!items.length) return;
+			await this._addItems(items, {});
+			const a = this.selectedAction && this._action(this.selectedAction);
+			if (a && this.state.docs.length >= a.minDocs) this._setStatus(this.T("chat.picker.ready", { label: a.label }));
+		});
+		addBtn.disabled = true;
+		const rows = [];
+		for (const x of list) {
+			const row = this._el("label", "zia-picker-row");
+			const cb = this._el("input");
+			cb.setAttribute("type", "checkbox");
+			cb.addEventListener("change", () => {
+				if (cb.checked) chosen.add(x.item.id);
+				else chosen.delete(x.item.id);
+				addBtn.textContent = this.T("chat.picker.add", { n: chosen.size });
+				addBtn.disabled = !chosen.size;
+			});
+			row.append(cb, this._el("span", null, x.label));
+			rows.push({ row, text: x.label.toLowerCase() });
+			ul.appendChild(row);
+		}
+		search.addEventListener("input", () => {
+			const q = search.value.trim().toLowerCase();
+			for (const r of rows) r.row.hidden = !!q && !r.text.includes(q);
+		});
+		box.appendChild(ul);
+		const btns = this._el("div", "zia-custom-btns");
+		btns.append(addBtn, this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()));
+		box.appendChild(btns);
+		search.focus();
+	}
+
+	_closePicker() {
+		const box = this.pickerEl;
+		box.hidden = true;
+		while (box.firstChild) box.removeChild(box.firstChild);
 	}
 
 	_updateButtons() {
@@ -546,7 +628,7 @@ var ZIAChatView = class {
 		for (const [id, b] of Object.entries(this.actionButtons || {})) {
 			const a = this._action(id);
 			if (!a) continue;
-			b.disabled = this.busy || n < a.minDocs;
+			b.disabled = this.busy || (n < a.minDocs && !this.core.pickableItems);
 			b.classList.toggle("zia-selected", this.selectedAction === id);
 			b.setAttribute("aria-pressed", this.selectedAction === id ? "true" : "false");
 			b.classList.toggle("zia-done", !!this._lastAnswerFor(id));
@@ -609,6 +691,13 @@ var ZIAChatView = class {
 		if (this.busy) return;
 		this.selectedAction = this.selectedAction === actionID ? null : actionID;
 		const a = this.selectedAction && this._action(this.selectedAction);
+		if (a && this.state.docs.length < a.minDocs) {
+			// Faltam PDFs (por exemplo, para comparar): abre logo o seletor
+			this._renderPending();
+			this._updateButtons();
+			this._openPicker(this.T("chat.picker.need", { label: a.label, n: a.minDocs - this.state.docs.length }));
+			return;
+		}
 		if (a) {
 			const prev = this._lastAnswerFor(a.id);
 			if (prev) {
@@ -703,6 +792,7 @@ var ZIAChatView = class {
 		const docs = this.state.docs.slice();
 		if (docs.length < a.minDocs) {
 			this._setStatus(this.T("chat.actionNeeds", { label: a.label, n: a.minDocs }), "warn");
+			if (this.core.pickableItems) this._openPicker(this.T("chat.picker.need", { label: base.label, n: a.minDocs - docs.length }));
 			return;
 		}
 		if (!this._engineReady()) {
