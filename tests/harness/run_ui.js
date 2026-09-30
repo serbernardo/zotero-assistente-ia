@@ -273,6 +273,53 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Personalizado, ordem das respostas e nota a partir de uma resposta recolhida ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 900 });
+		await page.evaluate(() => { window.MOCK.answer = "Resposta A [D1:p1]."; });
+		// caixa de texto antes das respostas
+		const order = await page.evaluate(() => {
+			const r = document.querySelector(".zia-root");
+			const kids = [...r.children];
+			return kids.indexOf(r.querySelector(".zia-input")) < kids.indexOf(r.querySelector(".zia-messages"));
+		});
+		assert.ok(order, "a caixa de texto fica antes das respostas");
+		await tab(page, "meus");
+		assert.equal(await page.textContent('.zia-tab[data-group="meus"]'), "Personalizado");
+		await page.click(".zia-action-new");
+		await page.fill(".zia-custom-name", "Teoria");
+		await page.fill(".zia-custom-prompt", "Identifica o enquadramento teórico.");
+		await page.click(".zia-custom-btns button:has-text(\"Guardar\")");
+		assert.equal(await page.evaluate(() => ZoteroIA.pref("custom.prompts")), "Teoria: Identifica o enquadramento teórico.");
+		await act(page, "custom:teoria");
+		await page.waitForSelector("text=Guardar como nota");
+		assert.match(await page.evaluate(() => window.lastPrompt), /Identifica o enquadramento teórico\./);
+		// editar e apagar
+		await page.click("button:has-text(\"✎ Editar\")");
+		await page.click('button[data-action="custom:teoria"]');
+		await page.fill(".zia-custom-prompt", "Identifica a teoria e os autores.");
+		await page.click(".zia-custom-btns button:has-text(\"Guardar\")");
+		assert.equal(await page.evaluate(() => ZoteroIA.pref("custom.prompts")), "Teoria: Identifica a teoria e os autores.");
+		page.once("dialog", d => d.accept());
+		await page.click("button:has-text(\"✎ Editar\")");
+		await page.click('button[data-action="custom:teoria"]');
+		await page.click(".zia-custom-btns button:has-text(\"Apagar\")");
+		assert.equal(await page.evaluate(() => ZoteroIA.pref("custom.prompts")), "");
+		// a resposta mais recente fica em cima e a anterior pode ser guardada como nota já recolhida
+		await tab(page, "compreender");
+		await page.evaluate(() => { window.MOCK.answer = "Resposta B [D1:p2]."; });
+		await act(page, "resumo");
+		await page.waitForFunction(() => document.querySelectorAll(".zia-msg-assistant").length === 2 && !document.querySelector(".zia-send.zia-stop"));
+		assert.match(await page.textContent(".zia-msg-assistant >> nth=0"), /Resposta B/, "a mais recente em cima");
+		await page.evaluate(() => { window.saved = []; const o = ZoteroIA.saveNote; ZoteroIA.saveNote = async a => { window.saved.push(a.heading); return o(a); }; });
+		await page.click(".zia-msg-assistant.zia-collapsed .zia-head-save");
+		assert.equal(await page.evaluate(() => window.saved.length), 1, "resposta recolhida guardada como nota");
+		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1, "guardar não abre nem fecha a resposta");
+		await page.screenshot({ path: path.join(OUT, "ui_painel_personalizado.png") });
+		console.log("OK personalizado: criar, usar, editar e apagar ações no painel; caixa de texto antes das respostas; guardar nota numa resposta recolhida");
+		await page.close();
+	}
+
 	// ---------- Cancelamento ----------
 	{
 		const page = await open("?mode=section", { width: 420, height: 700 });

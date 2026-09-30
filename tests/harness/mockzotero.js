@@ -105,7 +105,13 @@ function createEnv({ prefs = {}, log = null, noOSKeyStore = false } = {}) {
 	const opened = [];
 
 	class NoteItem {
-		constructor(type) { this.itemType = type; this.id = nextID++; this.relations = []; this.collections = []; }
+		constructor(type) { this.itemType = type; this.id = nextID++; this.relations = []; this.collections = []; this.libraryID = null; this._parentID = null; }
+		// Como no Zotero real: ler o item-pai exige a biblioteca definida (senão "Library ID not provided")
+		get parentID() {
+			if (this._parentID && !this.libraryID) throw new Error("Library ID not provided");
+			return this._parentID || false;
+		}
+		set parentID(v) { this._parentID = v; }
 		setNote(h) { this.html = h; }
 		getNote() { return this.html; }
 		getNoteTitle() { const m = /<h1>(.*?)<\/h1>/.exec(this.html || ""); return m ? m[1].replace(/&amp;/g, "&") : ""; }

@@ -103,15 +103,6 @@ var ZIAChatView = class {
 		fichasLabel.title = this.T("chat.fichas.tip");
 		this.fichasLabel = fichasLabel;
 
-		// Mensagens
-		this.messagesEl = this._el("div", "zia-messages");
-		this.messagesEl.setAttribute("aria-live", "polite");
-		root.appendChild(this.messagesEl);
-
-		// Estado
-		this.statusEl = this._el("div", "zia-status");
-		root.appendChild(this.statusEl);
-
 		// Pedido escolhido (ação à espera de ser enviada)
 		this.pendingEl = this._el("div", "zia-pending");
 		this.pendingEl.hidden = true;
@@ -137,6 +128,15 @@ var ZIAChatView = class {
 		this.sendBtn = this._button(this.T("chat.send"), "zia-send", () => (this.busy ? this.stop() : this.sendQuestion()));
 		input.appendChild(this.sendBtn);
 		root.appendChild(input);
+
+		// Estado
+		this.statusEl = this._el("div", "zia-status");
+		root.appendChild(this.statusEl);
+
+		// Respostas, por baixo da caixa de texto: a mais recente fica em cima
+		this.messagesEl = this._el("div", "zia-messages");
+		this.messagesEl.setAttribute("aria-live", "polite");
+		root.appendChild(this.messagesEl);
 
 		const tail = this._el("div", "zia-footer");
 		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.clearConversation());
@@ -304,21 +304,98 @@ var ZIAChatView = class {
 		while (box.firstChild) box.removeChild(box.firstChild);
 		this.actionButtons = {};
 		const list = this._actionsOfGroup(this.group);
-		if (this.group === "meus" && !list.length) {
-			// Separador sempre visível: explica como criar as próprias ações
-			const hint = this._el("div", "zia-meus-empty");
-			hint.appendChild(this._el("span", null, this.T("chat.meus.empty")));
-			hint.appendChild(this._button(this.T("chat.meus.create"), "zia-btn-small", () => this._openPrefs()));
-			box.appendChild(hint);
+		const custom = this.group === "meus";
+		if (custom && !list.length && !this._customForm) {
+			box.appendChild(this._el("div", "zia-meus-empty", this.T("chat.meus.empty")));
 		}
 		for (const a of list) {
-			const b = this._button(a.label, "zia-action", () => this.selectAction(a.id), a.hint);
+			const b = this._button(a.label, "zia-action" + (custom && this._editCustom ? " zia-editing" : ""),
+				() => (custom && this._editCustom ? this._openCustomForm(a) : this.selectAction(a.id)), a.hint);
 			b.dataset.action = a.id;
-			this.actionButtons[a.id] = b;
+			if (!(custom && this._editCustom)) this.actionButtons[a.id] = b;
 			box.appendChild(b);
 		}
-		if (this.group !== "compreender") box.appendChild(this.fichasLabel);
+		if (custom) {
+			box.appendChild(this._button(this.T("chat.meus.new"), "zia-action zia-action-new", () => this._openCustomForm(null)));
+			if (list.length) {
+				box.appendChild(this._button(this.T(this._editCustom ? "chat.meus.doneEdit" : "chat.meus.edit"), "zia-btn-small zia-btn-quiet", () => {
+					this._editCustom = !this._editCustom;
+					this._customForm = null;
+					this._renderActions();
+					this._setStatus(this._editCustom ? this.T("chat.meus.pickToEdit") : "");
+				}));
+			}
+			if (this._customForm) box.appendChild(this._customFormEl());
+		}
+		if (this.group !== "compreender" && !custom) box.appendChild(this.fichasLabel);
 		this._updateButtons();
+	}
+
+	_openCustomForm(action) {
+		if (this.busy) return;
+		this._customForm = action ? { oldLabel: action.label, label: action.label, prompt: action.prompt } : { oldLabel: null, label: "", prompt: "" };
+		if (this.selectedAction) this.selectAction(this.selectedAction);
+		this._renderActions();
+		const input = this.actionsEl.querySelector(".zia-custom-name");
+		if (input) input.focus();
+	}
+
+	/** Formulário para criar ou editar uma ação própria (guardada na preferência custom.prompts). */
+	_customFormEl() {
+		const f = this._customForm;
+		const form = this._el("div", "zia-custom-form");
+		form.appendChild(this._el("div", "zia-custom-title", this.T(f.oldLabel ? "chat.meus.editTitle" : "chat.meus.newTitle")));
+		const name = this._el("input", "zia-custom-name");
+		name.setAttribute("type", "text");
+		name.setAttribute("maxlength", "40");
+		name.setAttribute("placeholder", this.T("chat.meus.namePh"));
+		name.setAttribute("aria-label", this.T("chat.meus.name"));
+		name.value = f.label;
+		const instr = this._el("textarea", "zia-custom-prompt");
+		instr.setAttribute("rows", "3");
+		instr.setAttribute("placeholder", this.T("chat.meus.promptPh"));
+		instr.setAttribute("aria-label", this.T("chat.meus.prompt"));
+		instr.value = f.prompt;
+		name.addEventListener("input", () => { f.label = name.value; });
+		instr.addEventListener("input", () => { f.prompt = instr.value; });
+		form.append(name, instr);
+		const row = this._el("div", "zia-custom-btns");
+		row.appendChild(this._button(this.T("chat.meus.save"), "zia-btn-small zia-btn-primary", () => {
+			const c = this.L.cleanCustomPrompt(f.label, f.prompt);
+			if (!c.label || !c.prompt) {
+				this._setStatus(this.T("chat.meus.missing"), "warn");
+				return;
+			}
+			const src = this.core.pref("custom.prompts") || "";
+			const others = this._customActions().filter(a => a.label !== f.oldLabel);
+			if (others.some(a => a.label.toLowerCase() === c.label.toLowerCase())) {
+				this._setStatus(this.T("chat.meus.duplicate", { label: c.label }), "warn");
+				return;
+			}
+			this.core.setPref("custom.prompts", this.L.setCustomPrompt(src, f.oldLabel, c.label, c.prompt));
+			this._customForm = null;
+			this._editCustom = false;
+			this._renderActions();
+			this._setStatus(this.T("chat.meus.saved", { label: c.label }));
+		}));
+		row.appendChild(this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => {
+			this._customForm = null;
+			this._renderActions();
+			this._setStatus("");
+		}));
+		if (f.oldLabel) {
+			row.appendChild(this._button(this.T("chat.meus.delete"), "zia-btn-small zia-btn-danger", () => {
+				const ok = this.win.confirm(this.T("chat.meus.deleteConfirm", { label: f.oldLabel }));
+				if (!ok) return;
+				this.core.setPref("custom.prompts", this.L.removeCustomPrompt(this.core.pref("custom.prompts") || "", f.oldLabel));
+				this._customForm = null;
+				this._editCustom = false;
+				this._renderActions();
+				this._setStatus(this.T("chat.meus.deleted", { label: f.oldLabel }));
+			}));
+		}
+		form.appendChild(row);
+		return form;
 	}
 
 	// ------------------------------------------------------------------
@@ -916,7 +993,7 @@ var ZIAChatView = class {
 			this._renderMessages();
 		}
 		else {
-			this.messagesEl.appendChild(this._setupCard());
+			this.messagesEl.insertBefore(this._setupCard(), this.messagesEl.firstChild);
 			this._scrollToEnd(true);
 		}
 		this._setStatus(this.engine ? this.T("chat.setupMissing", { engine: this.core.engineLabel(this.engine) }) : this.T("chat.chooseEngine"), "warn");
@@ -953,7 +1030,7 @@ var ZIAChatView = class {
 			card.appendChild(row);
 			const empty = this.messagesEl.querySelector(".zia-empty");
 			if (empty) empty.remove();
-			this.messagesEl.appendChild(card);
+			this.messagesEl.insertBefore(card, this.messagesEl.firstChild);
 			this._scrollToEnd(true);
 		});
 	}
@@ -1006,9 +1083,18 @@ var ZIAChatView = class {
 		const empty = this.messagesEl.querySelector(".zia-empty, .zia-setup");
 		if (empty) empty.remove();
 		m.el = this._el("div", "zia-msg zia-msg-" + m.role);
-		const privacy = this.messagesEl.querySelector(".zia-privacy");
-		if (privacy) this.messagesEl.insertBefore(m.el, privacy);
-		else this.messagesEl.appendChild(m.el);
+		// A mais recente em cima (logo por baixo da caixa de texto). Cada resposta fica
+		// imediatamente a seguir à sua pergunta.
+		const list = this.state.messages;
+		const prev = list[list.indexOf(m) - 1];
+		if (m.role === "assistant" && prev && prev.role === "user" && prev.el && prev.el.parentNode === this.messagesEl) {
+			prev.el.after(m.el);
+		}
+		else {
+			const first = this.messagesEl.querySelector(".zia-msg");
+			if (first) this.messagesEl.insertBefore(m.el, first);
+			else this.messagesEl.appendChild(m.el);
+		}
 		this._renderMessage(m);
 		this._scrollToEnd(true);
 	}
@@ -1039,19 +1125,13 @@ var ZIAChatView = class {
 		}
 	}
 
-	_nearBottom() {
-		const b = this.messagesEl;
-		return b.scrollHeight - b.scrollTop - b.clientHeight < 80;
-	}
-
+	/** As respostas novas ficam em cima: volta ao topo quando chega uma. */
 	_scrollToEnd(force) {
-		const b = this.messagesEl;
-		if (force || this._nearBottom()) b.scrollTop = b.scrollHeight;
+		if (force) this.messagesEl.scrollTop = 0;
 	}
 
 	_renderMessage(m) {
 		if (!m.el) return;
-		const stick = this._nearBottom();
 		const el = m.el;
 		while (el.firstChild) el.removeChild(el.firstChild);
 		if (m.role === "user") {
@@ -1083,6 +1163,12 @@ var ZIAChatView = class {
 		head.appendChild(this._el("span", "zia-engine-tag", this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "")));
 		el.appendChild(head);
 		if (m.collapsed) {
+			// Também recolhida se pode guardar como nota
+			if (!m.error && m.text) {
+				const save = this._saveNoteButton(m, "zia-head-save");
+				save.addEventListener("keydown", ev => ev.stopPropagation());
+				head.appendChild(save);
+			}
 			const asked = !m.actionLabel && m.asked ? m.asked + ": " : "";
 			const plain = String(m.error || m.text || "").replace(/\[D\d+[^\]]*\]/g, "").replace(/[#*_>`|]/g, "").replace(/\s+/g, " ").trim();
 			el.appendChild(this._el("div", "zia-preview" + (m.error ? " zia-preview-error" : ""),
@@ -1142,7 +1228,6 @@ var ZIAChatView = class {
 			if (m.tags && m.tags.length) el.appendChild(this._tagsRow(m));
 			el.appendChild(this._messageTools(m));
 		}
-		if (stick || m.pending) this._scrollToEnd(false);
 	}
 
 	_tagsRow(m) {
@@ -1169,13 +1254,9 @@ var ZIAChatView = class {
 		return row;
 	}
 
-	_messageTools(m) {
-		const row = this._el("div", "zia-msg-tools");
-		row.appendChild(this._button(this.T("chat.copy"), "zia-btn-small", () => {
-			this.core.copyToClipboard(this.L.citesToText(m.text, this._docsMap()));
-			this._setStatus(this.T("chat.copied"));
-		}, this.T("chat.copy.tip")));
-		const saveBtn = this._button(this.T(m.noteID ? "chat.noteSaved" : "chat.saveNote"), "zia-btn-small", async () => {
+	/** Botão "Guardar como nota" (ou "Nota guardada", que mostra a nota). */
+	_saveNoteButton(m, cls) {
+		const b = this._button(this.T(m.noteID ? "chat.noteSaved" : "chat.saveNote"), cls, async () => {
 			if (m.noteID) {
 				this._showNote(m.noteID);
 				return;
@@ -1183,13 +1264,23 @@ var ZIAChatView = class {
 			try {
 				await this._saveMessageNote(m);
 				this._renderMessage(m);
+				this._persist();
 			}
 			catch (e) {
 				this._setStatus(this.T("chat.noteError", { e: e.message || e }), "error");
 			}
 		});
-		saveBtn.title = this.T(m.noteID ? "chat.noteSaved.tip" : "chat.saveNote.tip");
-		row.appendChild(saveBtn);
+		b.title = this.T(m.noteID ? "chat.noteSaved.tip" : "chat.saveNote.tip");
+		return b;
+	}
+
+	_messageTools(m) {
+		const row = this._el("div", "zia-msg-tools");
+		row.appendChild(this._button(this.T("chat.copy"), "zia-btn-small", () => {
+			this.core.copyToClipboard(this.L.citesToText(m.text, this._docsMap()));
+			this._setStatus(this.T("chat.copied"));
+		}, this.T("chat.copy.tip")));
+		row.appendChild(this._saveNoteButton(m, "zia-btn-small"));
 		if (this.L.extractTables(m.text).length) {
 			row.appendChild(this._button(this.T("chat.exportCsv"), "zia-btn-small", async () => {
 				const csv = this.L.tablesToCSV(m.text, { docsMap: this._docsMap() });

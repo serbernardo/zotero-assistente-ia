@@ -315,7 +315,7 @@ var ZoteroIA = {
 				return;
 			}
 			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
-				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote"];
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID"];
 			const out = messages.filter(m => !m.pending).slice(-this.HISTORY_MAX)
 				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
 			await IOUtils.makeDirectory(dir, { ignoreExisting: true, createAncestors: true });
@@ -1532,11 +1532,14 @@ var ZoteroIA = {
 			+ `<p><em>${L.escapeHTML(this.t("note.footer", { engine: this.engineLabel(engine), date }))}</em></p>`;
 		const note = new Zotero.Item("note");
 		const single = docs.length === 1 ? docs[0] : null;
-		if (single && single.parentID) {
-			note.parentID = single.parentID;
+		const parent = single && single.parentID ? Zotero.Items.get(single.parentID) : null;
+		// A biblioteca tem de ser definida antes de tudo: o Zotero precisa dela para ler o item-pai
+		note.libraryID = parent ? parent.libraryID : docs[0].libraryID;
+		const asChild = !!parent;
+		if (asChild) {
+			note.parentID = parent.id;
 		}
 		else {
-			note.libraryID = docs[0].libraryID;
 			if (collectionIDs && collectionIDs.length) {
 				note.setCollections(collectionIDs.filter(id => {
 					const c = Zotero.Collections.get(id);
@@ -1545,7 +1548,7 @@ var ZoteroIA = {
 			}
 		}
 		note.setNote(html);
-		if (!note.parentID) {
+		if (!asChild) {
 			for (const d of docs) {
 				const it = Zotero.Items.get(d.parentID || d.attachmentID);
 				if (it && it.libraryID === note.libraryID) {

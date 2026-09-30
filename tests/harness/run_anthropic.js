@@ -216,5 +216,22 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 		assert.equal((await core.openClaudeSetup()).opened, false, "Linux: usa a alternativa manual");
 		console.log("OK Claude Code: botão Instalar e iniciar sessão abre o comando oficial numa janela visível, sem aceitar caminhos perigosos");
 	}
+	// Guardar uma resposta como nota filha do artigo (erro "Library ID not provided" na 0.4.0)
+	{
+		const env3 = createEnv({});
+		const p = env3.addPaper({ title: "Artigo", date: "2022", creators: [{ lastName: "Mote" }], pdf: "/x.pdf", key: "MOTE" });
+		const d = await env3.core.describeItem(p.parent);
+		d.id = "D1";
+		const note = await env3.core.saveNote({ markdown: "Resumo [D1:p2].", heading: "Resumo · Mote 2022", docs: [d], docsMap: { D1: d }, engine: "gemini", collectionIDs: [] });
+		assert.equal(note.parentID, p.parent.id, "nota filha do artigo");
+		assert.equal(note.libraryID, 1);
+		assert.match(note.getNote(), /zotero:\/\/open-pdf/);
+		const e2 = await env3.core.describeItem(p.parent);
+		e2.id = "D2";
+		const note2 = await env3.core.saveNote({ markdown: "Comparação [D1:p1] [D2:p1].", heading: "Comparação", docs: [d, e2], docsMap: { D1: d, D2: e2 }, engine: "gemini", collectionIDs: [5] });
+		assert.equal(note2.parentID, false, "com vários artigos: nota independente");
+		assert.equal(note2.libraryID, 1);
+		console.log("OK notas: guardar como nota filha e como nota independente");
+	}
 	console.log("\nTodos os testes do Claude API e do cofre de chaves passaram.");
 })().catch(e => { console.error("FALHOU:", e); process.exit(1); });

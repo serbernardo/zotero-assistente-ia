@@ -293,8 +293,13 @@ var ZIALib = (function () {
 	 * Prompts do utilizador, um por linha no formato "Nome: instrução".
 	 * Linhas vazias e linhas começadas por # são ignoradas.
 	 */
+	function customID(label) {
+		return "custom:" + String(label).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+	}
+
 	function parseCustomPrompts(src) {
 		const out = [];
+		const seen = new Set();
 		String(src || "").split(/\r?\n/).forEach(line => {
 			const l = line.trim();
 			if (!l || l.startsWith("#")) return;
@@ -303,9 +308,43 @@ var ZIALib = (function () {
 			const label = l.slice(0, i).trim().slice(0, 40);
 			const prompt = l.slice(i + 1).trim();
 			if (!label || !prompt) return;
-			out.push({ id: "custom" + out.length, group: "meus", label, title: label, hint: prompt.slice(0, 200), minDocs: 1, fichasOK: true, custom: true, prompt });
+			// Identificador pelo nome: não muda quando se edita ou apaga outra ação
+			let id = customID(label);
+			while (seen.has(id)) id += "-2";
+			seen.add(id);
+			out.push({ id, group: "meus", label, title: label, hint: prompt.slice(0, 200), minDocs: 1, fichasOK: true, custom: true, prompt });
 		});
 		return out.slice(0, 30);
+	}
+
+	/** Limpa o nome e a instrução de uma ação própria (uma linha "Nome: instrução"). */
+	function cleanCustomPrompt(label, prompt) {
+		return {
+			label: String(label || "").replace(/[:\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 40),
+			prompt: String(prompt || "").replace(/\s*\r?\n\s*/g, " ").trim().slice(0, 2000),
+		};
+	}
+
+	/** Cria (oldLabel vazio) ou altera uma ação própria, mantendo as outras linhas e os comentários. */
+	function setCustomPrompt(src, oldLabel, label, prompt) {
+		const c = cleanCustomPrompt(label, prompt);
+		if (!c.label || !c.prompt) return String(src || "");
+		const lines = String(src || "").split(/\r?\n/);
+		const newLine = `${c.label}: ${c.prompt}`;
+		const idx = oldLabel ? lines.findIndex(l => !l.trim().startsWith("#") && l.includes(":") && l.slice(0, l.indexOf(":")).trim() === oldLabel) : -1;
+		if (idx >= 0) lines[idx] = newLine;
+		else {
+			while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+			lines.push(newLine);
+		}
+		return lines.join("\n");
+	}
+
+	function removeCustomPrompt(src, label) {
+		const lines = String(src || "").split(/\r?\n/);
+		const idx = lines.findIndex(l => !l.trim().startsWith("#") && l.includes(":") && l.slice(0, l.indexOf(":")).trim() === label);
+		if (idx >= 0) lines.splice(idx, 1);
+		return lines.join("\n");
 	}
 
 	const TAG_LINE_RE = /^[\s>*_-]*(?:ETIQUETAS|TAGS|MOTS-CLÉS|SCHLAGWÖRTER)[\s*_]*:(?:[\s*_]*)(.+)$/gim;
@@ -1582,7 +1621,7 @@ var ZIALib = (function () {
 	return {
 		SYSTEM_PROMPT, LANGUAGES, languageInfo, buildSystemPrompt,
 		ACTIONS, ACTION_ORDER, ACTION_GROUPS, FICHA_NOTE_PREFIX, FICHA_NOTE_PREFIXES, fichaPrefix, FICHA_TEMPLATE, I18N: I,
-		parseCustomPrompts, parseTagLine, removeTagLine,
+		parseCustomPrompts, setCustomPrompt, removeCustomPrompt, cleanCustomPrompt, parseTagLine, removeTagLine,
 		escapeHTML, escapeXMLAttr, cleanPageText, splitPages, shortAuthor, yearFrom,
 		stripReferences, choosePages, fitDocuments, omittedRanges, neutralizeTags, buildDocumentBlock,
 		buildRequestParts, buildRequest, actionPrompt,

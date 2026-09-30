@@ -1126,3 +1126,97 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 	cursor: pointer;
 	font-size: 12.5px;
 }
+
+/* ---------- Painel lateral: mais contraste ---------- */
+
+.zia-root.zia-mode-section {
+	--zia-fg: #15181d;
+	--zia-fg2: #353b46;
+	--zia-muted: #505866;
+	--zia-border: #b3bac5;
+	--zia-accent: #2f5fd0;
+	--zia-accent-soft: rgba(47, 95, 208, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+	.zia-root.zia-mode-section {
+		--zia-fg: #f2f4f7;
+		--zia-fg2: #d5d9e0;
+		--zia-muted: #b3b9c4;
+		--zia-border: #5d626c;
+		--zia-accent: #8fb0ff;
+		--zia-accent-soft: rgba(143, 176, 255, 0.18);
+	}
+}
+
+collapsible-section[data-pane$="zoteroia-section"] {
+	--zia-panel: #dde0e6;
+	--zia-panel-border: #b3bac5;
+}
+
+.zia-mode-section .zia-tab { color: var(--zia-fg); font-size: 11.5px; padding: 3px 5px 4px; }
+.zia-mode-section .zia-tab[aria-selected="true"] { color: var(--zia-accent); }
+.zia-mode-section .zia-engine-tag { color: var(--zia-muted); }
+.zia-mode-section .zia-preview { color: var(--zia-fg2); }
+.zia-mode-section .zia-status { color: var(--zia-fg2); }
+.zia-mode-section .zia-msg-user { background: rgba(47, 95, 208, 0.16); color: var(--zia-fg); }
+
+/* Botão "Guardar nota" no título de uma resposta recolhida */
+.zia-head-save {
+	margin-inline-start: auto;
+	font-size: 10.5px;
+	padding: 0 6px;
+	border-color: transparent;
+	background: none;
+	color: var(--zia-accent);
+}
+
+.zia-head-save:hover { border-color: var(--zia-accent); }
+
+/* ---------- Personalizado: criar e editar ações no painel ---------- */
+
+.zia-action-new {
+	border-style: dashed;
+	color: var(--zia-accent);
+	font-weight: 600;
+}
+
+.zia-action.zia-editing {
+	border-style: dashed;
+	border-color: var(--zia-accent);
+}
+
+.zia-action.zia-editing::before { content: "✎ "; }
+
+.zia-custom-form {
+	flex-basis: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 4px;
+	padding: 8px;
+	border: 1px solid var(--zia-accent);
+	border-radius: 6px;
+	background: var(--zia-bg);
+}
+
+.zia-custom-title { font-weight: 600; font-size: 12px; }
+
+.zia-custom-form input,
+.zia-custom-form textarea {
+	font: inherit;
+	font-size: 12.5px;
+	padding: 4px 6px;
+	border: 1px solid var(--zia-border);
+	border-radius: 5px;
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	min-width: 0;
+	width: 100%;
+	box-sizing: border-box;
+	resize: vertical;
+}
+
+.zia-custom-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.zia-btn-danger { color: var(--zia-red); border-color: var(--zia-red); }

@@ -262,7 +262,17 @@ test("prompts do utilizador", () => {
 	assert.equal(list[0].label, "Teoria");
 	assert.equal(list[0].prompt, "Identifica a teoria.");
 	assert.equal(list[1].prompt, "Extrai os dados: tudo.");
-	assert.equal(list[1].id, "custom1");
+	assert.equal(list[1].id, "custom:dados");
+	assert.equal(L.parseCustomPrompts("Métodos Mistos: x")[0].id, "custom:metodos-mistos");
+	// criar, editar e apagar mantém os comentários e as outras linhas
+	let src = "# as minhas ações\nTeoria: Identifica a teoria.";
+	src = L.setCustomPrompt(src, null, "Amostra: tamanho", "Diz o tamanho\nda amostra.");
+	assert.equal(src, "# as minhas ações\nTeoria: Identifica a teoria.\nAmostra tamanho: Diz o tamanho da amostra.");
+	src = L.setCustomPrompt(src, "Teoria", "Teoria", "Identifica o enquadramento teórico.");
+	assert.match(src, /^# as minhas ações\nTeoria: Identifica o enquadramento teórico\./);
+	src = L.removeCustomPrompt(src, "Amostra tamanho");
+	assert.equal(src, "# as minhas ações\nTeoria: Identifica o enquadramento teórico.");
+	assert.equal(L.setCustomPrompt(src, null, "", "x"), src, "sem nome não muda nada");
 	assert.match(L.actionPrompt(list[0], [{ id: "D1", ref: "Silva, 2020" }]), /Identifica a teoria\.\n\nDocumentos a analisar: D1 \(Silva, 2020\)\./);
 });
 
