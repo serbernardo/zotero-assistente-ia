@@ -1220,3 +1220,42 @@ collapsible-section[data-pane$="zoteroia-section"] {
 .zia-custom-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .zia-btn-danger { color: var(--zia-red); border-color: var(--zia-red); }
+
+.zia-other-switch {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 2px 0;
+	font-size: 12px;
+	color: var(--zia-fg2);
+}
+
+.zia-other-switch[hidden] { display: none; }
+
+.zia-seg {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font: inherit;
+	font-size: 12px;
+	padding: 3px 10px;
+	border: 1px solid var(--zia-border);
+	border-radius: 14px;
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	cursor: pointer;
+}
+
+.zia-seg.selected {
+	border-color: var(--zia-accent);
+	background: var(--zia-accent-soft);
+	color: var(--zia-accent);
+	font-weight: 600;
+}
+
+.zia-steps-title {
+	font-size: 12.5px;
+	font-weight: 600;
+	margin-top: 6px;
+}

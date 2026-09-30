@@ -46,6 +46,15 @@ var ZoteroIA = {
 		this.applyLanguage();
 		// Migra chaves antigas guardadas sem encriptação
 		this.migrateSecrets().catch(e => this.log("Migração de chaves: " + e));
+		// Uma vez: Gemini 3.5 Flash-Lite como modelo por omissão
+		try {
+			if (!this.pref("gemini.defaultApplied")) {
+				this.setPref("gemini.model", this.lib.GEMINI_DEFAULT);
+				this.setPref("gemini.defaultApplied", true);
+				this._geminiSwap = null;
+			}
+		}
+		catch (e) { this.log("Modelo Gemini: " + e); }
 	},
 
 	/** Língua da interface: preferência ui.lang ("auto", "pt-PT" ou "en"). */
@@ -931,7 +940,7 @@ var ZoteroIA = {
 	},
 
 	geminiModel() {
-		return String(this.pref("gemini.model") || "gemini-3.8-flash").replace(/^models\//, "").trim();
+		return String(this.pref("gemini.model") || this.lib.GEMINI_DEFAULT).replace(/^models\//, "").trim();
 	},
 
 	// Esperas entre tentativas no modelo escolhido quando a Google está sobrecarregada

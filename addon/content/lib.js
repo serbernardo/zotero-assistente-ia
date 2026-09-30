@@ -1448,6 +1448,8 @@ var ZIALib = (function () {
 		return { kind: "other", message: withDetail(t("err.api.other", { provider: "Gemini", status }), msg) };
 	}
 
+	const GEMINI_DEFAULT = "gemini-3.5-flash-lite";
+
 	/** Classifica um modelo Gemini para a lista das definições. */
 	function geminiModelInfo(name) {
 		const n = String(name || "");
@@ -1470,7 +1472,9 @@ var ZIALib = (function () {
 			preview: infos.filter(i => i.preview && i.tier !== "pro").sort(cmp),
 			paid: infos.filter(i => !i.free && !(i.preview && i.tier !== "pro")).sort(cmp),
 		};
-		const recommended = (groups.free.find(i => i.tier === "flash") || groups.free[0] || {}).name || null;
+		// Por omissão o 3.5 Flash-Lite: tem a quota gratuita mais folgada e responde bem a estas tarefas
+		const recommended = (groups.free.find(i => i.name === GEMINI_DEFAULT) || groups.free.find(i => i.tier === "lite")
+			|| groups.free[0] || {}).name || null;
 		return { groups, recommended };
 	}
 
@@ -1629,7 +1633,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS,
-		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, sortGeminiModels, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 

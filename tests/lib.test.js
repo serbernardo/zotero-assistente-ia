@@ -383,5 +383,6 @@ test("modelos Gemini: agrupados e ordenados, com recomendado", () => {
 	assert.deepEqual(groups.free.map(i => i.name), ["gemini-3.7-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash"]);
 	assert.deepEqual(groups.preview.map(i => i.name), ["gemini-3.9-flash-preview"]);
 	assert.deepEqual(groups.paid.map(i => i.name), ["gemini-3.8-pro", "gemma-3-27b"]);
-	assert.equal(recommended, "gemini-3.6-flash", "o flash estável mais recente é o recomendado");
+	assert.equal(recommended, "gemini-3.7-flash-lite", "sem o 3.5 Flash-Lite, o lite estável mais recente");
+	assert.equal(L.sortGeminiModels(["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash-lite"]).recommended, "gemini-3.5-flash-lite", "o 3.5 Flash-Lite é o recomendado");
 });

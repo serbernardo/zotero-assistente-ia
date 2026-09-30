@@ -14,7 +14,13 @@ function sseResponse(events, status = 200) {
 }
 
 (async () => {
-	const env = createEnv({ prefs: { "gemini.model": "models/gemini-3.8-flash" } });
+	// Migração da 0.4.1: uma instalação antiga passa uma vez para o 3.5 Flash-Lite
+	const migrated = createEnv({ prefs: { "gemini.model": "gemini-3.6-flash" } }).core;
+	assert.equal(migrated.geminiModel(), "gemini-3.5-flash-lite");
+	assert.equal(migrated.pref("gemini.defaultApplied"), true);
+	console.log("OK Gemini: 3.5 Flash-Lite por omissão (migração feita uma só vez)");
+
+	const env = createEnv({ prefs: { "gemini.model": "models/gemini-3.8-flash", "gemini.defaultApplied": true } });
 	const { core } = env;
 	await core.setGeminiKey("AIza-TESTE");
 	let captured;

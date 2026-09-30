@@ -230,12 +230,52 @@ window.ZIAPrefs = {
 				box.appendChild(tab);
 			};
 			for (const e of main) addTab(e);
+			// "Outros": as chaves de API pagas por uso, num só separador
 			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e));
 			if (rest.length) {
-				const sep = this.html("span", this.T("prefs.tabs.paid"));
-				sep.className = "zia-etab-sep";
-				box.appendChild(sep);
-				for (const e of rest) addTab(e);
+				const inRest = rest.includes(shown);
+				const states = rest.map(e => this.engineState(e));
+				const st = states.includes("ok") ? "ok" : states.includes("saved") ? "saved" : states.includes("fail") ? "fail" : "todo";
+				const tab = this.html("div");
+				tab.className = "zia-etab" + (inRest ? " selected" : "");
+				tab.setAttribute("role", "tab");
+				tab.setAttribute("aria-selected", inRest ? "true" : "false");
+				tab.setAttribute("tabindex", "0");
+				tab.dataset.engine = "outros";
+				const dot = this.html("span");
+				dot.className = "zia-dot zia-dot-" + st;
+				tab.append(dot, this.html("span", this.T("prefs.tab.others")));
+				if (rest.includes(current)) {
+					const star = this.html("span", "★");
+					star.className = "zia-etab-star";
+					tab.appendChild(star);
+				}
+				const openOthers = () => this.showEngine(inRest ? shown : (rest.find(e => e === current) || rest.find(e => this.engineState(e) !== "todo") || rest[0]));
+				tab.addEventListener("click", openOthers);
+				tab.addEventListener("keydown", ev => {
+					if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openOthers(); }
+				});
+				box.appendChild(tab);
+			}
+		}
+		// Dentro de "Outros": escolha entre Claude API e ChatGPT API
+		const sw = this.$("zia-other-switch");
+		if (sw) {
+			while (sw.firstChild) sw.removeChild(sw.firstChild);
+			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e));
+			sw.hidden = !rest.includes(shown);
+			if (!sw.hidden) {
+				sw.appendChild(this.html("span", this.T("prefs.others.intro")));
+				for (const e of rest) {
+					const b = this.html("button", this.T("prefs.tab." + e));
+					b.className = "zia-seg" + (e === shown ? " selected" : "");
+					b.dataset.engine = e;
+					const dot = this.html("span");
+					dot.className = "zia-dot zia-dot-" + this.engineState(e);
+					b.insertBefore(dot, b.firstChild);
+					b.addEventListener("click", () => this.showEngine(e));
+					sw.appendChild(b);
+				}
 			}
 		}
 		// Resumo do separador aberto: para quem é, estado e botão para o usar

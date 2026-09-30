@@ -37,7 +37,9 @@ pref("extensions.zoteroia.codex.maxChars", 400000);
 
 // Gemini com chave da API do Google (a chave fica encriptada)
 pref("extensions.zoteroia.gemini.key", "");
-pref("extensions.zoteroia.gemini.model", "gemini-3.8-flash");
+pref("extensions.zoteroia.gemini.model", "gemini-3.5-flash-lite");
+// Aplicado uma vez: passa o modelo Gemini para o novo modelo por omissão (versão 0.4.1)
+pref("extensions.zoteroia.gemini.defaultApplied", false);
 pref("extensions.zoteroia.gemini.maxChars", 400000);
 
 // Resultado do último teste nas definições, por motor: "", "ok" ou "fail"
