@@ -315,6 +315,20 @@ var ZIAChatView = class {
 			b.dataset.action = a.id;
 			if (!(custom && this._editCustom)) this.actionButtons[a.id] = b;
 			box.appendChild(b);
+			// Ficha: botão "i" com a explicação do que é e dos campos
+			if (a.id === "ficha") {
+				const info = this._button("i", "zia-info-btn", () => {
+					this._fichaInfoOpen = !this._fichaInfoOpen;
+					this._renderActions();
+				}, this.T("ficha.info.tip"));
+				info.setAttribute("aria-expanded", this._fichaInfoOpen ? "true" : "false");
+				box.appendChild(info);
+			}
+		}
+		if (this.group === "escrever") {
+			if (this._fichaInfoOpen) box.appendChild(this._fichaInfoEl());
+			const fl = this._fichasListEl();
+			if (fl) box.appendChild(fl);
 		}
 		if (custom) {
 			box.appendChild(this._button(this.T("chat.meus.new"), "zia-action zia-action-new", () => this._openCustomForm(null)));
@@ -330,6 +344,72 @@ var ZIAChatView = class {
 		}
 		if (this.group !== "compreender" && !custom) box.appendChild(this.fichasLabel);
 		this._updateButtons();
+	}
+
+	/** Explicação das fichas: o que são, onde ficam e os campos. */
+	_fichaInfoEl() {
+		const box = this._el("div", "zia-info-panel");
+		box.setAttribute("role", "note");
+		const close = this._button("×", "zia-info-close", () => { this._fichaInfoOpen = false; this._renderActions(); }, this.T("chat.dismiss"));
+		box.appendChild(close);
+		box.appendChild(this._el("div", "zia-info-title", this.T("ficha.info.title")));
+		box.appendChild(this._el("p", null, this.T("ficha.info.what")));
+		box.appendChild(this._el("p", null, this.T("ficha.info.where")));
+		box.appendChild(this._el("div", "zia-info-sub", this.T("ficha.info.fieldsTitle")));
+		const ul = this._el("ul", "zia-info-fields");
+		for (const f of this.T("ficha.info.fields").split("|")) ul.appendChild(this._el("li", null, f.trim()));
+		box.appendChild(ul);
+		box.appendChild(this._el("p", "zia-muted", this.T("ficha.info.pages")));
+		return box;
+	}
+
+	/** Fichas dos artigos da conversa: abrir as que existem (notas do Zotero) e criar as que faltam. */
+	_fichasListEl() {
+		const docs = this.state.docs.filter(d => d.parentID);
+		if (!docs.length || !this.core.findFichaNote) return null;
+		const box = this._el("div", "zia-fichas-list");
+		box.appendChild(this._el("span", "zia-fichas-label", this.T("ficha.list.label")));
+		for (const d of docs) {
+			let note = null;
+			try { note = this.core.findFichaNote(d.parentID); }
+			catch (e) { /* sem acesso às notas */ }
+			if (note) {
+				box.appendChild(this._button("✓ " + d.shortRef, "zia-ficha-chip zia-ficha-ok", () => this._showNote(note.id), this.T("ficha.list.open")));
+			}
+			else {
+				box.appendChild(this._button("+ " + d.shortRef, "zia-ficha-chip zia-ficha-missing", () => this._createFicha(d), this.T("ficha.list.create")));
+			}
+		}
+		return box;
+	}
+
+	/** Cria a ficha de um artigo e guarda-a logo como nota (o registo fica no Zotero). */
+	async _createFicha(d) {
+		if (this.busy) return;
+		if (!this._engineReady()) {
+			this._showSetupInline();
+			return;
+		}
+		const msg = await this._ask({
+			promptText: this.L.actionPrompt("ficha", [d]),
+			display: `${this._action("ficha").label}: ${d.id} ${d.shortRef}`,
+			heading: `${this.L.fichaPrefix()} · ${d.shortRef}`,
+			actionID: "ficha",
+			docs: [d],
+			noHistory: true,
+			returnMessage: true,
+		});
+		if (!msg || msg.error) return;
+		try {
+			await this._saveMessageNote(msg, { quiet: true });
+			this._renderMessage(msg);
+			this._persist();
+			this._setStatus(this.T("ficha.list.saved", { ref: d.shortRef }));
+		}
+		catch (e) {
+			this._setStatus(this.T("chat.noteError", { e: e.message || e }), "error");
+		}
+		this._renderActions();
 	}
 
 	_openCustomForm(action) {
@@ -1149,6 +1229,19 @@ var ZIAChatView = class {
 		return out;
 	}
 
+	/** Retira uma resposta (e a pergunta que a originou) da conversa e do histórico. */
+	_removeMessage(m) {
+		if (this.busy) return;
+		const list = this.state.messages;
+		const i = list.indexOf(m);
+		if (i < 0) return;
+		const from = i > 0 && list[i - 1].role === "user" ? i - 1 : i;
+		list.splice(from, i - from + 1);
+		this._renderMessages();
+		this._persist();
+		this._setStatus(this.T("chat.errorRemoved"));
+	}
+
 	async _retry(msg, engine) {
 		if (this.busy || !msg.request) return;
 		if (!this.core.isEngineReady(engine)) {
@@ -1398,6 +1491,15 @@ var ZIAChatView = class {
 		}
 		head.appendChild(this._el("span", "zia-action-tag", m.actionLabel || this.T("chat.question")));
 		head.appendChild(this._el("span", "zia-engine-tag", this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "")));
+		// Respostas com erro podem ser retiradas da conversa
+		if (m.error && !m.pending) {
+			const del = this._button("×", "zia-msg-del", ev => {
+				if (ev && ev.stopPropagation) ev.stopPropagation();
+				this._removeMessage(m);
+			}, this.T("chat.removeError"));
+			del.addEventListener("keydown", ev => ev.stopPropagation());
+			head.appendChild(del);
+		}
 		el.appendChild(head);
 		if (m.collapsed) {
 			// Também recolhida se pode guardar como nota
@@ -1583,6 +1685,7 @@ var ZIAChatView = class {
 		if (!quiet) {
 			this._setStatus(this.T(note.parentID ? "chat.noteSavedChild" : "chat.noteSavedStandalone"));
 		}
+		if (this.group === "escrever") this._renderActions();
 		return note;
 	}
 

@@ -1499,3 +1499,34 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-btn.zia-btn-danger { color: var(--zia-red); border-color: var(--zia-red); }
 .zia-btn.zia-btn-danger:hover:not(:disabled) { background: var(--zia-red); color: #fff; border-color: var(--zia-red); }
 .zia-custom-form input:focus, .zia-custom-form textarea:focus { outline: none; border-color: var(--zia-fg2); box-shadow: 0 0 0 3px var(--zia-accent-soft); }
+
+/* Ficha: botão "i", explicação e lista das fichas da conversa */
+.zia-info-btn {
+	width: 22px; height: 22px; padding: 0; border-radius: 50%;
+	font: italic 700 12px Georgia, serif; line-height: 20px; text-align: center;
+	border: 1px solid var(--zia-fg2); background: var(--zia-bg); color: var(--zia-fg); cursor: pointer;
+}
+.zia-info-btn[aria-expanded="true"] { background: var(--zia-sand); }
+.zia-info-panel {
+	position: relative; flex-basis: 100%;
+	padding: 8px 28px 6px 10px; margin: 2px 0;
+	border: 1px solid var(--zia-border); border-left: 3px solid var(--zia-gold);
+	border-radius: 6px; background: var(--zia-bg); font-size: 12px;
+}
+.zia-info-panel p { margin: 4px 0; }
+.zia-info-title { font-weight: 700; font-size: 12.5px; }
+.zia-info-sub { font-weight: 600; margin-top: 6px; }
+.zia-info-fields { margin: 2px 0 4px; padding-inline-start: 18px; columns: 2 160px; column-gap: 16px; }
+.zia-info-close, .zia-msg-del {
+	border: none; background: none; cursor: pointer; color: var(--zia-fg2);
+	font-size: 15px; line-height: 1; padding: 0 4px;
+}
+.zia-info-close { position: absolute; top: 4px; right: 4px; }
+.zia-info-close:hover, .zia-msg-del:hover { color: var(--zia-red); }
+.zia-msg-del { margin-inline-start: auto; }
+.zia-fichas-list { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; margin-top: 2px; }
+.zia-fichas-label { color: var(--zia-fg2); font-weight: 600; }
+.zia-ficha-chip { font: inherit; font-size: 11.5px; padding: 1px 8px; border-radius: 10px; cursor: pointer; border: 1px solid var(--zia-border); background: var(--zia-bg); color: var(--zia-fg); }
+.zia-ficha-ok { border-color: var(--zia-green); color: var(--zia-green); }
+.zia-ficha-missing { border-style: dashed; color: var(--zia-fg2); }
+.zia-ficha-chip:hover { background: var(--zia-sand); }

@@ -403,6 +403,41 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Fichas: botão "i", lista das fichas e erros que se podem retirar ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 900 });
+		await page.evaluate(() => {
+			window.fichaSaved = false;
+			ZoteroIA.findFichaNote = () => (window.fichaSaved ? { id: 999 } : null);
+			const o = ZoteroIA.saveNote;
+			ZoteroIA.saveNote = async a => { if (/^Ficha IA/.test(a.heading)) window.fichaSaved = true; return o(a); };
+			window.MOCK.answer = "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p3] |";
+		});
+		await tab(page, "escrever");
+		await page.click(".zia-info-btn");
+		await page.waitForSelector(".zia-info-panel");
+		assert.equal(await page.locator(".zia-info-fields li").count(), 13, "a explicação lista os campos da ficha");
+		await page.screenshot({ path: path.join(OUT, "ui_painel_ficha_info.png") });
+		await page.click(".zia-info-close");
+		assert.equal(await page.locator(".zia-info-panel").count(), 0);
+		// artigo sem ficha: criar e guardar logo como nota
+		await page.click(".zia-ficha-missing");
+		await page.waitForSelector(".zia-ficha-ok");
+		assert.equal(await page.evaluate(() => window.fichaSaved), true, "ficha guardada como nota");
+		// erros: um x retira a resposta e a pergunta da conversa
+		await page.evaluate(() => { window.MOCK.error = { kind: "busy", message: "Os servidores estão sobrecarregados." }; });
+		await tab(page, "compreender");
+		await act(page, "resumo");
+		await page.waitForSelector(".zia-msg-del");
+		const before = await page.locator(".zia-msg").count();
+		await page.click(".zia-msg-del");
+		assert.equal(await page.locator(".zia-msg").count(), before - 2, "erro e pergunta retirados");
+		assert.equal(await page.locator(".zia-msg-del").count(), 0);
+		await page.evaluate(() => { window.MOCK.error = null; });
+		console.log("OK fichas: botão i com os campos, criar ficha a partir da lista e guardar como nota; erros retirados com x");
+		await page.close();
+	}
+
 	// ---------- Todos os botões do painel: cada um faz alguma coisa e nenhum dá erro ----------
 	{
 		const snapshot = page => page.evaluate(() => JSON.stringify([
