@@ -183,7 +183,6 @@
 
 .zia-mode-section .zia-messages {
 	min-height: 140px;
-	max-height: 60vh;
 }
 
 .zia-empty {
@@ -1555,3 +1554,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-credits-body { padding: 10px 16px 12px; font-size: 13px; background: var(--zia-bg, #fff); }
 .zia-credits-org { font-weight: 600; color: var(--zia-fg, #111729); }
 .zia-credits-name { margin-top: 8px; font-weight: 600; }
+
+/* Painel: sem segunda barra de deslocação dentro das respostas (o painel do Zotero já desliza) */
+.zia-mode-section .zia-messages { max-height: none; overflow: visible; }
+.zia-tab-external { color: var(--zia-fg2) !important; }

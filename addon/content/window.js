@@ -29,6 +29,11 @@ var ZIAWindow = {
 	async receive(args) {
 		if (!this.view || !args) return;
 		if (args.collectionName) this.view.collectionName = args.collectionName;
+		// Vindo do separador "Comparar" do painel: abre logo em Comparar
+		if (args.group) {
+			this.view.group = args.group;
+			this.view._renderTabs();
+		}
 		await this.view.setItems(args.items || [], { collectionIDs: args.collectionIDs || [] });
 		// Vindo de "Comparar coleção": abre logo a lista das coleções
 		if (args.pickCollection) this.view._openCollectionPicker();

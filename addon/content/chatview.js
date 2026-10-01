@@ -288,12 +288,19 @@ var ZIAChatView = class {
 		while (box.firstChild) box.removeChild(box.firstChild);
 		const groups = this.L.ACTION_GROUPS;
 		if (!groups.some(g => g.id === this.group)) this.group = groups[0].id;
+		// No painel lateral, comparar faz-se só na janela grande: o separador leva lá
+		const external = g => this.mode === "section" && g.id === "comparar";
+		if (external({ id: this.group })) this.group = groups[0].id;
 		for (const g of groups) {
-			const t = this._button(g.label, "zia-tab", () => {
+			const t = this._button(g.label + (external(g) ? " ↗" : ""), "zia-tab" + (external(g) ? " zia-tab-external" : ""), () => {
+				if (external(g)) {
+					this.openInWindow({ group: "comparar" });
+					return;
+				}
 				this.group = g.id;
 				this.core.setPref("ui.group", g.id);
 				this._renderTabs();
-			});
+			}, external(g) ? this.T("chat.compareInWindow") : null);
 			t.setAttribute("role", "tab");
 			t.setAttribute("aria-selected", g.id === this.group ? "true" : "false");
 			t.dataset.group = g.id;
@@ -579,7 +586,7 @@ var ZIAChatView = class {
 		this.L.disambiguateRefs(Object.values(this.state.allDocs));
 		this._renderDocs();
 		// Passou a haver vários PDFs: abre logo o separador Comparar (sem mudar uma ação já escolhida)
-		if (!quiet && before < 2 && this.state.docs.length >= 2 && this.group !== "comparar"
+		if (!quiet && this.mode !== "section" && before < 2 && this.state.docs.length >= 2 && this.group !== "comparar"
 			&& !(this.selectedAction && (this._action(this.selectedAction) || {}).group !== "comparar")) {
 			this.group = "comparar";
 			this._renderTabs();
@@ -832,11 +839,11 @@ var ZIAChatView = class {
 		for (const t of this.tabsEl.querySelectorAll(".zia-tab")) t.disabled = this.busy && t.getAttribute("aria-selected") !== "true";
 	}
 
-	openInWindow() {
+	openInWindow({ group } = {}) {
 		const items = this.state.docs
 			.map(d => Zotero.Items.get(d.parentID || d.attachmentID))
 			.filter(Boolean);
-		this.core.openWindow({ items, collectionIDs: this.core.selectedCollectionIDs() });
+		this.core.openWindow({ items, collectionIDs: this.core.selectedCollectionIDs(), group });
 	}
 
 	// ------------------------------------------------------------------

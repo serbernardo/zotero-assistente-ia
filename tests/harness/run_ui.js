@@ -87,11 +87,14 @@ async function main() {
 		assert.equal(await page.locator('.zia-tab[data-group="meus"]').count(), 1, "separador Os meus sempre visível");
 		assert.equal(await page.locator(".zia-suggestion").count(), 4, "sugestões de perguntas");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
-		// comparar com um só PDF: abre o seletor, escolhe-se o segundo e fica pronto a pedir
-		await tab(page, "comparar");
-		await page.click('button[data-action="comparar"]');
+		// no painel, o separador Comparar leva à janela grande com os PDFs da conversa
+		assert.match(await page.textContent('.zia-tab[data-group="comparar"]'), /↗/);
+		await page.click('.zia-tab[data-group="comparar"]');
+		assert.equal(await page.evaluate(() => window.openedWindow && window.openedWindow.group), "comparar", "abre a janela em Comparar");
+		assert.equal(await page.getAttribute('.zia-tab[data-group="comparar"]', "aria-selected"), "false", "o painel não muda para Comparar");
+		// + PDF: seletor com pesquisa
+		await page.click(".zia-chip-add");
 		await page.waitForSelector(".zia-picker-row");
-		assert.match(await page.textContent(".zia-picker-title"), /precisa de mais 1 PDF/);
 		assert.equal(await page.locator(".zia-picker-row").count(), 1, "só aparecem os artigos que ainda não estão na conversa");
 		await page.fill(".zia-picker-search", "garcía");
 		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 1);
@@ -102,12 +105,8 @@ async function main() {
 		await page.screenshot({ path: path.join(OUT, "ui_painel_seletor.png") });
 		await page.click(".zia-picker button:has-text(\"Juntar (1)\")");
 		await page.waitForSelector(".zia-chip >> nth=1");
-		assert.equal(await page.getAttribute('.zia-tab[data-group="comparar"]', "aria-selected"), "true", "com 2 PDFs fica no separador Comparar");
-		assert.equal(await page.locator('.zia-actions button[data-action^="cmp_"]').count(), 4, "ações de comparação");
+		assert.notEqual(await page.getAttribute('.zia-tab[data-group="comparar"]', "aria-selected"), "true", "no painel não salta para Comparar");
 		assert.equal(await page.isHidden(".zia-picker"), true);
-		assert.match(await page.textContent(".zia-status"), /Pronto: carrega em Pedir/);
-		assert.equal(await page.getAttribute('button[data-action="comparar"]', "aria-pressed"), "true", "comparar continua escolhido");
-		await page.click('button[data-action="comparar"]');
 		await page.click(".zia-chip:has-text(\"García\") .zia-chip-x");
 		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.error = { kind: "limit", message: "Atingiste o limite de utilização da subscrição do Claude. Podes repetir o pedido com o Gemini ou esperar que o limite reinicie." }; });

@@ -160,7 +160,8 @@ function registerMenus(pluginID, rootURI) {
 		Zotero.logError(e);
 	}
 	const openWith = (items, autoAction) => {
-		ZoteroIA.openWindow({ items, collectionIDs: ZoteroIA.selectedCollectionIDs(), autoAction });
+		const group = autoAction && ZoteroIA.lib.ACTIONS[autoAction] ? ZoteroIA.lib.ACTIONS[autoAction].group : null;
+		ZoteroIA.openWindow({ items, collectionIDs: ZoteroIA.selectedCollectionIDs(), autoAction, group });
 	};
 	const pdfCount = items => (items || []).filter(i => i.isRegularItem() || (i.isAttachment() && i.isPDFAttachment())).length;
 	try {
@@ -174,12 +175,8 @@ function registerMenus(pluginID, rootURI) {
 					menuType: "submenu",
 					l10nID: "zoteroia-menu-root",
 					icon: rootURI + "content/icons/sparkle16.svg",
+					// Só as funcionalidades de comparação (precisam de 2 ou mais PDFs selecionados)
 					menus: [
-						{
-							menuType: "menuitem",
-							l10nID: "zoteroia-menu-open",
-							onCommand: (ev, ctx) => openWith(ctx.items, null),
-						},
 						{
 							menuType: "menuitem",
 							l10nID: "zoteroia-menu-compare",
@@ -188,23 +185,27 @@ function registerMenus(pluginID, rootURI) {
 						},
 						{
 							menuType: "menuitem",
-							l10nID: "zoteroia-menu-gaps",
-							onCommand: (ev, ctx) => openWith(ctx.items, "lacunas"),
+							l10nID: "zoteroia-menu-cmp-methods",
+							onShowing: (ev, ctx) => ctx.setEnabled(pdfCount(ctx.items) >= 2),
+							onCommand: (ev, ctx) => openWith(ctx.items, "cmp_metodos"),
 						},
 						{
 							menuType: "menuitem",
-							l10nID: "zoteroia-menu-review",
-							onCommand: (ev, ctx) => openWith(ctx.items, "revisao"),
+							l10nID: "zoteroia-menu-cmp-results",
+							onShowing: (ev, ctx) => ctx.setEnabled(pdfCount(ctx.items) >= 2),
+							onCommand: (ev, ctx) => openWith(ctx.items, "cmp_resultados"),
 						},
 						{
 							menuType: "menuitem",
-							l10nID: "zoteroia-menu-summary",
-							onCommand: (ev, ctx) => openWith(ctx.items, "resumo"),
+							l10nID: "zoteroia-menu-cmp-concepts",
+							onShowing: (ev, ctx) => ctx.setEnabled(pdfCount(ctx.items) >= 2),
+							onCommand: (ev, ctx) => openWith(ctx.items, "cmp_conceitos"),
 						},
 						{
 							menuType: "menuitem",
-							l10nID: "zoteroia-menu-critique",
-							onCommand: (ev, ctx) => openWith(ctx.items, "critica"),
+							l10nID: "zoteroia-menu-cmp-synthesis",
+							onShowing: (ev, ctx) => ctx.setEnabled(pdfCount(ctx.items) >= 2),
+							onCommand: (ev, ctx) => openWith(ctx.items, "cmp_sintese"),
 						},
 					],
 				},
