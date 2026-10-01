@@ -385,15 +385,7 @@ var ZIAChatView = class {
 			this._setStatus("");
 		}));
 		if (f.oldLabel) {
-			row.appendChild(this._button(this.T("chat.meus.delete"), "zia-btn-small zia-btn-danger", () => {
-				const ok = this.win.confirm(this.T("chat.meus.deleteConfirm", { label: f.oldLabel }));
-				if (!ok) return;
-				this.core.setPref("custom.prompts", this.L.removeCustomPrompt(this.core.pref("custom.prompts") || "", f.oldLabel));
-				this._customForm = null;
-				this._editCustom = false;
-				this._renderActions();
-				this._setStatus(this.T("chat.meus.deleted", { label: f.oldLabel }));
-			}));
+			row.appendChild(this._button(this.T("chat.meus.delete"), "zia-btn-small zia-btn-danger", () => this._deleteCustom(f.oldLabel)));
 		}
 		form.appendChild(row);
 		return form;
@@ -469,6 +461,7 @@ var ZIAChatView = class {
 			return;
 		}
 		if (c.id) this.collectionIDs = [c.id];
+		this.collectionName = c.name;
 		await this._addItems(c.items, {});
 	}
 
@@ -541,6 +534,12 @@ var ZIAChatView = class {
 			box.appendChild(this._el("span", "zia-muted",
 				this.T(this.mode === "window" ? "chat.noDocs.window" : "chat.noDocs.section")));
 			return;
+		}
+		// Coleção juntada: fica indicada antes dos artigos
+		if (this.collectionName && this.state.docs.length) {
+			const col = this._el("span", "zia-chip zia-chip-col", this.T("chat.collectionChip", { name: this.collectionName }));
+			col.title = this.T("chat.collectionChip.tip", { name: this.collectionName });
+			box.appendChild(col);
 		}
 		for (const d of this.state.docs) {
 			const chip = this._el("span", "zia-chip");
@@ -689,7 +688,10 @@ var ZIAChatView = class {
 					return;
 				}
 				this.collectionIDs = [c.id];
+				this.collectionName = r.name || c.name;
+				const before = this.state.docs.length;
 				await this._addItems(r.items, {});
+				this._setStatus(this.T("chat.collectionAdded", { name: this.collectionName, n: this.state.docs.length - before }));
 			});
 			row.style.paddingInlineStart = (8 + c.depth * 14) + "px";
 			row.setAttribute("role", "option");
@@ -734,7 +736,7 @@ var ZIAChatView = class {
 		}
 		this.sendBtn.textContent = this.busy ? this.T("chat.stop") : this.T(this.selectedAction ? "chat.sendAction" : "chat.send");
 		this.sendBtn.classList.toggle("zia-stop", this.busy);
-		this.sendBtn.disabled = !this.busy && !n;
+		this.sendBtn.disabled = false;
 		this.engineSel.disabled = this.busy;
 		this.newBtn.disabled = this.busy;
 		for (const t of this.tabsEl.querySelectorAll(".zia-tab")) t.disabled = this.busy && t.getAttribute("aria-selected") !== "true";
@@ -819,6 +821,21 @@ var ZIAChatView = class {
 		this._updateButtons();
 	}
 
+	/** Apaga uma ação do separador Personalizado (depois de confirmar). */
+	_deleteCustom(label) {
+		const ok = this.win.confirm(this.T("chat.meus.deleteConfirm", { label }));
+		if (!ok) return;
+		this.core.setPref("custom.prompts", this.L.removeCustomPrompt(this.core.pref("custom.prompts") || "", label));
+		const sel = this.selectedAction && this._action(this.selectedAction);
+		if (sel && sel.custom && sel.label === label) this.selectedAction = null;
+		this._customForm = null;
+		this._editCustom = false;
+		this._renderActions();
+		this._renderPending();
+		this._updateButtons();
+		this._setStatus(this.T("chat.meus.deleted", { label }));
+	}
+
 	_renderPending() {
 		const box = this.pendingEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
@@ -831,6 +848,10 @@ var ZIAChatView = class {
 		const x = this._button("✕", "zia-chip-x", () => this.selectAction(a.id), this.T("chat.pending.cancel"));
 		chip.appendChild(x);
 		box.appendChild(chip);
+		// Ações próprias: editar logo aqui (o formulário tem Guardar, Cancelar e Eliminar)
+		if (a.custom) {
+			box.appendChild(this._button(this.T("chat.meus.editOne"), "zia-btn-small", () => this._openCustomForm(a)));
+		}
 	}
 
 	_lastAnswerFor(actionID) {

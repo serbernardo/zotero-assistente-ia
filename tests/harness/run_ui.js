@@ -325,8 +325,19 @@ async function main() {
 		page.once("dialog", d => d.accept());
 		await page.click("button:has-text(\"✎ Editar\")");
 		await page.click('button[data-action="custom:teoria"]');
-		await page.click(".zia-custom-btns button:has-text(\"Apagar\")");
+		await page.click(".zia-custom-btns button:has-text(\"Eliminar\")");
 		assert.equal(await page.evaluate(() => ZoteroIA.pref("custom.prompts")), "");
+		// escolher a ação mostra "Editar", que abre o formulário com Eliminar
+		await page.click(".zia-action-new");
+		await page.fill(".zia-custom-name", "Rápida");
+		await page.fill(".zia-custom-prompt", "Diz o tema.");
+		await page.click(".zia-custom-btns button:has-text(\"Guardar\")");
+		await page.click('button[data-action="custom:rapida"]');
+		await page.click(".zia-pending button:has-text(\"Editar\")");
+		page.once("dialog", d => d.accept());
+		await page.click(".zia-custom-btns button:has-text(\"Eliminar\")");
+		assert.equal(await page.evaluate(() => ZoteroIA.pref("custom.prompts")), "");
+		assert.equal(await page.isHidden(".zia-pending"), true);
 		// a resposta mais recente fica em cima e a anterior pode ser guardada como nota já recolhida
 		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.answer = "Resposta B [D1:p2]."; });
@@ -372,6 +383,8 @@ async function main() {
 		// escolhe a coleção numa lista, sem ter de a selecionar antes no Zotero
 		assert.equal(await page.locator(".zia-col-row").count(), 2);
 		await page.click(".zia-col-row:has-text(\"Tese\")");
+		await page.waitForSelector(".zia-chip-col:has-text(\"Coleção: Tese\")");
+		await page.waitForSelector("text=Coleção «Tese» selecionada");
 		await page.waitForSelector(".zia-chip >> nth=1");
 		await tab(page, "comparar");
 		await page.check(".zia-fichas-toggle input");

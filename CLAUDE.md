@@ -91,6 +91,13 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Icone a seguir a Info:** `placeAfterInfo` no `bootstrap.js` poe o paneID
   logo depois de "info" na pref do Zotero `sidenav.order`, uma so vez (pref
   `sidenav.placed`), para respeitar se a pessoa mudar a ordem depois.
+- **Acoes proprias:** ao escolher uma acao do Personalizado aparece "Editar" ao
+  lado do pedido. O formulario tem Guardar, Cancelar e Eliminar (`_deleteCustom`).
+- **Colecao indicada:** depois de juntar uma colecao aparece a etiqueta
+  "Colecao: X" antes dos artigos e uma mensagem com quantos foram juntados.
+- **Botoes principais iguais** (Enviar, Pedir, Guardar, Juntar): tinta cheia,
+  texto branco, mesmo tamanho. O Enviar nunca fica cinzento: se faltar algo, o
+  clique explica o que falta.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -228,7 +235,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.5.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.5.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

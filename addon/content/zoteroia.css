@@ -1478,3 +1478,24 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-col-selected::after { content: "  ●"; color: var(--zia-gold); }
 .zia-picker-lib { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--zia-muted); padding: 6px 8px 2px; }
 .zia-textarea:focus, .zia-picker-search:focus { outline: none; border-color: var(--zia-fg2); box-shadow: 0 0 0 3px var(--zia-accent-soft); }
+
+/* Botões principais iguais ao "Guardar": tinta cheia, texto branco, mesmo tamanho */
+.zia-send,
+.zia-btn-primary {
+	font-size: 12px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 6px;
+	background: var(--zia-accent);
+	border: 1px solid var(--zia-accent);
+	color: var(--zia-on-accent);
+}
+.zia-input { align-items: flex-end; }
+.zia-send { padding: 5px 14px; }
+.zia-send.zia-stop { background: var(--zia-red); border-color: var(--zia-red); color: #fff; }
+.zia-pending { flex-wrap: wrap; }
+
+.zia-chip-col { background: var(--zia-sand); border-color: var(--zia-fg2); font-weight: 600; }
+.zia-btn.zia-btn-danger { color: var(--zia-red); border-color: var(--zia-red); }
+.zia-btn.zia-btn-danger:hover:not(:disabled) { background: var(--zia-red); color: #fff; border-color: var(--zia-red); }
+.zia-custom-form input:focus, .zia-custom-form textarea:focus { outline: none; border-color: var(--zia-fg2); box-shadow: 0 0 0 3px var(--zia-accent-soft); }
