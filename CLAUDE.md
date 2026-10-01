@@ -120,8 +120,11 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   os artigos da conversa (`_fichasListEl`): as que existem abrem a nota do Zotero,
   as que faltam criam-se com um clique e ficam logo guardadas como nota
   (`_createFicha`). As fichas so existem como notas do Zotero (uma so copia).
-- **Erros com x:** respostas com erro tem um x no titulo que retira a resposta e a
-  pergunta da conversa e do historico (`_removeMessage`).
+- **Eliminar respostas:** todas as respostas (abertas ou recolhidas) tem um x no
+  titulo. Antes de eliminar aparece um aviso (`_confirmDelEl`): se a resposta ainda
+  nao esta guardada como nota, oferece "Guardar como nota e eliminar". Retira a
+  resposta e a pergunta da conversa e do historico (`_removeMessage`); a nota ja
+  guardada no Zotero nao e apagada.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -262,7 +265,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

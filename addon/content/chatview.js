@@ -1229,6 +1229,35 @@ var ZIAChatView = class {
 		return out;
 	}
 
+	/** Aviso antes de eliminar: com conteúdo por guardar, oferece guardar como nota primeiro. */
+	_confirmDelEl(m) {
+		const box = this._el("div", "zia-confirm-del");
+		box.setAttribute("role", "alertdialog");
+		const unsaved = !m.error && m.text && !m.noteID;
+		const key = m.error ? "chat.del.error" : m.noteID ? "chat.del.saved" : "chat.del.unsaved";
+		box.appendChild(this._el("div", "zia-confirm-text", this.T(key)));
+		const row = this._el("div", "zia-custom-btns");
+		if (unsaved) {
+			row.appendChild(this._button(this.T("chat.del.saveThenDelete"), "zia-btn-small zia-btn-primary", async () => {
+				try {
+					await this._saveMessageNote(m);
+					this._removeMessage(m);
+				}
+				catch (e) {
+					this._setStatus(this.T("chat.noteError", { e: e.message || e }), "error");
+				}
+			}));
+		}
+		row.appendChild(this._button(this.T("chat.del.confirm"), "zia-btn-small zia-btn-danger", () => this._removeMessage(m)));
+		row.appendChild(this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => {
+			m.confirmDel = false;
+			this._renderMessage(m);
+		}));
+		box.appendChild(row);
+		box.addEventListener("click", ev => ev.stopPropagation());
+		return box;
+	}
+
 	/** Retira uma resposta (e a pergunta que a originou) da conversa e do histórico. */
 	_removeMessage(m) {
 		if (this.busy) return;
@@ -1239,7 +1268,7 @@ var ZIAChatView = class {
 		list.splice(from, i - from + 1);
 		this._renderMessages();
 		this._persist();
-		this._setStatus(this.T("chat.errorRemoved"));
+		this._setStatus(this.T(m.error ? "chat.errorRemoved" : "chat.answerRemoved"));
 	}
 
 	async _retry(msg, engine) {
@@ -1491,22 +1520,24 @@ var ZIAChatView = class {
 		}
 		head.appendChild(this._el("span", "zia-action-tag", m.actionLabel || this.T("chat.question")));
 		head.appendChild(this._el("span", "zia-engine-tag", this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "")));
-		// Respostas com erro podem ser retiradas da conversa
-		if (m.error && !m.pending) {
+		// Qualquer resposta pode ser retirada da conversa, depois de confirmar
+		if (!m.pending) {
 			const del = this._button("×", "zia-msg-del", ev => {
 				if (ev && ev.stopPropagation) ev.stopPropagation();
-				this._removeMessage(m);
-			}, this.T("chat.removeError"));
+				m.confirmDel = true;
+				this._renderMessage(m);
+			}, this.T(m.error ? "chat.removeError" : "chat.removeAnswer"));
 			del.addEventListener("keydown", ev => ev.stopPropagation());
 			head.appendChild(del);
 		}
 		el.appendChild(head);
+		if (m.confirmDel) el.appendChild(this._confirmDelEl(m));
 		if (m.collapsed) {
 			// Também recolhida se pode guardar como nota
 			if (!m.error && m.text) {
 				const save = this._saveNoteButton(m, "zia-head-save");
 				save.addEventListener("keydown", ev => ev.stopPropagation());
-				head.appendChild(save);
+				head.insertBefore(save, head.querySelector(".zia-msg-del"));
 			}
 			const asked = !m.actionLabel && m.asked ? m.asked + ": " : "";
 			const plain = String(m.error || m.text || "").replace(/\[D\d+[^\]]*\]/g, "").replace(/[#*_>`|]/g, "").replace(/\s+/g, " ").trim();

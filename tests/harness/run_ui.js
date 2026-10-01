@@ -430,10 +430,29 @@ async function main() {
 		await act(page, "resumo");
 		await page.waitForSelector(".zia-msg-del");
 		const before = await page.locator(".zia-msg").count();
-		await page.click(".zia-msg-del");
+		const errMsg = page.locator(".zia-msg-assistant", { hasText: "sobrecarregados" });
+		await errMsg.locator(".zia-msg-del").click();
+		await page.waitForSelector("text=Eliminar este erro da conversa?");
+		await page.click(".zia-confirm-del button:has-text(\"Eliminar\")");
 		assert.equal(await page.locator(".zia-msg").count(), before - 2, "erro e pergunta retirados");
-		assert.equal(await page.locator(".zia-msg-del").count(), 0);
-		await page.evaluate(() => { window.MOCK.error = null; });
+		// resposta com conteúdo ainda não guardada: aviso com a opção de guardar como nota primeiro
+		const n0 = await page.locator(".zia-msg").count();
+		await page.locator(".zia-msg-assistant >> nth=0").locator(".zia-msg-del").click();
+		await page.waitForSelector(".zia-confirm-del");
+		const cancelled = await page.locator(".zia-confirm-del button:has-text(\"Cancelar\")");
+		await cancelled.click();
+		assert.equal(await page.locator(".zia-confirm-del").count(), 0, "cancelar não apaga");
+		assert.equal(await page.locator(".zia-msg").count(), n0);
+		await page.evaluate(() => { window.MOCK.error = null; window.MOCK.answer = "Resumo curto [D1:p1]."; });
+		await act(page, "pontos");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
+		await page.evaluate(() => { window.savedNotes = 0; const o = ZoteroIA.saveNote; ZoteroIA.saveNote = async a => { window.savedNotes++; return o(a); }; });
+		const n1 = await page.locator(".zia-msg").count();
+		await page.locator(".zia-msg-assistant >> nth=0").locator(".zia-msg-del").click();
+		await page.waitForSelector("text=Ainda não está guardada como nota");
+		await page.click(".zia-confirm-del button:has-text(\"Guardar como nota e eliminar\")");
+		await page.waitForFunction(n => document.querySelectorAll(".zia-msg").length === n - 2, n1);
+		assert.equal(await page.evaluate(() => window.savedNotes), 1, "guardada como nota antes de eliminar");
 		console.log("OK fichas: botão i com os campos, criar ficha a partir da lista e guardar como nota; erros retirados com x");
 		await page.close();
 	}

@@ -1530,3 +1530,8 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-ficha-ok { border-color: var(--zia-green); color: var(--zia-green); }
 .zia-ficha-missing { border-style: dashed; color: var(--zia-fg2); }
 .zia-ficha-chip:hover { background: var(--zia-sand); }
+
+.zia-confirm-del { margin: 4px 0 6px; padding: 6px 8px; border: 1px solid var(--zia-orange); border-left-width: 3px; border-radius: 6px; background: rgba(232, 133, 12, 0.08); font-size: 12px; }
+.zia-confirm-text { margin-bottom: 6px; }
+.zia-msg-head .zia-head-save + .zia-msg-del { margin-inline-start: 4px; }
+.zia-msg-head .zia-head-save ~ .zia-msg-del { margin-inline-start: 4px; }
