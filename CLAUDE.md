@@ -265,8 +265,14 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
+
+## Creditos
+
+Servico de Infoliteracia, Biblioteca da FEUP. Sergio Bernardo (sergiob@fe.up.pt).
+Grupo "Creditos" no fim das definicoes e campo `author` do manifest. Nao mostrar
+autoria do Claude no addon, na documentacao nem nos commits.
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)
 

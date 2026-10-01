@@ -37,7 +37,7 @@ Em **todas as respostas**: citações clicáveis, **Guardar como nota**, **Expor
 
 1. No Zotero: **Ferramentas → Plugins**
 2. Roda dentada → **Install Plugin From File…**
-3. Escolhe o ficheiro `assistente-ia-0.6.2.xpi`
+3. Escolhe o ficheiro `assistente-ia-0.6.3.xpi`
 
 Precisa do Zotero 8 ou superior.
 
@@ -124,6 +124,12 @@ Envia o ficheiro `.xpi` (por exemplo, das Releases do repositório). Cada pessoa
 - Testes e arquitetura: ver `CLAUDE.md`
 
 ---
+
+## Créditos
+
+Serviço de Infoliteracia, Biblioteca da FEUP
+
+Sérgio Bernardo, sergiob@fe.up.pt
 
 ## English summary
 

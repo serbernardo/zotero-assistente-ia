@@ -1535,3 +1535,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-confirm-text { margin-bottom: 6px; }
 .zia-msg-head .zia-head-save + .zia-msg-del { margin-inline-start: 4px; }
 .zia-msg-head .zia-head-save ~ .zia-msg-del { margin-inline-start: 4px; }
+
+.zia-credits { font-size: 13px; line-height: 1.6; }
+.zia-credits-org { font-weight: 600; }
+.zia-credits-name { margin-top: 6px; font-weight: 600; }
