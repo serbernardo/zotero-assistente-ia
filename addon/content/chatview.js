@@ -40,7 +40,9 @@ var ZIAChatView = class {
 	}
 
 	_emptyState() {
-		return { docs: [], allDocs: {}, nextDocNum: 1, messages: [] };
+		const messages = [];
+		// Várias conversas por artigo, em separadores: convs[active] é a conversa à vista
+		return { docs: [], allDocs: {}, nextDocNum: 1, messages, convs: [messages], active: 0 };
 	}
 
 	// ------------------------------------------------------------------
@@ -134,17 +136,20 @@ var ZIAChatView = class {
 		this.statusEl = this._el("div", "zia-status");
 		root.appendChild(this.statusEl);
 
+		// Separadores das conversas (Nova conversa abre outra sem apagar a anterior)
+		this.convTabsEl = this._el("div", "zia-conv-tabs");
+		this.convTabsEl.setAttribute("role", "tablist");
+		root.appendChild(this.convTabsEl);
+
 		// Respostas, por baixo da caixa de texto: a mais recente fica em cima
 		this.messagesEl = this._el("div", "zia-messages");
 		this.messagesEl.setAttribute("aria-live", "polite");
 		root.appendChild(this.messagesEl);
 
 		const tail = this._el("div", "zia-footer");
-		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.clearConversation());
+		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.newConversation(), this.T("chat.new.tip"));
 		tail.appendChild(this.newBtn);
 		if (this.mode === "section") {
-			tail.appendChild(this._button(this.T("chat.compareCollection"), "zia-link-btn", () => this.openCollectionWindow(),
-				this.T("chat.compareCollection.tip")));
 			tail.appendChild(this._button(this.T("chat.openWindow"), "zia-link-btn", () => this.openInWindow(),
 				this.T("chat.openWindow.tip")));
 		}
@@ -517,8 +522,10 @@ var ZIAChatView = class {
 			await this._addItems([item], { quiet: true });
 			// Conversa guardada de uma sessão anterior do Zotero
 			const old = this.core.loadConversation ? await this.core.loadConversation(this.historyKey) : null;
-			if (old && old.length && this.sessionKey === key) {
-				this.state.messages = old.map(m => Object.assign({}, m, { collapsed: m.role === "assistant" }));
+			if (old && old.convs && old.convs.some(c => c.length) && this.sessionKey === key) {
+				this.state.convs = old.convs.map(c => c.map(m => Object.assign({}, m, { collapsed: m.role === "assistant" })));
+				this.state.active = Math.min(Math.max(0, old.active || 0), this.state.convs.length - 1);
+				this.state.messages = this.state.convs[this.state.active];
 				const last = [...this.state.messages].reverse().find(m => m.role === "assistant");
 				if (last) last.collapsed = false;
 				this._setStatus(this.T("chat.historyLoaded", { n: this.state.messages.filter(m => m.role === "assistant").length }));
@@ -527,6 +534,97 @@ var ZIAChatView = class {
 		this._renderDocs();
 		this._renderMessages();
 		this._updateButtons();
+	}
+
+	// ------------------------------------------------------------------
+	// Várias conversas por artigo (separadores)
+	// ------------------------------------------------------------------
+
+	_ensureConvs() {
+		if (!this.state.convs) {
+			this.state.convs = [this.state.messages];
+			this.state.active = 0;
+		}
+	}
+
+	/** Título de uma conversa: a primeira ação pedida ou o início da primeira pergunta. */
+	_convTitle(msgs) {
+		const a = msgs.find(m => m.role === "assistant");
+		if (a && a.actionLabel) return a.actionLabel.split(" · ")[0];
+		const q = msgs.find(m => m.role === "user");
+		if (q && q.display) return q.display.length > 28 ? q.display.slice(0, 26) + "…" : q.display;
+		return this.T("chat.new");
+	}
+
+	_renderConvTabs() {
+		this._ensureConvs();
+		const box = this.convTabsEl;
+		if (!box) return;
+		while (box.firstChild) box.removeChild(box.firstChild);
+		const convs = this.state.convs;
+		box.hidden = convs.length < 2;
+		if (box.hidden) return;
+		convs.forEach((msgs, i) => {
+			const tab = this._el("div", "zia-conv-tab" + (i === this.state.active ? " zia-conv-active" : ""));
+			tab.setAttribute("role", "tab");
+			tab.setAttribute("aria-selected", i === this.state.active ? "true" : "false");
+			const label = this._button(this._convTitle(msgs), "zia-conv-label", () => this.switchConversation(i));
+			label.title = this._convTitle(msgs);
+			tab.appendChild(label);
+			tab.appendChild(this._button("×", "zia-conv-close", () => this.closeConversation(i), this.T("chat.conv.close")));
+			box.appendChild(tab);
+		});
+	}
+
+	/** Nova conversa num separador novo; a anterior fica guardada no seu separador. */
+	newConversation() {
+		if (this.busy) return;
+		this._ensureConvs();
+		if (!this.state.messages.length) {
+			this._setStatus(this.T("chat.conv.alreadyNew"));
+			return;
+		}
+		const fresh = [];
+		this.state.convs.push(fresh);
+		if (this.state.convs.length > 10) this.state.convs.shift();
+		this.state.active = this.state.convs.length - 1;
+		this.state.messages = fresh;
+		this._afterConvChange();
+		this._setStatus(this.T("chat.conv.created"));
+	}
+
+	switchConversation(i) {
+		if (this.busy || i === this.state.active || !this.state.convs[i]) return;
+		this.state.active = i;
+		this.state.messages = this.state.convs[i];
+		this._afterConvChange();
+	}
+
+	/** Fecha um separador (as respostas guardadas como nota continuam no Zotero). */
+	closeConversation(i) {
+		if (this.busy) return;
+		this._ensureConvs();
+		const msgs = this.state.convs[i];
+		if (!msgs) return;
+		if (msgs.some(m => m.role === "assistant" && m.text && !m.noteID)) {
+			if (!this.win.confirm(this.T("chat.conv.closeConfirm", { title: this._convTitle(msgs) }))) return;
+		}
+		this.state.convs.splice(i, 1);
+		if (!this.state.convs.length) this.state.convs.push([]);
+		if (this.state.active >= this.state.convs.length || i < this.state.active) this.state.active = Math.max(0, this.state.active - (i < this.state.active ? 1 : 0));
+		this.state.active = Math.min(this.state.active, this.state.convs.length - 1);
+		this.state.messages = this.state.convs[this.state.active];
+		this._afterConvChange();
+	}
+
+	_afterConvChange() {
+		this.selectedAction = null;
+		this._renderPending();
+		this._renderConvTabs();
+		this._renderMessages();
+		this._renderActions();
+		this._persist();
+		this._setStatus("");
 	}
 
 	_saveSession() {
@@ -897,15 +995,15 @@ var ZIAChatView = class {
 	}
 
 	_persist() {
-		if (this.historyKey && this.core.saveConversation) this.core.saveConversation(this.historyKey, this.state.messages);
+		this._ensureConvs();
+		this._renderConvTabs();
+		if (this.historyKey && this.core.saveConversation) {
+			this.core.saveConversation(this.historyKey, { convs: this.state.convs, active: this.state.active });
+		}
 	}
 
 	clearConversation() {
-		if (this.busy) return;
-		this.state.messages = [];
-		this._persist();
-		this._renderMessages();
-		this._setStatus("");
+		this.newConversation();
 	}
 
 	/** Escolhe uma ação (não a corre): o pedido segue com Enviar ou Enter. */
@@ -1452,6 +1550,7 @@ var ZIAChatView = class {
 	}
 
 	_renderMessages() {
+		this._renderConvTabs();
 		const box = this.messagesEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
 		if (!this.state.messages.length) {
@@ -1466,7 +1565,6 @@ var ZIAChatView = class {
 				card.appendChild(this._el("p", null, this.T("nopdf.text")));
 				const row = this._el("div", "zia-custom-btns");
 				row.appendChild(this._button(this.T("nopdf.window"), "zia-btn-small zia-btn-primary", () => this.openInWindow()));
-				row.appendChild(this._button(this.T("nopdf.collection"), "zia-btn-small", () => this.openCollectionWindow()));
 				card.appendChild(row);
 				box.appendChild(card);
 				return;
@@ -1576,6 +1674,7 @@ var ZIAChatView = class {
 		}
 		head.appendChild(this._el("span", "zia-action-tag", m.actionLabel || this.T("chat.question")));
 		head.appendChild(this._el("span", "zia-engine-tag", this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "")));
+		if (canFold) head.appendChild(this._el("span", "zia-fold-hint", this.T(m.collapsed ? "chat.foldOpen" : "chat.foldClose")));
 		// Qualquer resposta pode ser retirada da conversa, depois de confirmar
 		if (!m.pending) {
 			const del = this._button("×", "zia-msg-del", ev => {
@@ -1651,9 +1750,10 @@ var ZIAChatView = class {
 			el.appendChild(row);
 		}
 		else if (!m.pending && m.text) {
+			// Copiar, Guardar como nota e os outros botões ficam por cima do texto
+			el.insertBefore(this._messageTools(m), body);
 			if (m.check) el.appendChild(this._checkBox(m.check));
 			if (m.tags && m.tags.length) el.appendChild(this._tagsRow(m));
-			el.appendChild(this._messageTools(m));
 		}
 	}
 

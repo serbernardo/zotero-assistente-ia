@@ -302,8 +302,25 @@ async function main() {
 		assert.equal(await page.locator(".zia-msg-assistant").count(), 2, "respostas recuperadas");
 		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1, "só a última fica aberta");
 		assert.match(await page.textContent(".zia-status"), /Conversa anterior recuperada/);
-		await page.click("text=Nova conversa");
-		assert.equal(await page.evaluate(() => [...window.FILES.keys()].length), 0, "nova conversa apaga o ficheiro");
+		// Nova conversa: abre um separador novo e a anterior fica no seu separador (nada é apagado)
+		await page.click(".zia-footer button:has-text(\"Nova conversa\")");
+		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "dois separadores");
+		assert.equal(await page.locator(".zia-msg-assistant").count(), 0, "conversa nova vazia");
+		assert.match(await page.textContent(".zia-conv-tab >> nth=0"), /Resumir|Pontos/, "o separador antigo tem o título da primeira ação");
+		await page.evaluate(a => { window.MOCK.answer = a; }, "Conclusões curtas [D1:p2].");
+		await tab(page, "avaliar");
+		await act(page, "conclusoes");
+		await page.waitForFunction(() => document.querySelectorAll(".zia-msg-assistant").length === 1 && !document.querySelector(".zia-send.zia-stop"));
+		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /Conclusões/);
+		await page.locator(".zia-conv-label >> nth=0").click();
+		assert.equal(await page.locator(".zia-msg-assistant").count(), 2, "voltar ao separador antigo mostra as respostas dele");
+		await page.screenshot({ path: path.join(OUT, "ui_painel_separadores.png") });
+		const saved = await page.evaluate(() => JSON.parse([...window.FILES.values()][0]));
+		assert.equal(saved.conversations.length, 2, "as duas conversas ficam guardadas");
+		// fechar um separador pede confirmação se houver respostas não guardadas
+		page.once("dialog", d => d.accept());
+		await page.locator(".zia-conv-close >> nth=1").click();
+		assert.equal(await page.locator(".zia-conv-tab").count(), 0, "com uma só conversa, os separadores escondem-se");
 		console.log("OK ações: escolher e depois pedir, respostas anteriores recolhidas, ação já pedida mostra a resposta, histórico guardado por artigo");
 		await page.close();
 	}
@@ -479,11 +496,12 @@ async function main() {
 			await view.showItem(it);
 		});
 		await page.waitForSelector("text=Este registo não tem PDF");
-		assert.equal(await page.locator(".zia-nopdf button").count(), 2);
+		assert.equal(await page.locator(".zia-nopdf button").count(), 1, "um só botão: abrir a janela");
+		assert.equal(await page.locator(".zia-footer button:has-text(\"Comparar coleção\")").count(), 0, "um só link para a janela no rodapé");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_sem_pdf.png") });
-		await page.click(".zia-nopdf button:has-text(\"Comparar uma coleção\")");
-		assert.equal(await page.evaluate(() => window.openedWindow && window.openedWindow.pickCollection), true, "abre a janela com a lista das coleções");
-		console.log("OK registo sem PDF: aviso no painel, juntar PDFs ou comparar uma coleção na janela");
+		await page.click(".zia-nopdf button");
+		assert.ok(await page.evaluate(() => !!window.openedWindow), "abre a janela do assistente");
+		console.log("OK registo sem PDF: aviso no painel e um botão para abrir a janela");
 		await page.close();
 	}
 

@@ -153,6 +153,15 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   fichas tambem aparece junto de "Usar fichas" e a lista das fichas em Comparar.
 - **Eliminar:** uma resposta com texto nunca e tratada como erro no aviso (oferece
   guardar como nota), mesmo que tenha um erro associado.
+- **Varias conversas (separadores):** `state.convs` (listas de mensagens) e
+  `state.active`; `state.messages` e sempre `convs[active]`. "Nova conversa"
+  (`newConversation`) abre um separador novo sem apagar o anterior; o titulo e a
+  primeira acao ou o inicio da primeira pergunta (`_convTitle`); fechar pede
+  confirmacao se houver respostas nao guardadas. Ficheiro de historico versao 2
+  (`conversations`, `active`); a versao 1 ainda se le.
+- **Respostas:** Copiar e Guardar como nota ficam por cima do texto; o titulo
+  mostra um circulo com seta e "abrir"/"recolher". Rodape do painel so com
+  "Nova conversa" e "Abrir em janela".
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -228,7 +237,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Historico por artigo:** `saveConversation`/`loadConversation` guardam as
   mensagens (sem o texto dos PDFs) em
   `<pasta de dados do Zotero>/zoteroia/conversas/<biblioteca>_<chave>.json`.
-  Pref `history.save` (ligada por omissao), botao para apagar nas definicoes.
+  Varias conversas por artigo. Pref `history.save` (ligada por omissao), botao para apagar nas definicoes.
 - **Modelos Claude:** API com `claude-sonnet-5-5` por omissao e esforco
   `medium` (`output_config.effort`) nos modelos Sonnet/Opus 5. Claude Code
   com o nome curto `sonnet`, que aponta sempre para o mais recente.
@@ -293,7 +302,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.8.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.9.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

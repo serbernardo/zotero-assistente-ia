@@ -1558,3 +1558,30 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 /* Painel: sem segunda barra de deslocação dentro das respostas (o painel do Zotero já desliza) */
 .zia-mode-section .zia-messages { max-height: none; overflow: visible; }
 .zia-tab-external { color: var(--zia-fg2) !important; }
+
+/* Separadores das conversas */
+.zia-conv-tabs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.zia-conv-tabs[hidden] { display: none; }
+.zia-conv-tab { display: inline-flex; align-items: center; border: 1px solid var(--zia-border); border-radius: 6px 6px 0 0; background: var(--zia-sand); max-width: 200px; }
+.zia-conv-tab.zia-conv-active { background: var(--zia-bg); border-bottom-color: var(--zia-bg); font-weight: 700; }
+.zia-conv-label { border: none; background: none; font: inherit; font-size: 12px; color: var(--zia-fg); padding: 3px 4px 3px 9px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+.zia-conv-close { border: none; background: none; color: var(--zia-fg2); cursor: pointer; font-size: 13px; padding: 0 6px 0 2px; }
+.zia-conv-close:hover { color: var(--zia-red); }
+
+/* Texto de ajuda a preto, mais legível */
+.zia-empty, .zia-empty p { color: var(--zia-fg); }
+.zia-tip { color: var(--zia-fg2); }
+
+/* Título das respostas: mais claro que se abre e fecha */
+.zia-msg-head.zia-foldable { padding: 4px 6px; border-radius: 6px; background: var(--zia-accent-soft); margin-bottom: 4px; }
+.zia-msg-head.zia-foldable:hover { background: var(--zia-sand); }
+.zia-fold { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--zia-fg2); color: var(--zia-fg); font-size: 9px; margin-right: 4px; }
+.zia-msg-assistant .zia-msg-tools { margin: 2px 0 6px; }
+
+.zia-fold-hint { margin-inline-start: auto; font-size: 11px; color: var(--zia-fg2); text-decoration: underline; text-underline-offset: 2px; }
+.zia-msg-head .zia-fold-hint ~ .zia-msg-del, .zia-msg-head .zia-fold-hint ~ .zia-head-save { margin-inline-start: 6px; }
+.zia-msg-head.zia-foldable { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; }
+.zia-msg-head .zia-action-tag { flex: none; }
+.zia-msg-head .zia-engine-tag { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zia-msg-head .zia-fold-hint, .zia-msg-head .zia-head-save, .zia-msg-head .zia-msg-del { flex: none; margin-inline-start: 0; }
+.zia-fold { flex: none; margin-right: 0; }

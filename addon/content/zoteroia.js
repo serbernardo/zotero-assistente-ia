@@ -448,7 +448,11 @@ var ZoteroIA = {
 			const { file } = this._conversationPath(key);
 			if (!(await IOUtils.exists(file))) return null;
 			const j = JSON.parse(await IOUtils.readUTF8(file));
-			return Array.isArray(j.messages) ? j.messages : null;
+			// Versão 2: várias conversas (separadores). Versão 1: uma só conversa
+			if (Array.isArray(j.conversations)) {
+				return { convs: j.conversations.map(c => (Array.isArray(c.messages) ? c.messages : [])), active: j.active || 0 };
+			}
+			return Array.isArray(j.messages) ? { convs: [j.messages], active: 0 } : null;
 		}
 		catch (e) {
 			this.log("Histórico: " + e);
@@ -456,20 +460,30 @@ var ZoteroIA = {
 		}
 	},
 
-	async saveConversation(key, messages) {
+	/** Guarda as conversas de um artigo. data: { convs: [[mensagens]], active } (ou uma lista de mensagens). */
+	async saveConversation(key, data) {
 		if (!key) return;
 		const { dir, file } = this._conversationPath(key);
+		const convs = Array.isArray(data) ? [data] : ((data && data.convs) || []);
+		let active = Array.isArray(data) ? 0 : ((data && data.active) || 0);
 		try {
-			if (!messages.length || this.pref("history.save") === false) {
+			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check"];
+			const clean = msgs => msgs.filter(m => !m.pending).slice(-this.HISTORY_MAX)
+				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
+			const conversations = [];
+			convs.forEach((c, i) => {
+				const messages = clean(c || []);
+				if (messages.length) conversations.push({ messages });
+				else if (i < active) active--;
+			});
+			if (!conversations.length || this.pref("history.save") === false) {
 				if (await IOUtils.exists(file)) await IOUtils.remove(file);
 				return;
 			}
-			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
-				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check"];
-			const out = messages.filter(m => !m.pending).slice(-this.HISTORY_MAX)
-				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
+			active = Math.min(Math.max(0, active), conversations.length - 1);
 			await IOUtils.makeDirectory(dir, { ignoreExisting: true, createAncestors: true });
-			await IOUtils.writeUTF8(file, JSON.stringify({ version: 1, saved: Date.now(), messages: out }));
+			await IOUtils.writeUTF8(file, JSON.stringify({ version: 2, saved: Date.now(), active, conversations }));
 		}
 		catch (e) {
 			this.log("Histórico: " + e);
