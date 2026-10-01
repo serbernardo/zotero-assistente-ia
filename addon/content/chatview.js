@@ -143,6 +143,8 @@ var ZIAChatView = class {
 		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.clearConversation());
 		tail.appendChild(this.newBtn);
 		if (this.mode === "section") {
+			tail.appendChild(this._button(this.T("chat.compareCollection"), "zia-link-btn", () => this.openCollectionWindow(),
+				this.T("chat.compareCollection.tip")));
 			tail.appendChild(this._button(this.T("chat.openWindow"), "zia-link-btn", () => this.openInWindow(),
 				this.T("chat.openWindow.tip")));
 		}
@@ -513,6 +515,11 @@ var ZIAChatView = class {
 		}
 	}
 
+	/** Abre a janela grande com a lista das coleções, para comparar os PDFs de uma coleção. */
+	openCollectionWindow() {
+		this.core.openWindow({ items: [], pickCollection: true });
+	}
+
 	async setItems(items, { collectionIDs } = {}) {
 		if (collectionIDs) this.collectionIDs = collectionIDs;
 		await this._addItems(items || [], {});
@@ -589,7 +596,8 @@ var ZIAChatView = class {
 		else if (added && !quiet) {
 			this._setStatus(this.T("chat.inContext", { n: this.state.docs.length }));
 		}
-		if (!this.state.docs.length && quiet && items.length) {
+		// No painel, o cartão "Este registo não tem PDF" já explica: sem aviso repetido
+		if (!this.state.docs.length && quiet && items.length && this.mode !== "section") {
 			this._setStatus(this.T("chat.noPdf"), "warn");
 		}
 	}
@@ -1413,6 +1421,18 @@ var ZIAChatView = class {
 		if (!this.state.messages.length) {
 			if (!this._engineReady()) {
 				box.appendChild(this._setupCard());
+				return;
+			}
+			// Registo sem PDF no painel: explica e oferece os caminhos possíveis
+			if (this.mode === "section" && !this.state.docs.length) {
+				const card = this._el("div", "zia-empty zia-nopdf");
+				card.appendChild(this._el("div", "zia-nopdf-title", this.T("nopdf.title")));
+				card.appendChild(this._el("p", null, this.T("nopdf.text")));
+				const row = this._el("div", "zia-custom-btns");
+				if (this.core.pickableItems) row.appendChild(this._button(this.T("nopdf.add"), "zia-btn-small", () => this._openPicker()));
+				row.appendChild(this._button(this.T("nopdf.collection"), "zia-btn-small", () => this.openCollectionWindow()));
+				card.appendChild(row);
+				box.appendChild(card);
 				return;
 			}
 			const help = this._el("div", "zia-empty");

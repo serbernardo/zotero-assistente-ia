@@ -457,6 +457,23 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Registo sem PDF: o painel fica visível e explica o que fazer ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 520 });
+		await page.evaluate(async () => {
+			const it = { id: 500, key: "NOPDF", libraryID: 1, isRegularItem: () => true, isAttachment: () => false, isPDFAttachment: () => false,
+				getAttachments: () => [], getBestAttachment: async () => null, getField: () => "", getCreators: () => [], getDisplayTitle: () => "Livro sem PDF", getNotes: () => [] };
+			await view.showItem(it);
+		});
+		await page.waitForSelector("text=Este registo não tem PDF");
+		assert.equal(await page.locator(".zia-nopdf button").count(), 2);
+		await page.screenshot({ path: path.join(OUT, "ui_painel_sem_pdf.png") });
+		await page.click(".zia-nopdf button:has-text(\"Comparar uma coleção\")");
+		assert.equal(await page.evaluate(() => window.openedWindow && window.openedWindow.pickCollection), true, "abre a janela com a lista das coleções");
+		console.log("OK registo sem PDF: aviso no painel, juntar PDFs ou comparar uma coleção na janela");
+		await page.close();
+	}
+
 	// ---------- Todos os botões do painel: cada um faz alguma coisa e nenhum dá erro ----------
 	{
 		const snapshot = page => page.evaluate(() => JSON.stringify([

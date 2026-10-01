@@ -232,10 +232,20 @@
 	<groupbox>
 		<label><html:h2 data-zia="prefs.credits.title"/></label>
 		<html:div class="zia-credits">
-			<html:div class="zia-credits-org">Serviço de Infoliteracia</html:div>
-			<html:div class="zia-credits-org">Biblioteca da FEUP</html:div>
-			<html:div class="zia-credits-name">Sérgio Bernardo</html:div>
-			<html:div>email: <html:a class="zia-link" data-url="mailto:sergiob@fe.up.pt">sergiob@fe.up.pt</html:a></html:div>
+			<html:div class="zia-credits-app">
+				<html:div class="zia-credits-appname" data-zia="app.name"/>
+				<html:div class="zia-credits-meta">
+					<html:span class="zia-credits-label" data-zia="prefs.credits.version"/> <html:span id="zia-credits-version" class="zia-credits-value"/>
+					<html:span class="zia-credits-dot">·</html:span>
+					<html:span class="zia-credits-label" data-zia="prefs.credits.updated"/> <html:span id="zia-credits-date" class="zia-credits-value"/>
+				</html:div>
+			</html:div>
+			<html:div class="zia-credits-body">
+				<html:div class="zia-credits-org">Serviço de Infoliteracia</html:div>
+				<html:div class="zia-credits-org">Biblioteca da FEUP</html:div>
+				<html:div class="zia-credits-name">Sérgio Bernardo</html:div>
+				<html:div><html:a class="zia-link" data-url="mailto:sergiob@fe.up.pt">sergiob@fe.up.pt</html:a></html:div>
+			</html:div>
 		</html:div>
 	</groupbox>
 </vbox>

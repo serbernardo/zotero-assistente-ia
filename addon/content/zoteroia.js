@@ -1871,9 +1871,9 @@ var ZoteroIA = {
 	// Janela do assistente (várias fontes, comparação)
 	// ------------------------------------------------------------------
 
-	openWindow({ items = [], collectionIDs = [], autoAction = null } = {}) {
+	openWindow({ items = [], collectionIDs = [], autoAction = null, pickCollection = false, collectionName = null } = {}) {
 		const win = Zotero.getMainWindow();
-		const args = { items, collectionIDs, autoAction };
+		const args = { items, collectionIDs, autoAction, pickCollection, collectionName };
 		args.wrappedJSObject = args;
 		// Reutiliza a janela aberta, se existir
 		const existing = Services.wm.getMostRecentWindow(this.WINDOW_TYPE);

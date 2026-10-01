@@ -102,8 +102,8 @@ function registerSection(pluginID, rootURI) {
 			},
 		],
 		onItemChange: ({ item, setEnabled }) => {
-			const ok = !!item && (item.isRegularItem() || (item.isAttachment() && item.isPDFAttachment()));
-			setEnabled(ok);
+			// Sempre visível (também em registos sem PDF): o painel explica o que fazer
+			setEnabled(!!item);
 			return true;
 		},
 		onRender: ({ body, doc, item }) => {
@@ -132,6 +132,33 @@ function registerSection(pluginID, rootURI) {
 
 function registerMenus(pluginID, rootURI) {
 	if (!Zotero.MenuManager) return;
+	// Botão direito numa coleção: analisar todos os PDFs dela na janela grande
+	try {
+		menuIDs.push(Zotero.MenuManager.registerMenu({
+			menuID: "zoteroia-collection-menu",
+			pluginID,
+			target: "main/library/collection",
+			menus: [{
+				menuType: "menuitem",
+				l10nID: "zoteroia-menu-collection",
+				icon: rootURI + "content/icons/sparkle16.svg",
+				onShowing: (ev, ctx) => {
+					const rows = ctx.collectionTreeRows || [];
+					ctx.setVisible(rows.length === 1 && rows[0].isCollection && rows[0].isCollection());
+				},
+				onCommand: (ev, ctx) => {
+					const row = (ctx.collectionTreeRows || [])[0];
+					const col = row && row.ref;
+					if (!col) return;
+					const r = ZoteroIA.collectionItems(col.id);
+					ZoteroIA.openWindow({ items: r.items, collectionIDs: [col.id], collectionName: r.name });
+				},
+			}],
+		}));
+	}
+	catch (e) {
+		Zotero.logError(e);
+	}
 	const openWith = (items, autoAction) => {
 		ZoteroIA.openWindow({ items, collectionIDs: ZoteroIA.selectedCollectionIDs(), autoAction });
 	};

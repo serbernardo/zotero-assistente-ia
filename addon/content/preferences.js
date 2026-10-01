@@ -104,6 +104,7 @@ window.ZIAPrefs = {
 		const ta = this.$("zia-custom-prompts");
 		if (ta) ta.setAttribute("placeholder", this.T("prefs.prompts.placeholder"));
 		this.setText("zia-version", this.T("prefs.update.version", { v: this.core().version || "?" }));
+		this.showBuildInfo();
 		const cmd = this.$("zia-claude-command");
 		if (cmd) cmd.textContent = this.core().claudeInstallCommand();
 		this.fillAnswerLanguage();
@@ -111,6 +112,22 @@ window.ZIAPrefs = {
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
 		this.showPromptCount();
+	},
+
+	/** Versão e data da última atualização (data gravada ao empacotar, em content/buildinfo.json). */
+	async showBuildInfo() {
+		const core = this.core();
+		this.setText("zia-credits-version", core.version || "?");
+		let date = null;
+		try {
+			const txt = await Zotero.File.getContentsFromURLAsync(core.rootURI + "content/buildinfo.json");
+			date = JSON.parse(txt).date;
+		}
+		catch (e) { /* versão de desenvolvimento, sem data */ }
+		const lang = core.lib.I18N.getLang() === "en" ? "en-GB" : "pt-PT";
+		this.setText("zia-credits-date", date
+			? new Date(date).toLocaleDateString(lang, { day: "numeric", month: "long", year: "numeric" })
+			: "?");
 	},
 
 	setText(id, text, isError) {

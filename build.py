@@ -4,6 +4,7 @@
 Gera também dist/updates.json, o ficheiro que o Zotero consulta para saber se há
 uma versão nova. Os dois ficheiros vão para a release do GitHub com a etiqueta v<versão>.
 """
+import datetime
 import hashlib
 import json
 import os
@@ -35,9 +36,12 @@ def main():
             for name in sorted(names):
                 full = os.path.join(dirpath, name)
                 files.append(os.path.relpath(full, ADDON).replace(os.sep, "/"))
+    build_date = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for rel in sorted(files):
             z.write(os.path.join(ADDON, rel), rel)
+        # Data da última atualização, mostrada nas definições (Créditos)
+        z.writestr("content/buildinfo.json", json.dumps({"version": version, "date": build_date}))
     with open(out, "rb") as f:
         sha = hashlib.sha256(f.read()).hexdigest()
     updates = {

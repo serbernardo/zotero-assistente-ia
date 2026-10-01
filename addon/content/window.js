@@ -28,7 +28,10 @@ var ZIAWindow = {
 	/** Recebe itens (ao abrir ou quando a janela já existe). */
 	async receive(args) {
 		if (!this.view || !args) return;
+		if (args.collectionName) this.view.collectionName = args.collectionName;
 		await this.view.setItems(args.items || [], { collectionIDs: args.collectionIDs || [] });
+		// Vindo de "Comparar coleção": abre logo a lista das coleções
+		if (args.pickCollection) this.view._openCollectionPicker();
 		if (args.autoAction) {
 			const a = Zotero.ZoteroIA.lib.ACTIONS[args.autoAction];
 			if (a && this.view.state.docs.length >= a.minDocs) {

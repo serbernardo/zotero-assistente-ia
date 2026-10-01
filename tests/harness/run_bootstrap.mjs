@@ -91,14 +91,14 @@ for (const s of prefPanes[0].scripts.concat(prefPanes[0].stylesheets)) assert.ok
 const sectionID = vm.runInContext("sectionID", scopeCtx);
 assert.ok(sectionID && typeof sectionID === "string", "secção registada pelo ItemPaneManager real: " + sectionID);
 const menuIDs = vm.runInContext("menuIDs", scopeCtx);
-assert.equal(menuIDs.length, 2);
+assert.equal(menuIDs.length, 3, "menus: item, coleção e ferramentas");
 assert.ok(menuIDs.every(Boolean), "menus aceites pelo MenuManager real: " + menuIDs.join(", "));
 assert.ok(Zotero.ZoteroIA && Zotero.ZoteroIA.ChatView, "núcleo exposto");
 
 // Ícones e textos de interface existem
 const ftl = fs.readFileSync(path.join(ADDON, "locale/pt-PT/zoteroia.ftl"), "utf8");
 const src = fs.readFileSync(path.join(ADDON, "bootstrap.js"), "utf8");
-for (const id of new Set(src.match(/zoteroia-[a-z-]+(?=")/g).filter(x => !["zoteroia-section", "zoteroia-item-menu", "zoteroia-tools-menu", "zoteroia-stylesheet", "zoteroia-open-window"].includes(x)))) {
+for (const id of new Set(src.match(/zoteroia-[a-z-]+(?=")/g).filter(x => !["zoteroia-section", "zoteroia-item-menu", "zoteroia-tools-menu", "zoteroia-collection-menu", "zoteroia-stylesheet", "zoteroia-open-window"].includes(x)))) {
 	assert.ok(ftl.includes(id + " ="), "texto em falta: " + id);
 }
 for (const icon of src.match(/content\/icons\/[a-z0-9]+\.svg/g)) assert.ok(fs.existsSync(path.join(ADDON, icon)), icon);
@@ -113,4 +113,4 @@ if (warnings.length) {
 	console.error("Avisos do Zotero:\n" + warnings.join("\n"));
 	process.exit(1);
 }
-console.log("OK bootstrap: chrome registado, 4 scripts carregados, preferências, secção e 2 menus aceites pelas validações reais do Zotero, textos e ícones presentes, encerramento limpo");
+console.log("OK bootstrap: chrome registado, 4 scripts carregados, preferências, secção e 3 menus (incluindo o das coleções) aceites pelas validações reais do Zotero, textos e ícones presentes, encerramento limpo");

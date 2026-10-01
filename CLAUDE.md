@@ -125,6 +125,15 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   nao esta guardada como nota, oferece "Guardar como nota e eliminar". Retira a
   resposta e a pergunta da conversa e do historico (`_removeMessage`); a nota ja
   guardada no Zotero nao e apagada.
+- **Colecoes:** a barra lateral e para um artigo. As colecoes analisam-se na
+  janela: botao "Comparar colecao" no rodape do painel (`openCollectionWindow`,
+  abre a janela com `pickCollection`) e clique direito numa colecao
+  ("Assistente IA: analisar esta colecao", menu `main/library/collection`).
+- **Icone sempre visivel:** `onItemChange` faz `setEnabled(!!item)`. Num registo
+  sem PDF o painel mostra o cartao "Este registo nao tem PDF" com "+ PDF" e
+  "Comparar uma colecao".
+- **Creditos com versao e data:** `build.py` grava `content/buildinfo.json` (data
+  de empacotamento) dentro do `.xpi`; `showBuildInfo` mostra versao e data.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -247,7 +256,7 @@ npm install
 - `ZOTERO_SRC=<clone> node tests/harness/run_cite.js` — citacoes nos estilos APA e
   ABNT com o `citeproc.js` REAL do Zotero (precisa de `git sparse-checkout add
   chrome/content/zotero/xpcom`); estilos de teste em `tests/harness/csl/`
-- `ZOTERO_SRC=<clone> node tests/harness/run_bootstrap.mjs` — valida
+- `ZOTERO_SRC=<clone> node tests/harness/run_bootstrap.mjs` — valida (3 menus)
   `bootstrap.js` contra o codigo fonte REAL do `PluginAPIBase`/
   `ItemPaneManager`/`MenuManager` do Zotero. Clone esparso:
   `git clone --depth 1 --filter=blob:none --sparse https://github.com/zotero/zotero.git zsrc`
@@ -265,7 +274,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

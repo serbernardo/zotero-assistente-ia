@@ -36,6 +36,7 @@ ${x}
 	window.Zotero = {
 		debug: () => {}, logError: e => console.error(e), locale: "pt-PT",
 		launchURL: u => window.opened.push(u), getMainWindow: () => window,
+		File: { getContentsFromURLAsync: async () => JSON.stringify({ date: "2026-10-02T10:00:00+00:00" }) },
 		Utilities: { Internal: { copyTextToClipboard: t => { window.copied = t; } } },
 	};
 	// Google simulada: lista de modelos, teste rápido e respostas em fluxo

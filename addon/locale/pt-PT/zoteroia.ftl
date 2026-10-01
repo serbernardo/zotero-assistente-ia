@@ -20,3 +20,5 @@ zoteroia-menu-critique =
     .label = Avaliação crítica
 zoteroia-menu-tools =
     .label = Assistente IA…
+zoteroia-menu-collection =
+    .label = Assistente IA: analisar esta coleção
