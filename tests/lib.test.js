@@ -396,3 +396,39 @@ test("instruções: só a informação dos documentos, sem suposições", () => 
 	}
 	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_sintese"]);
 });
+
+test("histórico: só as últimas trocas e com limite de tamanho", () => {
+	const msgs = [];
+	for (let i = 1; i <= 10; i++) msgs.push({ role: "user", text: "P" + i }, { role: "assistant", text: "R" + i });
+	const h = L.selectHistory(msgs);
+	assert.equal(h.length, 6);
+	assert.equal(h[0].text, "P8");
+	assert.equal(h[5].text, "R10");
+	const big = [{ role: "user", text: "P" }, { role: "assistant", text: "x".repeat(50000) }];
+	const h2 = L.selectHistory(big, { maxChars: 24000 });
+	assert.ok(h2.reduce((a, m) => a + m.text.length, 0) <= 24010);
+	assert.equal(L.selectHistory([{ role: "assistant", text: "só resposta" }]).length, 0, "começa sempre por uma pergunta");
+});
+
+test("verificação: excertos, páginas, números e contas confirmados no texto dos PDFs", () => {
+	const docs = { D1: { pages: [
+		"Resumo. Aplicámos um inquérito online a 412 estudantes. 68% usariam um chatbot.",
+		"A utilidade percebida explicou a maior parte da variância (beta = 0,52). O modelo explicou 47% da variância.",
+		"Discussão sem números.", "Conclusão sem números.",
+	] } };
+	const ok = L.verifyAnswer('Amostra de 412 estudantes: "Aplicámos um inquérito online a 412 estudantes" [D1:p1]. '
+		+ '"A utilidade percebida explicou a maior parte da variância" [D1:p2] (beta = 0,52) [D1:p2].\n'
+		+ '[Inferência] Ficam 53% por explicar (100% - 47% = 53%) [D1:p2].', docs);
+	assert.equal(ok.problems, 0, JSON.stringify(ok));
+	assert.equal(ok.quotesOK, 2);
+	assert.equal(ok.calcs, 1);
+	const bad = L.verifyAnswer('"92% dos estudantes preferem bibliotecários humanos" [D1:p1]. '
+		+ '"Aplicámos um inquérito online a 412 estudantes" [D1:p4]. Ver [D1:p9]. O R2 foi 0,63 [D1:p2].\n'
+		+ '[Inferência] (100% - 47% = 63%) [D1:p2].', docs);
+	assert.equal(bad.badQuotes.length, 1, "excerto inventado");
+	assert.equal(bad.wrongPage.length, 1, "excerto verdadeiro na página errada");
+	assert.equal(bad.badCites.length, 1, "página que não existe");
+	assert.equal(bad.badCalcs.length, 1, "conta errada");
+	assert.ok(bad.unknownNumbers.includes("0,63") && bad.unknownNumbers.includes("92%"));
+	assert.equal(L.verifyAnswer("texto", {}), null, "sem texto dos PDFs não verifica");
+});

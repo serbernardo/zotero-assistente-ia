@@ -830,35 +830,6 @@
 
 .zia-hero-foot { margin-top: 10px; }
 
-/* ---------- Painel lateral em destaque: fundo cinza mais escuro e cabeçalho azul ---------- */
-
-collapsible-section[data-pane$="zoteroia-section"] {
-	--zia-panel: #e4e6ea;
-	--zia-panel-border: #c9ccd2;
-	background: var(--zia-panel);
-	border: 1px solid var(--zia-panel-border);
-	border-left: 4px solid var(--accent-blue, #4072e5);
-	border-radius: 6px;
-	margin-block: 6px;
-	min-width: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-	collapsible-section[data-pane$="zoteroia-section"] {
-		--zia-panel: #34363b;
-		--zia-panel-border: #4a4d54;
-	}
-}
-
-collapsible-section[data-pane$="zoteroia-section"] > .head {
-	padding-inline-start: 8px;
-}
-
-collapsible-section[data-pane$="zoteroia-section"] > .head .title {
-	color: var(--accent-blue, #4072e5);
-	font-weight: 700;
-}
-
 .zia-mode-section {
 	padding: 2px 6px 8px;
 }
@@ -1127,40 +1098,6 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 	font-size: 12.5px;
 }
 
-/* ---------- Painel lateral: mais contraste ---------- */
-
-.zia-root.zia-mode-section {
-	--zia-fg: #15181d;
-	--zia-fg2: #353b46;
-	--zia-muted: #505866;
-	--zia-border: #b3bac5;
-	--zia-accent: #2f5fd0;
-	--zia-accent-soft: rgba(47, 95, 208, 0.12);
-}
-
-@media (prefers-color-scheme: dark) {
-	.zia-root.zia-mode-section {
-		--zia-fg: #f2f4f7;
-		--zia-fg2: #d5d9e0;
-		--zia-muted: #b3b9c4;
-		--zia-border: #5d626c;
-		--zia-accent: #8fb0ff;
-		--zia-accent-soft: rgba(143, 176, 255, 0.18);
-	}
-}
-
-collapsible-section[data-pane$="zoteroia-section"] {
-	--zia-panel: #dde0e6;
-	--zia-panel-border: #b3bac5;
-}
-
-.zia-mode-section .zia-tab { color: var(--zia-fg); font-size: 11.5px; padding: 3px 5px 4px; }
-.zia-mode-section .zia-tab[aria-selected="true"] { color: var(--zia-accent); }
-.zia-mode-section .zia-engine-tag { color: var(--zia-muted); }
-.zia-mode-section .zia-preview { color: var(--zia-fg2); }
-.zia-mode-section .zia-status { color: var(--zia-fg2); }
-.zia-mode-section .zia-msg-user { background: rgba(47, 95, 208, 0.16); color: var(--zia-fg); }
-
 /* Botão "Guardar nota" no título de uma resposta recolhida */
 .zia-head-save {
 	margin-inline-start: auto;
@@ -1324,46 +1261,181 @@ collapsible-section[data-pane$="zoteroia-section"] {
 .zia-picker-row[hidden] { display: none; }
 .zia-picker-row input { margin-top: 2px; flex: none; }
 
-/* ---------- Azul mais sóbrio e separadores a preto ---------- */
+.zia-picker-sort { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.zia-picker-sortsel { min-width: 0; flex: 1; }
 
-.zia-root.zia-mode-section,
-.zia-hero {
-	--zia-accent: #1c4f96;
-	--zia-accent-soft: rgba(28, 79, 150, 0.12);
+/* ==========================================================================
+   Paleta (inspirada no Beaver): fundo creme quente, tinta azul-noite para o
+   texto e para o que está escolhido, dourado só como marca, azul só nas
+   citações e ligações. Um único sítio para as cores, claro e escuro.
+   ========================================================================== */
+
+.zia-root,
+.zia-hero,
+collapsible-section[data-pane$="zoteroia-section"] {
+	--zia-fg: #111729;
+	--zia-fg2: #3f4555;
+	--zia-muted: #5d6474;
+	--zia-bg: #ffffff;
+	--zia-panel: #f5f0ed;
+	--zia-sand: #ebe3dc;
+	--zia-border: #ddd2c9;
+	--zia-accent: #111729;
+	--zia-on-accent: #ffffff;
+	--zia-accent-soft: rgba(17, 23, 41, 0.07);
+	--zia-gold: #f2c200;
+	--zia-link: #0b6a9c;
+	--zia-cite-bg: rgba(46, 168, 229, 0.14);
+	--zia-green: #15803d;
+	--zia-red: #c62828;
+	--zia-orange: #b45309;
 }
 
 @media (prefers-color-scheme: dark) {
-	.zia-root.zia-mode-section,
-	.zia-hero {
-		--zia-accent: #a3c0f0;
-		--zia-accent-soft: rgba(163, 192, 240, 0.18);
+	.zia-root,
+	.zia-hero,
+	collapsible-section[data-pane$="zoteroia-section"] {
+		--zia-fg: #f5f0ed;
+		--zia-fg2: #d9d2cc;
+		--zia-muted: #aaa39d;
+		--zia-bg: #232428;
+		--zia-panel: #2c2b2a;
+		--zia-sand: #3a3836;
+		--zia-border: #4a4743;
+		--zia-accent: #f5f0ed;
+		--zia-on-accent: #111729;
+		--zia-accent-soft: rgba(245, 240, 237, 0.10);
+		--zia-gold: #f2c200;
+		--zia-link: #7cc7ee;
+		--zia-cite-bg: rgba(46, 168, 229, 0.22);
+		--zia-green: #4ade80;
+		--zia-red: #ff8a80;
+		--zia-orange: #fbbf24;
 	}
 }
 
+/* Painel lateral do Zotero: cartão creme com marca dourada */
 collapsible-section[data-pane$="zoteroia-section"] {
-	border-left-color: #1c4f96;
+	background: var(--zia-panel);
+	border: 1px solid var(--zia-border);
+	border-left: 4px solid var(--zia-gold);
+	border-radius: 8px;
+	margin-block: 6px;
+	min-width: 0;
 }
 
-collapsible-section[data-pane$="zoteroia-section"] > .head .title { color: #1c4f96; }
-
-@media (prefers-color-scheme: dark) {
-	collapsible-section[data-pane$="zoteroia-section"] { border-left-color: #a3c0f0; }
-	collapsible-section[data-pane$="zoteroia-section"] > .head .title { color: #a3c0f0; }
+collapsible-section[data-pane$="zoteroia-section"] > .head {
+	padding-inline-start: 8px;
 }
 
-.zia-mode-section .zia-tab {
-	color: #000;
+collapsible-section[data-pane$="zoteroia-section"] > .head .title {
+	color: var(--zia-fg);
+	font-weight: 700;
+}
+
+.zia-mode-window { background: var(--zia-panel); }
+
+/* Barra de cima */
+.zia-chip { background: var(--zia-bg); border: 1px solid var(--zia-border); color: var(--zia-fg); }
+.zia-chip b { color: var(--zia-fg); font-weight: 700; }
+.zia-chip-add { border-color: var(--zia-fg2); color: var(--zia-fg); }
+.zia-chip-add:hover { background: var(--zia-sand); }
+
+/* Separadores em forma de pastilha: o escolhido a tinta cheia */
+.zia-tabs { border-bottom: none; gap: 4px; }
+.zia-tabs .zia-tab {
+	background: transparent;
+	color: var(--zia-fg);
 	font-weight: 600;
+	font-size: 11.5px;
+	padding: 3px 10px;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	margin: 0;
+}
+.zia-tabs .zia-tab:hover:not(:disabled) { color: var(--zia-fg); background: var(--zia-sand); border-color: transparent; }
+.zia-tabs .zia-tab[aria-selected="true"],
+.zia-tabs .zia-tab[aria-selected="true"]:hover:not(:disabled) {
+	background: var(--zia-accent);
+	color: var(--zia-on-accent);
+	border-color: var(--zia-accent);
 }
 
-@media (prefers-color-scheme: dark) {
-	.zia-mode-section .zia-tab { color: #fff; }
+/* Botões */
+.zia-btn { background: var(--zia-bg); border-color: var(--zia-border); color: var(--zia-fg); border-radius: 6px; }
+.zia-btn:hover:not(:disabled) { border-color: var(--zia-fg2); color: var(--zia-fg); background: var(--zia-sand); }
+.zia-send,
+.zia-btn-primary,
+.zia-use-btn {
+	background: var(--zia-accent);
+	border-color: var(--zia-accent);
+	color: var(--zia-on-accent);
 }
+.zia-send:hover:not(:disabled),
+.zia-btn-primary:hover:not(:disabled) { background: var(--zia-accent); color: var(--zia-on-accent); filter: brightness(1.25); }
+.zia-send.zia-stop { background: var(--zia-red); border-color: var(--zia-red); color: #fff; }
+.zia-link-btn, .zia-link-btn:hover:not(:disabled) { background: none; color: var(--zia-link); }
 
-.zia-mode-section .zia-tab[aria-selected="true"] {
-	color: var(--zia-accent);
-	border-bottom-width: 3px;
+/* Ações: a escolhida a tinta cheia, as já pedidas com um visto verde */
+.zia-action.zia-selected {
+	background: var(--zia-accent);
+	border-color: var(--zia-accent);
+	color: var(--zia-on-accent);
+	box-shadow: none;
 }
+.zia-action.zia-selected:hover:not(:disabled) { background: var(--zia-accent); color: var(--zia-on-accent); }
+.zia-action.zia-done::after { color: var(--zia-green); }
+.zia-action.zia-selected.zia-done::after { color: inherit; }
+.zia-action-new { color: var(--zia-fg); border-color: var(--zia-fg2); }
+.zia-pending-chip { background: var(--zia-accent); color: var(--zia-on-accent); }
 
-.zia-picker-sort { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
-.zia-picker-sortsel { min-width: 0; flex: 1; }
+/* Caixa de texto e respostas */
+.zia-textarea { background: var(--zia-bg); border-color: var(--zia-border); }
+.zia-textarea:focus { outline: 2px solid var(--zia-fg2); }
+.zia-messages { background: var(--zia-bg); border-color: var(--zia-border); border-radius: 8px; }
+.zia-msg-user,
+.zia-mode-section .zia-msg-user { background: var(--zia-sand); color: var(--zia-fg); }
+.zia-fold { color: var(--zia-fg2); }
+.zia-msg-head.zia-foldable:hover { background: var(--zia-accent-soft); }
+.zia-action-tag { color: var(--zia-fg); }
+.zia-head-save { color: var(--zia-link); }
+.zia-head-save:hover { border-color: var(--zia-link); }
+
+/* Citações e ligações: o único azul */
+.zia-cite { background: var(--zia-cite-bg); color: var(--zia-link); }
+.zia-link { color: var(--zia-link); }
+.zia-suggestion:hover { border-color: var(--zia-fg2); color: var(--zia-fg); background: var(--zia-sand); }
+
+/* Seletor de PDFs e formulário de ações */
+.zia-picker, .zia-custom-form { border-color: var(--zia-border); }
+.zia-picker-row:hover { background: var(--zia-sand); }
+.zia-picker-sortsel { font: inherit; font-size: 12px; }
+
+/* Definições */
+.zia-hero { border-color: var(--zia-border); border-top: 4px solid var(--zia-gold); background: var(--zia-panel); }
+.zia-hero .zia-hero-title { color: var(--zia-fg); }
+.zia-etab:hover { color: var(--zia-fg); }
+.zia-etab.selected { color: var(--zia-fg); background: var(--zia-bg); border-bottom-color: var(--zia-accent); }
+.zia-seg.selected { background: var(--zia-accent); color: var(--zia-on-accent); border-color: var(--zia-accent); }
+.zia-use-btn.current { background: none; color: var(--zia-green); border-color: var(--zia-green); }
+
+/* Teste dos modelos Gemini */
+.zia-probe { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 8px; font-size: 12.5px; }
+.zia-probe:empty { display: none; }
+.zia-probe-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--zia-border); border-radius: 6px; background: var(--zia-bg); }
+.zia-probe-name { font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 12px; min-width: 190px; }
+.zia-probe-state { font-weight: 600; }
+.zia-probe-ok .zia-probe-state { color: var(--zia-green); }
+.zia-probe-busy .zia-probe-state, .zia-probe-minute .zia-probe-state { color: var(--zia-orange); }
+.zia-probe-limit .zia-probe-state, .zia-probe-model .zia-probe-state, .zia-probe-error .zia-probe-state { color: var(--zia-red); }
+.zia-probe-btn { font: inherit; font-size: 11.5px; padding: 1px 8px; border-radius: 5px; border: 1px solid var(--zia-border); background: var(--zia-bg); color: var(--zia-fg); cursor: pointer; }
+.zia-probe-btn:hover { background: var(--zia-sand); }
+.zia-probe-tag { font-size: 11px; color: var(--zia-muted); text-transform: uppercase; }
+
+/* Verificação automática da resposta contra os PDFs */
+.zia-check { margin: 6px 0 2px; padding: 5px 8px; border-radius: 6px; font-size: 12px; }
+.zia-check-ok { color: var(--zia-green); background: none; padding-left: 0; }
+.zia-check-warn { border: 1px solid var(--zia-orange); border-left-width: 3px; background: rgba(232, 133, 12, 0.08); color: var(--zia-fg); }
+.zia-check-title { font-weight: 700; color: var(--zia-orange); }
+.zia-check ul { margin: 4px 0; padding-inline-start: 18px; }
+.zia-check-foot { color: var(--zia-fg2); font-size: 11.5px; }

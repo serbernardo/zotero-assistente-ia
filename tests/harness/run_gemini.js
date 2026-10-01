@@ -131,6 +131,7 @@ function sseResponse(events, status = 200) {
 	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: deadWin }), e => e.kind === "busy" && /sobrecarregados/.test(e.message));
 	// Quota esgotada: o mesmo modelo não se repete (só se procuram alternativas)
 	calls = [];
+	core._geminiListCache = null;
 	await assert.rejects(core.runGemini({ system: "s", prompt: "p", win: { fetch: async u => { calls.push(u); return errWin(429).fetch(); } } }), e => e.kind === "limit");
 	assert.equal(calls.filter(u => u.includes(":streamGenerateContent")).length, 1);
 	assert.equal(JSON.stringify(core.lib.geminiFallbacks("gemini-3.8-flash", ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.9-flash-preview"])), JSON.stringify(["gemini-3.7-flash-lite", "gemini-3.7-flash", "gemini-3.5-flash"]));
@@ -185,5 +186,58 @@ function sseResponse(events, status = 200) {
 	const t = await core.testEngine("gemini", { fetch: async () => sseResponse([{ candidates: [{ content: { parts: [{ text: "OK" }] }, finishReason: "STOP" }] }]) });
 	assert.equal(t.reply, "OK");
 	console.log("OK Gemini: botão Testar faz um pedido real curto");
+	// Tarefas exigentes: primeiro o modelo de análise, uma vez e sem esperas; se falhar, o principal
+	const L = core.lib;
+	assert.equal(L.isHeavyTask({ actionID: "comparar" }), true);
+	assert.equal(L.isHeavyTask({ actionID: "critica" }), true);
+	assert.equal(L.isHeavyTask({ actionID: "resumo" }), false);
+	assert.equal(L.isHeavyTask({ docCount: 2 }), true);
+	assert.equal(L.isHeavyTask({ docCount: 1 }), false);
+	const avail = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash-preview", "gemini-3.7-pro", "gemini-3.7-flash-lite"];
+	assert.equal(JSON.stringify(L.geminiStrongCandidates("gemini-3.5-flash-lite", avail, "auto")), JSON.stringify(["gemini-3.7-flash", "gemini-3.6-flash"]));
+	assert.equal(JSON.stringify(L.geminiStrongCandidates("gemini-3.5-flash-lite", avail, "off")), "[]");
+	assert.equal(JSON.stringify(L.geminiStrongCandidates("gemini-3.5-flash-lite", avail, "gemini-3.7-pro")), JSON.stringify(["gemini-3.7-pro"]));
+	core.setPref("gemini.model", "gemini-3.5-flash-lite");
+	core.setPref("gemini.modelStrong", "auto");
+	core._geminiSwap = null;
+	core._geminiBusyUntil = {};
+	core._geminiListCache = { at: Date.now(), models: avail };
+	core.GEMINI_RETRY_MS = [0, 0, 0];
+	const ok = text => sseResponse([{ candidates: [{ content: { parts: [{ text }] }, finishReason: "STOP" }] }]);
+	calls = [];
+	const heavyWin = { fetch: async url => { calls.push(url); return url.includes("flash-lite") ? ok("Lite") : busy(); } };
+	const notes = [];
+	const h1 = await core.runEngine("gemini", { system: "s", prompt: "p", heavy: true, win: heavyWin, onInfo: i => notes.push(i.notice) });
+	assert.equal(h1.text, "Lite");
+	assert.equal(h1.model, "gemini-3.5-flash-lite");
+	assert.equal(calls.filter(u => u.includes("gemini-3.7-flash:")).length, 1, "o modelo de análise só é tentado uma vez");
+	assert.equal(calls.filter(u => u.includes("gemini-3.6-flash:")).length, 1);
+	assert.match(h1.notice, /gemini-3\.7-flash estava indisponível/);
+	assert.ok(notes.some(n => /sobrecarregado ou sem quota/.test(n)));
+	calls = [];
+	await core.runEngine("gemini", { system: "s", prompt: "p", heavy: true, win: heavyWin });
+	assert.equal(calls.filter(u => !u.includes("flash-lite")).length, 0, "durante 15 minutos não volta a tentar os modelos sobrecarregados");
+	core._geminiBusyUntil = {};
+	calls = [];
+	const h2 = await core.runEngine("gemini", { system: "s", prompt: "p", heavy: true, win: { fetch: async url => { calls.push(url); return ok(url.includes("3.7-flash:") ? "Forte" : "Lite"); } } });
+	assert.equal(h2.text, "Forte");
+	assert.equal(h2.model, "gemini-3.7-flash");
+	const h3 = await core.runEngine("gemini", { system: "s", prompt: "p", win: { fetch: async url => ok(url.includes("flash-lite") ? "Lite" : "Outro") } });
+	assert.equal(h3.text, "Lite", "pedidos simples vão para o modelo principal");
+	console.log("OK Gemini: tarefas exigentes tentam o modelo de análise uma vez e passam logo ao principal se falhar");
+
+	// Teste rápido de vários modelos ao mesmo tempo
+	const probeWin = { fetch: async url => {
+		if (url.includes("3.7-flash:")) return busy();
+		if (url.includes("3.6-flash:")) return quota429("gemini-3.6-flash", "GenerateRequestsPerDayPerProjectPerModel-FreeTier");
+		if (url.includes("3.9-flash:")) return new Response(JSON.stringify({ error: { code: 404, message: "not found", status: "NOT_FOUND" } }), { status: 404 });
+		return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "OK" }] } }] }), { status: 200 });
+	} };
+	core._geminiBusyUntil = {};
+	const pr = await core.probeGeminiModels(probeWin, ["gemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.9-flash"]);
+	assert.equal(JSON.stringify(pr.map(r => r.state)), JSON.stringify(["ok", "busy", "limit", "model"]));
+	assert.equal(core._geminiAvoid("gemini-3.7-flash"), true, "o teste também evita depois os modelos sobrecarregados");
+	assert.equal(core._geminiAvoid("gemini-3.5-flash-lite"), false);
+	console.log("OK Gemini: testar modelos mostra quais respondem, quais estão sobrecarregados ou sem quota");
 	console.log("\nTodos os testes do Gemini passaram.");
 })().catch(e => { console.error("FALHOU:", e); process.exit(1); });

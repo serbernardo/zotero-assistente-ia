@@ -1,6 +1,6 @@
 # Assistente IA para Zotero
 
-Addon para o Zotero (versao 0.4) que ajuda a ler, avaliar e escrever a partir
+Addon para o Zotero (versao 0.5) que ajuda a ler, avaliar e escrever a partir
 de artigos cientificos, com a conta de IA do proprio utilizador (gratuita ou
 paga). Cinco motores: Claude com chave da API (`anthropic`), Claude com a
 subscricao Pro/Max atraves do Claude Code em subprocesso (`claude`), ChatGPT
@@ -62,9 +62,31 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Pedido em duas partes** (`buildRequestParts`): documentos e pergunta.
   No motor `anthropic` os documentos levam `cache_control` para as perguntas
   seguintes custarem menos.
-- **Fidelidade:** `buildSystemPrompt` comeca pela regra "FIDELIDADE AOS
-  DOCUMENTOS": so a informacao escrita nos documentos, sem conhecimento geral
-  nem suposicoes. [Inferencia] so para ligacoes diretas entre factos citados.
+- **Fidelidade (o mais importante):** `buildSystemPrompt` comeca pela regra
+  "FIDELIDADE AOS DOCUMENTOS": so a informacao escrita nos documentos, sem
+  conhecimento geral nem suposicoes. [Inferencia] so para ligacoes diretas entre
+  factos citados. Contas so se forem exatas e escritas por inteiro
+  (100% - 47% = 53%). Texto entre aspas e copia exata do PDF.
+- **Verificacao automatica** (`verifyAnswer` em `lib.js`): cada resposta e
+  confirmada contra o texto dos PDFs. Excertos entre aspas seguidos de citacao
+  (literal, com palavras alteradas, noutra pagina ou inexistente), paginas
+  citadas que nao existem, numeros (decimais e percentagens) que nao estao nos
+  PDFs e contas (`findCalculations`, so valem se o resultado estiver certo). O
+  resultado (`msg.check`) aparece por baixo da resposta e fica no historico.
+- **Historico enviado a IA:** as acoes nao levam historico (sao pedidos
+  completos). As perguntas livres levam so as ultimas 3 trocas, ate 24 mil
+  caracteres (`selectHistory`).
+- **Gemini, tarefas exigentes** (`isHeavyTask`: Avaliar, Comparar, Investigar,
+  revisao e perguntas com 2 ou mais PDFs): `runGeminiHeavy` tenta primeiro o
+  modelo de analise (pref `gemini.modelStrong`: auto = os dois flash estaveis
+  mais recentes, off, ou um nome), uma vez e sem esperas. Se falhar, passa logo
+  ao modelo principal e evita o de analise durante 15 minutos (ou ate ao fim do
+  dia, se for quota diaria). A lista de modelos fica em cache 1 hora
+  (`geminiModels`). Botao "Testar modelos agora" (`probeGeminiModels`) testa
+  varios modelos em paralelo.
+- **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
+  escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
+  dourado so como marca, azul so nas citacoes e ligacoes.
 - **Seguranca do conteudo:** `neutralizeTags` impede um PDF de imitar as
   marcas `<documento>`, `<pedido>` etc. As instrucoes de sistema dizem que o
   texto dos documentos nunca sao instrucoes. O Markdown e renderizado para
@@ -125,9 +147,11 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   ids estaveis `custom:<nome>`). Botao "+ PDF" abre um seletor com os artigos
   da lista central do Zotero (`pickableItems`, `getSortedItems`), com pesquisa.
   Uma acao que precisa de mais PDFs (Comparar) abre o seletor.
-- **Enviar so com o botao:** Enter na caixa de texto muda de linha, nunca envia. O seletor "+ PDF" ordena por data de adicao (omissao), autor ou data de publicacao.
+- **Enviar so com o botao:** Enter na caixa de texto muda de linha, nunca envia.
+  Enviar com a caixa vazia mostra um aviso. O seletor "+ PDF" ordena por data de
+  adicao (omissao), autor ou data de publicacao.
 - **Acoes em dois passos:** clicar numa acao so a escolhe (`selectAction`); o
-  pedido segue com "Pedir" ou Enter, com indicacoes opcionais. Respostas
+  pedido segue com "Pedir", com indicacoes opcionais. Respostas
   anteriores ficam recolhidas (`collapsed`), acoes ja pedidas levam um visto e
   escolher uma acao ja feita mostra a resposta existente.
 - **Historico por artigo:** `saveConversation`/`loadConversation` guardam as
@@ -155,7 +179,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (28), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (30), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -168,6 +192,15 @@ npm install
 - `node tests/harness/run_ui.js` — testes de interface com Playwright; no
   Windows usa o Edge instalado (ou `PW_CHROMIUM=<caminho>`); capturas em
   `tests/harness/out/`
+- `node tests/harness/run_prefs.js` — converte `preferences.xhtml` para HTML e
+  carrega em todos os botoes, separadores e ligacoes das definicoes (cada um tem
+  de fazer alguma coisa e nenhum pode dar erro). O `run_ui.js` faz o mesmo para
+  os botoes do painel
+- `CLAUDE_PATH=<exe> node tests/harness/run_ai_real.js claude` ou
+  `GEMINI_API_KEY=<chave> node tests/harness/run_ai_real.js gemini` — todas as
+  acoes com a IA REAL, mais perguntas-armadilha (informacao que nao existe,
+  premissa falsa) e uma pergunta de seguimento, verificadas com `verifyAnswer`.
+  Respostas em `tests/harness/out/ia_real_<motor>/` (gasta quota)
 - `ZOTERO_SRC=<clone> node tests/harness/run_bootstrap.mjs` — valida
   `bootstrap.js` contra o codigo fonte REAL do `PluginAPIBase`/
   `ItemPaneManager`/`MenuManager` do Zotero. Clone esparso:
@@ -186,7 +219,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.4.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.5.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

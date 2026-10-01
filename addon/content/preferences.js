@@ -47,6 +47,7 @@ window.ZIAPrefs = {
 			}
 		}
 		on("zia-gemini-list", () => this.listGemini());
+		on("zia-gemini-probe", () => this.probeGemini());
 		for (const tool of ["claude", "codex"]) {
 			on(`zia-${tool}-detect`, () => this.detect(tool));
 			on(`zia-${tool}-test`, () => this.test(tool));
@@ -566,7 +567,100 @@ window.ZIAPrefs = {
 			sel.insertBefore(o, sel.firstChild);
 		}
 		sel.value = cur;
+		this.fillGeminiStrong(models);
 		return { names, recommended };
+	},
+
+	/** Modelo para análises exigentes: automático, desligado ou um flash/pro da conta. */
+	fillGeminiStrong(models) {
+		const core = this.core();
+		const sel = this.$("zia-gemini-strong");
+		if (!sel) return;
+		const cur = String(core.pref("gemini.modelStrong") || "auto");
+		const main = core.geminiModel();
+		const auto = core.lib.geminiStrongCandidates(main, models || [], "auto");
+		const items = [
+			["auto", this.T("prefs.gemini.strongAuto", { m: auto.length ? auto.join(", ") : "…" })],
+			["off", this.T("prefs.gemini.strongOff")],
+		];
+		const { groups } = core.lib.sortGeminiModels(models || []);
+		for (const i of [].concat(groups.free, groups.preview, groups.paid)) {
+			if (i.name !== main && i.tier !== "lite") items.push([i.name, i.name]);
+		}
+		if (!items.some(x => x[0] === cur)) items.push([cur, cur]);
+		this.fillSelect(sel, items, cur);
+		if (!sel._ziaBound) {
+			sel._ziaBound = true;
+			sel.addEventListener("change", () => core.setPref("gemini.modelStrong", sel.value));
+		}
+	},
+
+	/** Testa ao mesmo tempo os modelos flash da conta e mostra quais respondem agora. */
+	async probeGemini() {
+		const core = this.core();
+		const box = this.$("zia-gemini-probe-result");
+		const btn = this.$("zia-gemini-probe");
+		if (!box) return;
+		while (box.firstChild) box.removeChild(box.firstChild);
+		box.appendChild(this.html("div", this.T("prefs.gemini.probing")));
+		if (btn) btn.disabled = true;
+		try {
+			let models = [];
+			try { models = await core.geminiModels(window); }
+			catch (e) { models = []; }
+			const main = core.geminiModel();
+			const strong = String(core.pref("gemini.modelStrong") || "auto");
+			const { groups } = core.lib.sortGeminiModels(models);
+			const list = [main];
+			if (strong !== "auto" && strong !== "off") list.push(strong);
+			for (const i of groups.free) if (list.length < 6 && !list.includes(i.name)) list.push(i.name);
+			const results = await core.probeGeminiModels(window, list);
+			while (box.firstChild) box.removeChild(box.firstChild);
+			for (const r of results) {
+				const row = this.html("div");
+				row.className = "zia-probe-row zia-probe-" + r.state;
+				const name = this.html("span", r.model);
+				name.className = "zia-probe-name";
+				const st = this.html("span", this.T("prefs.gemini.probe." + r.state, { s: (r.ms / 1000).toFixed(1) }));
+				st.className = "zia-probe-state";
+				row.append(name, st);
+				if (r.state === "ok") {
+					const tags = [];
+					if (r.model === strong) tags.push(this.T("prefs.gemini.isStrong"));
+					if (r.model === main) tags.push(this.T("prefs.gemini.isMain"));
+					else if (r.model !== strong) {
+						const b = this.html("button", this.T("prefs.gemini.useMain"));
+						b.className = "zia-probe-btn";
+						b.addEventListener("click", () => { core.setPref("gemini.model", r.model); this.fillGeminiSelect(models); this.probeMark(); });
+						row.appendChild(b);
+						if (core.lib.geminiModelInfo(r.model).tier !== "lite") {
+							const b2 = this.html("button", this.T("prefs.gemini.useStrong"));
+							b2.className = "zia-probe-btn";
+							b2.addEventListener("click", () => { core.setPref("gemini.modelStrong", r.model); this.fillGeminiStrong(models); this.probeMark(); });
+							row.appendChild(b2);
+						}
+					}
+					for (const t of tags) {
+						const s2 = this.html("span", t);
+						s2.className = "zia-probe-tag";
+						row.appendChild(s2);
+					}
+				}
+				box.appendChild(row);
+			}
+			box.appendChild(this.html("div", this.T("prefs.gemini.probeDone")));
+		}
+		catch (e) {
+			while (box.firstChild) box.removeChild(box.firstChild);
+			box.appendChild(this.html("div", e.message || String(e)));
+		}
+		finally {
+			if (btn) btn.disabled = false;
+		}
+	},
+
+	probeMark() {
+		this.setText("zia-gemini-models", this.T("prefs.saved"));
 	},
 
 	async listGemini(quiet) {

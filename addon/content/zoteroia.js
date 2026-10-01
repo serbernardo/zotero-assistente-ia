@@ -324,7 +324,7 @@ var ZoteroIA = {
 				return;
 			}
 			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
-				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID"];
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check"];
 			const out = messages.filter(m => !m.pending).slice(-this.HISTORY_MAX)
 				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
 			await IOUtils.makeDirectory(dir, { ignoreExisting: true, createAncestors: true });
@@ -1053,7 +1053,7 @@ var ZoteroIA = {
 			}
 		}
 		let alternatives = [];
-		try { alternatives = this.lib.geminiFallbacks(model, await this.listGeminiModels(win)); }
+		try { alternatives = this.lib.geminiFallbacks(model, await this.geminiModels(win)); }
 		catch (e) { this.log("Lista de modelos Gemini: " + e); }
 		const tried = [];
 		for (const alt of alternatives) {
@@ -1078,6 +1078,104 @@ var ZoteroIA = {
 		}
 		if (tried.length) firstErr.message += "\n" + this.t("err.gemini.triedOthers", { models: tried.join(", ") });
 		throw firstErr;
+	},
+
+	// Modelo de análise sobrecarregado ou sem quota: não volta a ser tentado durante este tempo
+	GEMINI_BUSY_MEMORY_MS: 15 * 60 * 1000,
+
+	/** Lista de modelos da conta, guardada durante uma hora (evita um pedido extra a cada falha). */
+	async geminiModels(win) {
+		const c = this._geminiListCache;
+		if (c && Date.now() - c.at < 3600 * 1000) return c.models;
+		const models = await this.listGeminiModels(win);
+		this._geminiListCache = { at: Date.now(), models };
+		return models;
+	},
+
+	_geminiAvoid(model) {
+		const m = this._geminiBusyUntil || {};
+		return (m[model] || 0) > Date.now();
+	},
+
+	_geminiMarkBusy(model, err) {
+		this._geminiBusyUntil = this._geminiBusyUntil || {};
+		const q = (err && err.quota) || {};
+		let until = Date.now() + this.GEMINI_BUSY_MEMORY_MS;
+		if (err && err.kind === "limit" && q.period !== "minute") {
+			const end = new Date();
+			end.setHours(23, 59, 59, 999);
+			until = end.getTime();
+		}
+		this._geminiBusyUntil[model] = until;
+	},
+
+	/**
+	 * Tarefas exigentes: tenta primeiro o modelo de análise (por omissão os flash mais recentes),
+	 * uma única vez e sem esperas. Se estiver sobrecarregado ou sem quota, passa logo ao modelo
+	 * principal (normalmente o Flash-Lite, que quase sempre responde) e fica a saber disso durante
+	 * 15 minutos, para os pedidos seguintes não perderem tempo.
+	 */
+	async runGeminiHeavy(opts) {
+		const { signal, win, onInfo, onDelta } = opts;
+		const main = String(opts.model || this.geminiModel()).replace(/^models\//, "");
+		const key = await this.getSecret("gemini");
+		if (!key) throw this.error("auth", this.t("err.noKey", { label: this.t("key.gemini") }));
+		let cands = [];
+		try { cands = this.lib.geminiStrongCandidates(main, await this.geminiModels(win), this.pref("gemini.modelStrong")); }
+		catch (e) { this.log("Modelos Gemini para análise: " + e); }
+		const notify = (k, vars) => { if (onInfo) onInfo({ notice: this.t(k, vars) }); };
+		let streamed = false;
+		const once = { system: opts.system, prompt: opts.prompt, signal, win, key, onDelta: (d, all) => { streamed = true; if (onDelta) onDelta(d, all); } };
+		let skipped = null;
+		for (const m of cands) {
+			if (this._geminiAvoid(m)) { skipped = skipped || m; continue; }
+			try { return await this._geminiOnce(m, once); }
+			catch (e) {
+				if (streamed || (signal && signal.aborted) || !["busy", "limit", "model"].includes(e.kind)) throw e;
+				this._geminiMarkBusy(m, e);
+				skipped = skipped || m;
+				this.log(`Gemini ${m} indisponível (${e.kind}), a passar ao seguinte`);
+				notify("chat.geminiStrongBusy", { model: m });
+			}
+		}
+		const r = await this.runGemini(Object.assign({}, opts, { model: main }));
+		if (skipped && !r.notice) r.notice = this.t("chat.geminiUsedFast", { model: r.model, strong: skipped });
+		return r;
+	},
+
+	/**
+	 * Teste rápido de vários modelos Gemini ao mesmo tempo, com um pedido mínimo a cada um.
+	 * Devolve [{ model, state: ok|busy|limit|minute|model|error, ms }]. Cada teste gasta um pedido da quota.
+	 */
+	async probeGeminiModels(win, models) {
+		const key = await this.getSecret("gemini");
+		if (!key) throw this.error("auth", this.t("err.saveKeyFirst", { label: this.t("key.gemini") }));
+		const probe = async model => {
+			const t0 = Date.now();
+			const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+			let res, cleanup;
+			try {
+				({ res, cleanup } = await this._fetch(win, url, {
+					method: "POST",
+					headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+					body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "OK" }] }], generationConfig: { maxOutputTokens: 16 } }),
+				}));
+			}
+			catch (e) {
+				return { model, state: "error", message: String(e && e.message || e), ms: Date.now() - t0 };
+			}
+			try {
+				const text = await res.text();
+				const r = this.lib.geminiProbeState(res.status, text);
+				r.model = model;
+				r.ms = Date.now() - t0;
+				if (r.state === "ok") { if (this._geminiBusyUntil) delete this._geminiBusyUntil[model]; }
+				else if (["busy", "limit", "model"].includes(r.state)) this._geminiMarkBusy(model, { kind: r.state, quota: {} });
+				return r;
+			}
+			finally { cleanup(); }
+		};
+		return Promise.all(models.map(probe));
 	},
 
 	async _geminiOnce(model, { system, prompt, onDelta, signal, win, key }) {
@@ -1534,7 +1632,10 @@ var ZoteroIA = {
 
 	async runEngine(engine, opts) {
 		switch (engine) {
-			case "gemini": return this.runGemini(Object.assign({ model: this.geminiModel() }, opts));
+			case "gemini": {
+				const o = Object.assign({ model: this.geminiModel() }, opts);
+				return o.heavy ? this.runGeminiHeavy(o) : this.runGemini(o);
+			}
 			case "anthropic": return this.runAnthropic(Object.assign({ model: this.anthropicModel() }, opts));
 			case "claude": return this.runClaude(Object.assign({ model: this.pref("claude.model") || "sonnet" }, opts));
 			case "openai": return this.runOpenAI(Object.assign({ model: this.openaiModel() }, opts));

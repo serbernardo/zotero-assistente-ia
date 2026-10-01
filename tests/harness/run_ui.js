@@ -21,7 +21,7 @@ async function main() {
 	const browser = await chromium.launch(launchOptions());
 	const errors = [];
 	const open = async (query, viewport) => {
-		const page = await browser.newPage({ viewport });
+		const page = await browser.newPage({ viewport, colorScheme: /dark=1/.test(query) ? "dark" : "light" });
 		page.on("pageerror", e => errors.push(e.message));
 		page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 		await page.goto(URL + query);
@@ -385,6 +385,50 @@ async function main() {
 		await page.screenshot({ path: path.join(OUT, "ui_janela_fichas.png") });
 		console.log("OK coleção e comparar via fichas: 2 fichas criadas e guardadas, comparação só sobre as fichas (" + Math.round(calls[2].length / 1000) + " mil caracteres)");
 		await page.close();
+	}
+
+	// ---------- Todos os botões do painel: cada um faz alguma coisa e nenhum dá erro ----------
+	{
+		const snapshot = page => page.evaluate(() => JSON.stringify([
+			document.querySelector(".zia-root").innerHTML, window.opened, window.copied || null,
+			window.lastEngine || null, window.tagged || null, window.openedWindow ? 1 : 0,
+		]));
+		const prepare = async () => {
+			const page = await open("?mode=section", { width: 420, height: 900 });
+			const before = errors.length;
+			await page.evaluate(a => { window.MOCK.answer = a + "\nETIQUETAS: chatbots; bibliotecas"; }, pontos);
+			await act(page, "pontos");
+			await page.waitForSelector("text=Guardar como nota");
+			await page.waitForFunction(() => !document.querySelector(".zia-typing"));
+			return { page, before };
+		};
+		const { page: p0 } = await prepare();
+		const labels = await p0.evaluate(() => [...document.querySelectorAll(".zia-root button")]
+			.filter(b => b.offsetParent && !b.disabled)
+			// o separador já aberto não tem nada a fazer
+			.map(b => b.getAttribute("aria-selected") === "true" ? null : b)
+			.map(b => !b ? "(separador aberto)" : (b.dataset.action ? "ação " + b.dataset.action : b.dataset.group ? "separador " + b.dataset.group : (b.title || b.textContent).trim()).slice(0, 40)));
+		await p0.close();
+		const dead = [];
+		for (let i = 0; i < labels.length; i++) {
+			if (labels[i] === "(separador aberto)") continue;
+			const { page, before } = await prepare();
+			const s0 = await snapshot(page);
+			await page.evaluate(i => {
+				const bs = [...document.querySelectorAll(".zia-root button")].filter(b => b.offsetParent && !b.disabled);
+				bs[i].click();
+			}, i);
+			let changed = false;
+			for (let t = 0; t < 15 && !changed; t++) {
+				await page.waitForTimeout(100);
+				changed = (await snapshot(page)) !== s0;
+			}
+			if (!changed) dead.push(labels[i]);
+			if (errors.length > before) dead.push(labels[i] + " (erro: " + errors.slice(before).join(" | ") + ")");
+			await page.close();
+		}
+		assert.equal(dead.length, 0, "botões sem efeito ou com erro: " + dead.join(", "));
+		console.log(`OK todos os ${labels.length - 1} botões do painel respondem sem erros: ${labels.filter(l => l[0] !== "(").join(", ")}`);
 	}
 
 	await browser.close();

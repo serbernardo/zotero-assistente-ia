@@ -13,8 +13,9 @@ No **painel lateral de cada artigo** e no **leitor de PDF** (ícone de estrelas 
 | **Compreender** | Resumir, Pontos-chave, Explicar simples (sem jargão), Conceitos (glossário com as definições dos autores), Esquema do argumento |
 | **Avaliar** | Avaliação crítica (pontos fortes, fragilidades, riscos de enviesamento, qualidade da evidência), Método e dados (com tabela dos resultados numéricos), Conclusões |
 | **Escrever** | Ficha de extração, Excertos citáveis (citações literais com página), Revisão de literatura (texto corrido por temas), Sugerir etiquetas (adiciona tags ao item com um clique) |
-| **Investigar** | Comparar PDFs, Lacunas de investigação, Novas perguntas de investigação (com desenho de estudo sugerido) |
-| **Os meus** | As tuas próprias ações, criadas nas definições |
+| **Investigar** | Lacunas de investigação, Novas perguntas de investigação (com desenho de estudo sugerido) |
+| **Comparar** | Visão geral, Métodos, Resultados, Conceitos e teorias, Síntese para revisão (abre sozinho quando juntas 2 PDFs) |
+| **Personalizado** | As tuas próprias ações, criadas e editadas no painel |
 
 Também podes fazer **perguntas livres**, em conversa. Quando o painel está vazio, aparecem sugestões de perguntas úteis.
 
@@ -22,6 +23,8 @@ Na **janela do assistente** (vários PDFs ao mesmo tempo):
 
 - **+ Selecionados** e **+ Coleção**: junta os artigos selecionados ou uma coleção inteira
 - **Usar fichas**: com muitos PDFs, cria uma ficha de extração por artigo (nota "Ficha IA"), reutiliza as que já existem e trabalha sobre as fichas. Gasta muito menos e evita cortes. Liga-se sozinho a partir de 6 PDFs
+
+**Só os teus PDFs, nada inventado.** A IA é instruída a usar apenas o texto dos PDFs, sem conhecimento geral nem suposições, e a dizer quando algo não consta. Depois, o próprio addon **verifica cada resposta** contra o texto dos PDFs: confirma que os excertos entre aspas existem mesmo (e na página citada), que as páginas citadas existem, que os números aparecem nos PDFs e que as contas estão certas. O que não bate certo aparece num aviso por baixo da resposta.
 
 Em **todas as respostas**: citações clicáveis, **Guardar como nota**, **Exportar tabela (CSV)** para o Excel, **Copiar** com as citações no formato (Autor, Ano, p. X) e **Repetir com** outro motor configurado.
 
@@ -34,7 +37,7 @@ Em **todas as respostas**: citações clicáveis, **Guardar como nota**, **Expor
 
 1. No Zotero: **Ferramentas → Plugins**
 2. Roda dentada → **Install Plugin From File…**
-3. Escolhe o ficheiro `assistente-ia-0.4.3.xpi`
+3. Escolhe o ficheiro `assistente-ia-0.5.0.xpi`
 
 Precisa do Zotero 8 ou superior.
 
@@ -64,7 +67,8 @@ O assistente corre o Codex **sem ferramentas**: numa pasta temporária vazia, co
 ### Gemini com chave da API
 
 1. Cria uma chave em https://aistudio.google.com/apikey
-2. Nas definições, cola a chave e carrega em **Guardar chave**. O teste é automático
+2. Nas definições, cola a chave e carrega em **Guardar e testar**
+3. Por omissão usa o **Gemini 3.5 Flash-Lite**, que quase sempre responde. Para Avaliar, Comparar e Investigar tenta primeiro um modelo que raciocina melhor (por exemplo o 3.7 Flash). Se estiver sobrecarregado, passa logo ao Flash-Lite, sem esperas. O botão **Testar modelos agora** mostra quais modelos estão a responder nesse momento
 
 **Atenção:** na quota gratuita, a Google pode usar os pedidos e as respostas para melhorar os seus produtos. Com faturação ativa, isso não acontece.
 

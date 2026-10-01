@@ -65,6 +65,10 @@ var ZIALib = (function () {
 			"- Não atribuas aos autores opiniões, intenções ou resultados que eles não escreveram.",
 			"- Números, nomes, datas, amostras e resultados são copiados tal como aparecem, sem arredondar",
 			"  nem recalcular. Se um valor não aparece, não o estimes.",
+			"- Só podes apresentar um valor calculado por ti (diferença, resto, soma, média, percentagem)",
+			"  se a conta for exata e estiver escrita por inteiro na mesma frase, com os valores de origem",
+			"  citados e a marca [Inferência]. Exemplo: [Inferência] ficam 53% da variância por explicar",
+			"  (100% - 47% = 53%) [D1:p4]. Na dúvida sobre a conta, não a faças.",
 			"- Se o pedido do utilizador pressupõe algo que os documentos não dizem, avisa em vez de responder",
 			"  como se fosse verdade.",
 			"- Em caso de dúvida entre dizer algo e não dizer, não digas.",
@@ -76,7 +80,9 @@ var ZIALib = (function () {
 			"   e números de página que existam nas marcas <documento id=...> e <p n=...>.",
 			"   Se o documento não tiver marcas de página, cita apenas [D1].",
 			"2. Quando for útil, inclui antes da citação um excerto curto e literal entre aspas",
-			"   (no máximo 25 palavras), na língua original do documento.",
+			"   (no máximo 25 palavras), na língua original do documento. O que está entre aspas é uma",
+			"   cópia exata do PDF, palavra a palavra (mesmo singular ou plural, mesma ordem). Se precisares",
+			"   de adaptar uma frase, não uses aspas. O texto entre aspas é confirmado automaticamente no PDF.",
 			`3. Se a informação não está nos documentos, escreve ${nr}.`,
 			"   Nunca completes com conhecimento geral nem com suposições.",
 			"4. Em conclusões, comparações e lacunas distingue sempre:",
@@ -669,6 +675,30 @@ var ZIALib = (function () {
 	}
 
 	/**
+	 * Histórico a enviar com uma pergunta: só as últimas trocas e com um limite de tamanho.
+	 * Sem isto, cada pergunta levava todas as respostas anteriores (mais lento, mais caro e
+	 * com o risco de a IA repetir respostas antigas em vez de ler os documentos).
+	 */
+	function selectHistory(messages, { maxMessages = 6, maxChars = 24000 } = {}) {
+		const out = [];
+		let total = 0;
+		const list = (messages || []).filter(m => m && m.text);
+		for (let i = list.length - 1; i >= 0 && out.length < maxMessages; i--) {
+			let text = String(list[i].text);
+			if (total + text.length > maxChars) {
+				const room = maxChars - total;
+				if (room < 1000) break;
+				text = text.slice(0, room) + " […]";
+			}
+			total += text.length;
+			out.unshift({ role: list[i].role, text });
+		}
+		// começa sempre por uma pergunta do utilizador
+		while (out.length && out[0].role !== "user") out.shift();
+		return out;
+	}
+
+	/**
 	 * Constrói o texto completo do pedido (igual para o Claude e o Gemini).
 	 * history: [{ role: 'user'|'assistant', text }]
 	 */
@@ -760,6 +790,166 @@ var ZIALib = (function () {
 			if (!cites.length) return all;
 			return cites.map(c => `(${citeLabel(c, docsMap)})`).join(" ");
 		});
+	}
+
+	// ------------------------------------------------------------------
+	// Verificação automática da resposta contra o texto dos PDFs (anti-alucinação)
+	// ------------------------------------------------------------------
+
+	function normForMatch(s) {
+		return String(s || "").normalize("NFC").toLowerCase()
+			.replace(/[\u00ad]/g, "")
+			.replace(/(\w)-\s*\n\s*(\w)/g, "$1$2")
+			.replace(/[\u2010-\u2015]/g, "-")
+			.replace(/[\u201c\u201d\u00ab\u00bb\u201e"]/g, "")
+			.replace(/[\u2018\u2019`\u00b4]/g, "'")
+			.replace(/[^\p{L}\p{N}%'.,=<>+-]+/gu, " ")
+			.replace(/\s+/g, " ").trim();
+	}
+
+	// Números com casas decimais ou percentagens (os que mais se prestam a erros)
+	function numbersInText(text) {
+		const out = [];
+		for (const m of String(text || "").matchAll(/\d+(?:[.,]\d+)?\s?%|\d+[.,]\d+/g)) {
+			out.push(m[0].replace(/\s/g, "").replace(/\./g, ","));
+		}
+		return out;
+	}
+
+	// Um excerto conta como literal se quase todos os seus grupos de 4 palavras estão no texto
+	function quoteFound(quote, hay) {
+		const q = normForMatch(quote);
+		if (!q) return true;
+		if (hay.includes(q)) return true;
+		const w = q.split(" ");
+		if (w.length < 5) return false;
+		let hit = 0, total = 0;
+		for (let i = 0; i + 4 <= w.length; i++) {
+			total++;
+			if (hay.includes(w.slice(i, i + 4).join(" "))) hit++;
+		}
+		return total > 0 && hit / total >= 0.8;
+	}
+
+	const NUM = "\\d+(?:[.,]\\d+)?";
+	const CALC_RE = new RegExp(`(${NUM})\\s?(%?)((?:\\s*[-+\u2212\u2013\u00d7x*/\u00f7:]\\s*${NUM}\\s?%?)+)\\s*=\\s*(${NUM})\\s?(%?)`, "g");
+	const toNum = t => parseFloat(String(t).replace(",", "."));
+
+	/** Encontra contas do tipo "100% - 47% = 53%" e confirma se o resultado está certo. */
+	function findCalculations(text) {
+		const out = [];
+		for (const m of String(text || "").matchAll(CALC_RE)) {
+			const tokens = [toNum(m[1])];
+			const ops = [];
+			for (const t of m[3].matchAll(new RegExp(`([-+\u2212\u2013\u00d7x*/\u00f7:])\\s*(${NUM})`, "g"))) {
+				ops.push(t[1]);
+				tokens.push(toNum(t[2]));
+			}
+			// multiplicações e divisões primeiro, depois somas e subtrações
+			const vals = [tokens[0]], adds = [];
+			ops.forEach((op, i) => {
+				const v = tokens[i + 1];
+				if ("\u00d7x*".includes(op)) vals[vals.length - 1] *= v;
+				else if ("/\u00f7:".includes(op)) vals[vals.length - 1] /= v;
+				else { adds.push(op === "+" ? 1 : -1); vals.push(v); }
+			});
+			let total = vals[0];
+			adds.forEach((sign, i) => { total += sign * vals[i + 1]; });
+			const result = toNum(m[4]);
+			const dec = (m[4].split(/[.,]/)[1] || "").length;
+			const ok = Math.abs(total - result) <= 0.5 * Math.pow(10, -dec) + 1e-9;
+			out.push({ expr: m[0].trim(), result: m[4], percent: !!m[5], ok });
+		}
+		return out;
+	}
+
+	// Excerto quase igual ao original (algumas palavras alteradas): quase todas as palavras estão no texto
+	function quoteNearlyFound(quote, hay) {
+		const words = normForMatch(quote).split(" ").filter(w => w.length >= 3);
+		if (words.length < 4) return false;
+		const set = new Set(hay.split(" "));
+		const stem = w => w.replace(/[sm]$/, "");
+		const stems = new Set([...set].map(stem));
+		const hit = words.filter(w => set.has(w) || stems.has(stem(w))).length;
+		return hit / words.length >= 0.85;
+	}
+
+	/**
+	 * Confirma uma resposta no texto dos documentos: páginas citadas que existem, excertos entre
+	 * aspas que aparecem mesmo no PDF (e na página citada) e números que constam dos documentos.
+	 * docs: { D1: { pages: [...] }, ... }. Devolve null se não houver texto para comparar.
+	 */
+	function verifyAnswer(text, docs) {
+		const withText = Object.keys(docs || {}).filter(id => docs[id] && Array.isArray(docs[id].pages) && docs[id].pages.length);
+		if (!withText.length || !text) return null;
+		const pagesN = {};
+		const pageNorm = {};
+		const docNorm = {};
+		for (const id of withText) {
+			pageNorm[id] = docs[id].pages.map(normForMatch);
+			docNorm[id] = pageNorm[id].join(" ");
+			pagesN[id] = docs[id].pages.length;
+		}
+		const allNorm = withText.map(id => docNorm[id]).join(" ");
+		const res = { quotes: 0, quotesOK: 0, numbers: 0, badQuotes: [], changedQuotes: [], wrongPage: [], badCites: [], unknownNumbers: [] };
+		// 1. Páginas citadas
+		const seenBad = new Set();
+		for (const m of String(text).matchAll(CITE_GROUP_RE)) {
+			for (const c of parseCiteGroup(m[1])) {
+				const key = c.doc + ":" + c.page;
+				if (seenBad.has(key)) continue;
+				if (!docs[c.doc]) { seenBad.add(key); res.badCites.push({ doc: c.doc, page: c.page }); }
+				else if (pagesN[c.doc] && c.page && (c.page < 1 || (c.pageEnd || c.page) > pagesN[c.doc])) { seenBad.add(key); res.badCites.push({ doc: c.doc, page: c.page }); }
+			}
+		}
+		// 2. Excertos entre aspas seguidos de citação (apresentados como texto literal do PDF)
+		const QUOTE_RE = new RegExp(`(?:"|\u201c|\u00ab)([^\\s"\u201c\u201d\u00ab\u00bb|][^"\u201c\u201d\u00ab\u00bb|\\n]{13,498}[^\\s"\u201c\u201d\u00ab\u00bb|])(?:"|\u201d|\u00bb)[^\\[\\n|]{0,40}?\\[(${CITE_INNER})\\]`, "g");
+		for (const m of String(text).matchAll(QUOTE_RE)) {
+			const parts = m[1].split(/\s*(?:\.\.\.|\u2026|\[\u2026\]|\[\.\.\.\])\s*/).filter(x => x.trim().length >= 12);
+			if (!parts.length) continue;
+			res.quotes++;
+			const cites = m[2] ? parseCiteGroup(m[2]).filter(c => pageNorm[c.doc]) : [];
+			let ok = true, wrong = false;
+			for (const part of parts) {
+				if (cites.length) {
+					const near = cites.some(c => {
+						if (!c.page) return quoteFound(part, docNorm[c.doc]);
+						const a = Math.max(0, c.page - 2), b = Math.min(pagesN[c.doc], (c.pageEnd || c.page) + 1);
+						return quoteFound(part, pageNorm[c.doc].slice(a, b).join(" "));
+					});
+					if (near) continue;
+					if (quoteFound(part, allNorm)) { wrong = true; continue; }
+					ok = false;
+				}
+				else if (!quoteFound(part, allNorm)) ok = false;
+			}
+			const shown = m[1].length > 90 ? m[1].slice(0, 87) + "…" : m[1];
+			if (!ok && parts.every(part => quoteNearlyFound(part, allNorm))) res.changedQuotes.push({ quote: shown, cite: m[2] || null });
+			else if (!ok) res.badQuotes.push({ quote: shown, cite: m[2] || null });
+			else if (wrong) res.wrongPage.push({ quote: shown, cite: m[2] || null });
+			else res.quotesOK++;
+		}
+		// 3. Contas escritas na resposta (100% - 47% = 53%): só valem se estiverem certas
+		const clean = String(text).replace(CITE_GROUP_RE, " ");
+		const known = new Set(numbersInText(withText.map(id => docs[id].pages.join("\n")).join("\n")));
+		const derived = new Set(["100%", "100"]);
+		res.calcs = 0;
+		res.badCalcs = [];
+		for (const c of findCalculations(clean)) {
+			res.calcs++;
+			if (c.ok) for (const n of numbersInText(c.result + (c.percent ? "%" : ""))) derived.add(n);
+			else res.badCalcs.push(c.expr);
+		}
+		// 4. Números: têm de estar nos documentos ou resultar de uma conta certa
+		const unknown = new Set();
+		const has = n => known.has(n) || known.has(n.replace(/%$/, "")) || known.has(n + "%") || derived.has(n) || derived.has(n.replace(/%$/, ""));
+		for (const n of numbersInText(clean)) {
+			res.numbers++;
+			if (!has(n)) unknown.add(n);
+		}
+		res.unknownNumbers = [...unknown];
+		res.problems = res.badQuotes.length + res.changedQuotes.length + res.wrongPage.length + res.badCites.length + res.unknownNumbers.length + res.badCalcs.length;
+		return res;
 	}
 
 	// ------------------------------------------------------------------
@@ -1558,6 +1748,41 @@ var ZIALib = (function () {
 		return out;
 	}
 
+	// Tarefas que pedem mais raciocínio: avaliar, comparar, investigar, a revisão de literatura
+	// e perguntas livres sobre vários artigos. No Gemini vão primeiro para o modelo de análise.
+	const HEAVY_GROUPS = ["avaliar", "comparar", "investigar"];
+	function isHeavyTask({ actionID, docCount } = {}) {
+		const a = actionID && ACTIONS[actionID];
+		if (a) return HEAVY_GROUPS.includes(a.group) || actionID === "revisao";
+		if (actionID) return false;
+		return (docCount || 0) >= 2;
+	}
+
+	/**
+	 * Modelos Gemini a tentar primeiro nas tarefas exigentes. pref: "auto" (os dois flash
+	 * estáveis mais recentes, sem "lite"), "off" (nenhum) ou o nome de um modelo.
+	 */
+	function geminiStrongCandidates(main, available, pref) {
+		pref = String(pref || "auto").trim();
+		if (pref === "off") return [];
+		if (pref !== "auto") return pref === main ? [] : [pref];
+		return (available || [])
+			.filter(n => n !== main && /flash/i.test(n) && !/(lite|preview|exp|thinking)/i.test(n))
+			.sort((a, b) => geminiVersion(b) - geminiVersion(a))
+			.filter(n => geminiVersion(n) >= geminiVersion(main))
+			.slice(0, 2);
+	}
+
+	/** Resultado de um teste rápido de um modelo Gemini (estado para mostrar nas definições). */
+	function geminiProbeState(status, text) {
+		if (status >= 200 && status < 300) return { state: "ok" };
+		const c = classifyGeminiError(status, text);
+		const q = c.quota || {};
+		if (c.kind === "limit") return { state: q.period === "minute" ? "minute" : "limit" };
+		if (c.kind === "busy" || c.kind === "model") return { state: c.kind };
+		return { state: "error", message: c.message };
+	}
+
 	function formatRateLimit(info) {
 		if (!info || typeof info !== "object") return null;
 		try {
@@ -1689,7 +1914,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS,
-		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 

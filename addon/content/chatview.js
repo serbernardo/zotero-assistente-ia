@@ -793,7 +793,11 @@ var ZIAChatView = class {
 			return;
 		}
 		const q = (text != null ? text : this.textarea.value).trim();
-		if (!q) return;
+		if (!q) {
+			this._setStatus(this.T("chat.emptyQuestion"), "warn");
+			this.textarea.focus();
+			return;
+		}
 		if (!this.state.docs.length) {
 			this._setStatus(this.T("chat.addOne"), "warn");
 			return;
@@ -918,9 +922,9 @@ var ZIAChatView = class {
 			return false;
 		}
 		if (this.busy) return false;
-		const history = noHistory ? [] : this.state.messages
-			.filter(m => !m.error && m.text && !m.pending)
-			.map(m => ({ role: m.role, text: m.role === "user" ? m.promptText : m.text }));
+		// As ações são pedidos completos: não precisam do histórico. As perguntas livres levam
+		// só as últimas trocas (ver selectHistory).
+		const history = (noHistory || actionID) ? [] : this.L.selectHistory(this._historyPairs());
 		const userMsg = { role: "user", promptText, display, docIDs: docs.map(d => d.id) };
 		const action = actionID ? this._action(actionID) : null;
 		const botMsg = {
@@ -983,6 +987,7 @@ var ZIAChatView = class {
 				system: this.L.buildSystemPrompt(this.core.pref("answerLang")),
 				prompt,
 				promptParts,
+				heavy: this.L.isHeavyTask({ actionID: actionID && String(actionID).split(":")[0] === "custom" ? null : actionID, docCount: docs.length }),
 				win: this.win,
 				signal: this.abort.signal,
 				onDelta: (d, all) => {
@@ -1004,6 +1009,16 @@ var ZIAChatView = class {
 				botMsg.tags = this.L.parseTagLine(botMsg.text);
 				if (botMsg.tags.length) botMsg.text = this.L.removeTagLine(botMsg.text);
 			}
+			// Verificação automática contra o texto dos PDFs: excertos, páginas e números
+			try {
+				const pool = {};
+				for (const d of docs) {
+					const src = d.pages ? d : this.state.allDocs[d.id];
+					if (src && src.pages) pool[d.id] = { pages: src.pages };
+				}
+				botMsg.check = this.L.verifyAnswer(botMsg.text, pool);
+			}
+			catch (e) { this.core.log("Verificação: " + e); }
 			botMsg.pending = false;
 			this.core.setPref(engine + ".lastTest", "ok");
 			const secs = Math.round((Date.now() - t0) / 1000);
@@ -1035,6 +1050,19 @@ var ZIAChatView = class {
 		return !botMsg.error;
 	}
 
+	/** Pares pergunta e resposta já concluídos, pela ordem da conversa (sem erros). */
+	_historyPairs() {
+		const out = [];
+		const list = this.state.messages;
+		for (let i = 0; i + 1 < list.length; i++) {
+			const q = list[i], a = list[i + 1];
+			if (q.role !== "user" || a.role !== "assistant" || a.error || a.pending || !a.text) continue;
+			out.push({ role: "user", text: q.promptText || q.display || "" }, { role: "assistant", text: a.text });
+			i++;
+		}
+		return out;
+	}
+
 	async _retry(msg, engine) {
 		if (this.busy || !msg.request) return;
 		if (!this.core.isEngineReady(engine)) {
@@ -1057,17 +1085,18 @@ var ZIAChatView = class {
 		card.appendChild(this._el("div", "zia-card-title", this.T("setup.title")));
 		card.appendChild(this._el("p", "zia-card-text", this.T("setup.text")));
 		// Um fornecedor por linha, com as formas de ligação disponíveis
+		// Mesma ordem da lista de motores: Gemini (grátis, o mais fácil para começar), Claude, ChatGPT
 		const providers = [
+			{ id: "gemini", options: [
+				{ engine: "gemini", label: "setup.btn.geminiKey" },
+			] },
 			{ id: "claude", options: [
-				{ engine: "anthropic", label: "setup.btn.key" },
 				{ engine: "claude", label: "setup.btn.claudeCode", local: true },
+				{ engine: "anthropic", label: "setup.btn.key" },
 			] },
 			{ id: "openai", options: [
 				{ engine: "codex", label: "setup.btn.codex", local: true },
 				{ engine: "openai", label: "setup.btn.key" },
-			] },
-			{ id: "gemini", options: [
-				{ engine: "gemini", label: "setup.btn.geminiKey" },
 			] },
 		];
 		for (const p of providers) {
@@ -1347,9 +1376,38 @@ var ZIAChatView = class {
 			el.appendChild(row);
 		}
 		else if (!m.pending && m.text) {
+			if (m.check) el.appendChild(this._checkBox(m.check));
 			if (m.tags && m.tags.length) el.appendChild(this._tagsRow(m));
 			el.appendChild(this._messageTools(m));
 		}
+	}
+
+	/** Resultado da verificação automática: tudo confirmado, ou o que não foi encontrado nos PDFs. */
+	_checkBox(c) {
+		const dm = this._docsMap();
+		const ref = cite => {
+			if (!cite) return "";
+			const cs = this.L.parseCiteGroup(cite);
+			return cs.length ? " (" + cs.map(x => this.L.citeLabel(x, dm)).join("; ") + ")" : "";
+		};
+		if (!c.problems) {
+			if (!c.quotes && !c.numbers) return this._el("div", "zia-check zia-check-ok", this.T("check.okNoQuotes"));
+			return this._el("div", "zia-check zia-check-ok", this.T(c.calcs ? "check.okCalc" : "check.ok", { q: c.quotesOK, n: c.numbers, c: c.calcs }));
+		}
+		const box = this._el("div", "zia-check zia-check-warn");
+		box.setAttribute("role", "note");
+		box.appendChild(this._el("div", "zia-check-title", this.T("check.warn", { n: c.problems })));
+		const ul = this._el("ul");
+		const add = t => ul.appendChild(this._el("li", null, t));
+		for (const q of c.badQuotes.slice(0, 4)) add(this.T("check.badQuote", { q: q.quote }) + ref(q.cite));
+		for (const q of (c.changedQuotes || []).slice(0, 3)) add(this.T("check.changedQuote", { q: q.quote }) + ref(q.cite));
+		for (const q of c.wrongPage.slice(0, 3)) add(this.T("check.wrongPage", { q: q.quote }) + ref(q.cite));
+		for (const b of c.badCites.slice(0, 3)) add(this.T("check.badCite", { c: this.L.citeLabel(b, dm) }));
+		for (const e of (c.badCalcs || []).slice(0, 3)) add(this.T("check.badCalc", { e }));
+		if (c.unknownNumbers.length) add(this.T("check.numbers", { n: c.unknownNumbers.slice(0, 8).join(", ") }));
+		box.appendChild(ul);
+		box.appendChild(this._el("div", "zia-check-foot", this.T("check.foot")));
+		return box;
 	}
 
 	_tagsRow(m) {

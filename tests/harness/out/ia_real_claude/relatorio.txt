@@ -1,0 +1,23 @@
+OK  resumo                    18 citações  excertos 1/1     9 s  claude-sonnet-5-5        
+OK  pontos                     8 citações  excertos 8/8     9 s  claude-sonnet-5-5        
+OK  simples                   13 citações  excertos 0/0     8 s  claude-sonnet-5-5        
+OK  conceitos                 12 citações  excertos 0/0     9 s  claude-sonnet-5-5        
+OK  esquema                   23 citações  excertos 3/3     9 s  claude-sonnet-5-5        
+OK  critica                   36 citações  excertos 5/5    19 s  claude-sonnet-5-5        
+OK  metodos                   25 citações  excertos 5/5    14 s  claude-sonnet-5-5        
+OK  conclusoes                15 citações  excertos 1/1    10 s  claude-sonnet-5-5        
+OK  ficha                     13 citações  excertos 2/2     9 s  claude-sonnet-5-5        
+OK  excertos                  12 citações  excertos 12/12   9 s  claude-sonnet-5-5        
+OK  revisao                   22 citações  excertos 1/1    13 s  claude-sonnet-5-5        
+OK  etiquetas                  9 citações  excertos 4/4     6 s  claude-sonnet-5-5        
+OK  comparar                  37 citações  excertos 2/2    16 s  claude-sonnet-5-5        
+OK  cmp_metodos               26 citações  excertos 0/0    13 s  claude-sonnet-5-5        
+OK  cmp_resultados            21 citações  excertos 9/9    11 s  claude-sonnet-5-5        
+FALHOU cmp_conceitos             35 citações  excertos 8/9    16 s  claude-sonnet-5-5        excerto não encontrado: « e, na discussão, »
+OK  cmp_sintese               30 citações  excertos 2/2    19 s  claude-sonnet-5-5        
+FALHOU lacunas                   15 citações  excertos 8/9    14 s  claude-sonnet-5-5        excerto não encontrado: «o desenho transversal não permite inferir causalidade»
+FALHOU perguntas                 20 citações  excertos 7/8    40 s  claude-sonnet-5-5        excerto não encontrado: «não permite inferir causalidade»
+OK  armadilha_financiamento    3 citações  excertos 0/0     6 s                           
+OK  armadilha_alfa             2 citações  excertos 1/1     5 s                           
+OK  armadilha_premissa         5 citações  excertos 2/2     7 s                           
+OK  seguimento                 1 citações  excertos 1/1     9 s                           
