@@ -15,7 +15,10 @@ test("splitPages separa por \\f e limpa espaços", () => {
 
 test("shortAuthor e yearFrom", () => {
 	assert.equal(L.shortAuthor([{ lastName: "Silva" }]), "Silva");
-	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }]), "Silva & Costa");
+	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }]), "Silva e Costa", "português: e");
+	L.I18N.setLang("en");
+	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }]), "Silva & Costa", "inglês: &");
+	L.I18N.setLang("pt-PT");
 	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }, { lastName: "Reis" }]), "Silva et al.");
 	assert.equal(L.shortAuthor([{ name: "OCDE" }]), "OCDE");
 	assert.equal(L.shortAuthor([]), "Sem autor");
@@ -76,7 +79,7 @@ test("citações: parse, rótulo e texto", () => {
 	]);
 	const map = { D1: { ref: "Silva et al., 2020" }, D2: { ref: "Costa, 2019" } };
 	assert.equal(L.citesToText("Isto [D1:p5] e aquilo [D1:p5, D2:pp. 3-4] e [D2].", map),
-		"Isto (Silva et al., 2020, p. 5) e aquilo (Silva et al., 2020, p. 5) (Costa, 2019, pp. 3-4) e (Costa, 2019).");
+		"Isto (Silva et al., 2020, p. 5) e aquilo (Silva et al., 2020, p. 5; Costa, 2019, pp. 3-4) e (Costa, 2019).");
 	// páginas soltas herdam o documento anterior
 	assert.deepEqual(L.parseCiteGroup("D1:p1, p5; D2:p1-2, p5"), [
 		{ doc: "D1", page: 1, pageEnd: null },
@@ -84,7 +87,7 @@ test("citações: parse, rótulo e texto", () => {
 		{ doc: "D2", page: 1, pageEnd: 2 },
 		{ doc: "D2", page: 5, pageEnd: null },
 	]);
-	assert.equal(L.citesToText("x [D1:p1, p5]", map), "x (Silva et al., 2020, p. 1) (Silva et al., 2020, p. 5)");
+	assert.equal(L.citesToText("x [D1:p1, p5]", map), "x (Silva et al., 2020, pp. 1, 5)");
 	// links markdown normais não são citações
 	assert.equal(L.citesToText("[texto](https://x.pt)", map), "[texto](https://x.pt)");
 });
@@ -117,7 +120,7 @@ test("markdown: títulos, listas encaixadas, tabelas e citações", () => {
 		citeHref: c => `zotero://open-pdf/library/items/ABC?page=${c.page}`,
 	});
 	assert.match(html, /<h2>Resultados<\/h2>/);
-	assert.match(html, /<a href="zotero:\/\/open-pdf\/library\/items\/ABC\?page=2">\(Silva, 2020, p\. 2\)<\/a>/);
+	assert.match(html, /\(<a href="zotero:\/\/open-pdf\/library\/items\/ABC\?page=2">Silva, 2020, p\. 2<\/a>\)/);
 	assert.match(html, /<ul><li><p>Ponto A/);
 	assert.match(html, /<table><tr><th>Documento<\/th>/);
 });
@@ -444,4 +447,15 @@ test("dois artigos com o mesmo autor e ano ficam distinguíveis (2021a, 2021b)",
 	L.disambiguateRefs(docs);
 	assert.equal(docs[0].ref, "Silva et al., 2021", "sem o duplicado volta ao original");
 	assert.equal(L.citesToText("[D1:p3]", { D1: { ref: "Silva et al., 2021a" } }), "(Silva et al., 2021a, p. 3)");
+});
+
+test("citações no estilo da língua: PT usa e, inglês usa &, várias fontes no mesmo parêntesis", () => {
+	const mk = a => ({ ref: a });
+	L.I18N.setLang("pt-PT");
+	assert.equal(L.shortAuthor([{ lastName: "García" }, { lastName: "Ortega" }]), "García e Ortega");
+	L.I18N.setLang("en");
+	const docs = { D1: mk("Silva et al., 2021"), D2: mk("García & Ortega, 2023") };
+	assert.equal(L.citesToText("[D2:p4, D1:p3]", docs), "(García & Ortega, 2023, p. 4; Silva et al., 2021, p. 3)");
+	assert.equal(L.citesToText("[D1:p3-5]", docs), "(Silva et al., 2021, pp. 3-5)");
+	L.I18N.setLang("pt-PT");
 });

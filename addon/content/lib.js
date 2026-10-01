@@ -512,7 +512,8 @@ var ZIALib = (function () {
 			.filter(Boolean);
 		if (!names.length) return t("ref.noAuthor");
 		if (names.length === 1) return names[0];
-		if (names.length === 2) return names[0] + " & " + names[1];
+		// Dois autores: "e" em português, "&" em inglês (como nas normas APA de cada língua)
+		if (names.length === 2) return names[0] + " " + t("ref.and") + " " + names[1];
 		return names[0] + " et al.";
 	}
 
@@ -813,12 +814,33 @@ var ZIALib = (function () {
 		return `${who}, ${pp}`;
 	}
 
+	/** Várias páginas do mesmo documento juntam-se: (Silva et al., 2020, pp. 1, 5; Costa, 2019, p. 3). */
+	function joinCites(cites, docsMap) {
+		const order = [];
+		const byDoc = new Map();
+		for (const c of cites) {
+			if (!byDoc.has(c.doc)) { byDoc.set(c.doc, []); order.push(c.doc); }
+			byDoc.get(c.doc).push(c);
+		}
+		const parts = order.map(id => {
+			const list = byDoc.get(id);
+			const d = docsMap && docsMap[id];
+			const who = d ? d.ref : id;
+			const pages = list.filter(c => c.page != null).map(c => (c.pageEnd && c.pageEnd !== c.page ? `${c.page}-${c.pageEnd}` : String(c.page)));
+			if (!pages.length) return who;
+			const plural = pages.length > 1 || /-/.test(pages[0]);
+			return `${who}, ${plural ? "pp." : "p."} ${pages.join(", ")}`;
+		});
+		return "(" + parts.join("; ") + ")";
+	}
+
 	/** Substitui citações no texto simples: (Silva et al., 2020, p. 5) */
 	function citesToText(text, docsMap) {
 		return String(text || "").replace(CITE_GROUP_RE, (all, inner) => {
 			const cites = parseCiteGroup(inner);
 			if (!cites.length) return all;
-			return cites.map(c => `(${citeLabel(c, docsMap)})`).join(" ");
+			// Várias fontes numa só citação, separadas por ";" (norma APA)
+			return joinCites(cites, docsMap);
 		});
 	}
 
@@ -1192,11 +1214,11 @@ var ZIALib = (function () {
 				case "br": return "<br/>";
 				case "link": return `<a href="${escapeHTML(n.href)}">${inlinesToHTML(n.c, ctx)}</a>`;
 				case "cite":
-					return n.cites.map(c => {
-						const label = `(${escapeHTML(citeLabel(c, ctx.docsMap))})`;
+					return "(" + n.cites.map(c => {
+						const label = escapeHTML(citeLabel(c, ctx.docsMap));
 						const href = ctx.citeHref ? ctx.citeHref(c) : null;
 						return href ? `<a href="${escapeHTML(href)}">${label}</a>` : label;
-					}).join(" ");
+					}).join("; ") + ")";
 				default: return "";
 			}
 		}).join("");
@@ -1345,7 +1367,7 @@ var ZIALib = (function () {
 				case "text": case "code": return n.v;
 				case "strong": case "em": case "link": return inlinesToText(n.c, ctx);
 				case "br": return "\n";
-				case "cite": return n.cites.map(c => `(${citeLabel(c, ctx && ctx.docsMap)})`).join(" ");
+				case "cite": return joinCites(n.cites, ctx && ctx.docsMap);
 				default: return "";
 			}
 		}).join("");

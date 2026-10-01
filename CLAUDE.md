@@ -100,6 +100,10 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   clique explica o que falta.
 - **Mesmo autor e ano:** `disambiguateRefs` (lib.js) acrescenta a, b, c ao ano
   (Silva et al., 2021a e 2021b) nos chips, citacoes e notas. O id Dn continua unico.
+- **Citacoes ao estilo APA de cada lingua:** dois autores com "e" em PT e "&" em ingles
+  (`ref.and`); varias fontes no mesmo parentesis separadas por ";" e varias paginas do
+  mesmo documento juntas (`joinCites`): (Silva et al., 2021, pp. 1, 5; Costa, 2019, p. 3).
+  As ligacoes clicaveis continuam uma por pagina.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -197,7 +201,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (31), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (32), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -237,7 +241,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.5.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.5.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

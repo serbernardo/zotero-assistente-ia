@@ -36,7 +36,7 @@ async function main() {
 	const d1 = await core.describeItem(silva.parent);
 	const d2 = await core.describeItem(garcia.att); // também funciona a partir do anexo
 	assert.equal(d1.ref, "Silva et al., 2021");
-	assert.equal(d2.ref, "García & Ortega, 2023");
+	assert.equal(d2.ref, "García e Ortega, 2023");
 	d1.id = "D1"; d2.id = "D2";
 	await core.loadText(d1);
 	await core.loadText(d2);

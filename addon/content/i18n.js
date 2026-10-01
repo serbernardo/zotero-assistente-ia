@@ -98,6 +98,7 @@ var ZIAi18n = (function () {
 
 			// Referências
 			"ref.noAuthor": "Sem autor",
+			"ref.and": "e",
 			"ref.noDate": "s.d.",
 			"ref.noTitle": "Sem título",
 			"ficha.prefix": "Ficha IA",
@@ -617,6 +618,7 @@ var ZIAi18n = (function () {
 			"lang.auto": "Document language",
 
 			"ref.noAuthor": "No author",
+			"ref.and": "&",
 			"ref.noDate": "n.d.",
 			"ref.noTitle": "Untitled",
 			"ficha.prefix": "AI Sheet",
