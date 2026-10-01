@@ -99,6 +99,9 @@ var ZIAi18n = (function () {
 			// Referências
 			"ref.noAuthor": "Sem autor",
 			"ref.and": "e",
+			"prefs.citeStyle": "Estilo das citações ao copiar e nas notas:",
+			"prefs.citeStyle.simple": "Simples (Autor, ano, p. X)",
+			"prefs.citeStyle.note": "Escolhe um dos estilos instalados no Zotero (APA, Chicago, ABNT...). As citações copiadas e as das notas guardadas seguem esse estilo, com os autores e o ano tirados do Zotero (nunca da IA). No ecrã, os botões das citações ficam curtos para abrires o PDF. Para instalar mais estilos: Zotero, Definições, Citar, Obter mais estilos.",
 			"ref.noDate": "s.d.",
 			"ref.noTitle": "Sem título",
 			"ficha.prefix": "Ficha IA",
@@ -619,6 +622,9 @@ var ZIAi18n = (function () {
 
 			"ref.noAuthor": "No author",
 			"ref.and": "&",
+			"prefs.citeStyle": "Citation style when copying and in notes:",
+			"prefs.citeStyle.simple": "Simple (Author, year, p. X)",
+			"prefs.citeStyle.note": "Pick one of the styles installed in Zotero (APA, Chicago, ABNT...). Copied citations and saved notes follow that style, with authors and year taken from Zotero (never from the AI). On screen, citation buttons stay short so you can open the PDF. To install more styles: Zotero, Settings, Cite, Get additional styles.",
 			"ref.noDate": "n.d.",
 			"ref.noTitle": "Untitled",
 			"ficha.prefix": "AI Sheet",

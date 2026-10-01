@@ -82,6 +82,7 @@ window.ZIAPrefs = {
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
 		this.initAnswerLanguage();
+		this.initCiteStyle();
 		this.initCustomPrompts();
 		this.translate();
 		this.refresh();
@@ -106,6 +107,7 @@ window.ZIAPrefs = {
 		const cmd = this.$("zia-claude-command");
 		if (cmd) cmd.textContent = this.core().claudeInstallCommand();
 		this.fillAnswerLanguage();
+		if (this._fillCiteStyle) this._fillCiteStyle();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
 		this.showPromptCount();
@@ -147,6 +149,26 @@ window.ZIAPrefs = {
 			this.translate();
 			this.refresh();
 		});
+	},
+
+	/** Estilo das citações ao copiar e nas notas: o formato simples ou um estilo instalado no Zotero. */
+	initCiteStyle() {
+		const core = this.core();
+		const sel = this.$("zia-cite-style");
+		if (!sel) return;
+		const fill = () => {
+			const styles = core.citationStyles ? core.citationStyles() : [];
+			const cur = core.pref("cite.style") || "";
+			const items = [["", this.T("prefs.citeStyle.simple")]].concat(styles.map(st => [st.id, st.title]));
+			if (cur && !items.some(x => x[0] === cur)) items.push([cur, cur]);
+			this.fillSelect(sel, items, cur);
+		};
+		fill();
+		this._fillCiteStyle = fill;
+		if (!sel._ziaBound) {
+			sel._ziaBound = true;
+			sel.addEventListener("change", () => core.setPref("cite.style", sel.value));
+		}
 	},
 
 	initAnswerLanguage() {

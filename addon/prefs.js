@@ -59,3 +59,5 @@ pref("extensions.zoteroia.privacy.ack.codex", false);
 pref("extensions.zoteroia.privacy.ack.gemini", false);
 // Ícone do assistente já colocado a seguir à Info (só uma vez)
 pref("extensions.zoteroia.sidenav.placed", false);
+// Estilo das citações ao copiar e nas notas: "" = formato simples, ou o id de um estilo do Zotero
+pref("extensions.zoteroia.cite.style", "");

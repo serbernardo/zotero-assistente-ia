@@ -478,7 +478,7 @@ var ZIALib = (function () {
 	/** Autor curto para citações: Silva / Silva & Costa / Silva et al. */
 	/**
 	 * Dois artigos com o mesmo autor e ano ("Silva et al., 2021") ficariam iguais nos botões e
-	 * nas citações. Acrescenta a, b, c ao ano (como nas normas de citação), pela ordem D1, D2, ...
+	 * nas citações. Acrescenta a, b, c ao ano (como nas normas de citação), pela ordem alfabética do título (regra APA)
 	 * docs: lista de documentos; mexe em ref e shortRef e guarda o original em baseRef/baseShort.
 	 */
 	function disambiguateRefs(docs) {
@@ -495,7 +495,9 @@ var ZIALib = (function () {
 		}
 		for (const g of groups.values()) {
 			if (g.length < 2) continue;
-			g.sort((a, b) => parseInt(String(a.id).slice(1), 10) - parseInt(String(b.id).slice(1), 10));
+			// Regra APA: a letra segue a ordem alfabética do título
+			g.sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base", ignorePunctuation: true })
+				|| parseInt(String(a.id).slice(1), 10) - parseInt(String(b.id).slice(1), 10));
 			g.forEach((d, i) => {
 				const letter = String.fromCharCode(97 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26)) : "");
 				d.ref = d.baseRef.replace(/(\d{4})(?!.*\d{4})/, "$1" + letter);
@@ -814,8 +816,19 @@ var ZIALib = (function () {
 		return `${who}, ${pp}`;
 	}
 
+	// Formatador de citações do estilo escolhido no Zotero (definido pelo núcleo; null = formato simples)
+	let citeFormatter = null;
+	function setCiteFormatter(fn) { citeFormatter = typeof fn === "function" ? fn : null; }
+
 	/** Várias páginas do mesmo documento juntam-se: (Silva et al., 2020, pp. 1, 5; Costa, 2019, p. 3). */
 	function joinCites(cites, docsMap) {
+		if (citeFormatter) {
+			try {
+				const out = citeFormatter(cites, docsMap);
+				if (out) return out;
+			}
+			catch (e) { /* formato simples */ }
+		}
 		const order = [];
 		const byDoc = new Map();
 		for (const c of cites) {
@@ -1214,6 +1227,17 @@ var ZIALib = (function () {
 				case "br": return "<br/>";
 				case "link": return `<a href="${escapeHTML(n.href)}">${inlinesToHTML(n.c, ctx)}</a>`;
 				case "cite":
+					if (citeFormatter) {
+						// Estilo do Zotero: cada citação formatada e com a sua ligação ao PDF
+						const parts = n.cites.map(c => {
+							let label = null;
+							try { label = citeFormatter([c], ctx.docsMap); } catch (e) { /* formato simples */ }
+							if (!label) return null;
+							const href = ctx.citeHref ? ctx.citeHref(c) : null;
+							return href ? `<a href="${escapeHTML(href)}">${escapeHTML(label)}</a>` : escapeHTML(label);
+						});
+						if (parts.every(Boolean)) return parts.join(" ");
+					}
 					return "(" + n.cites.map(c => {
 						const label = escapeHTML(citeLabel(c, ctx.docsMap));
 						const href = ctx.citeHref ? ctx.citeHref(c) : null;
@@ -1966,7 +1990,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS,
-		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, setCiteFormatter, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 

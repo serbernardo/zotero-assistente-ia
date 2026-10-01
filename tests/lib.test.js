@@ -459,3 +459,13 @@ test("citações no estilo da língua: PT usa e, inglês usa &, várias fontes n
 	assert.equal(L.citesToText("[D1:p3-5]", docs), "(Silva et al., 2021, pp. 3-5)");
 	L.I18N.setLang("pt-PT");
 });
+
+test("letras do mesmo autor e ano seguem a ordem alfabética do título (regra APA)", () => {
+	const docs = [
+		{ id: "D1", ref: "Silva et al., 2021", shortRef: "Silva et al. 2021", title: "Chatbots em bibliotecas" },
+		{ id: "D2", ref: "Silva et al., 2021", shortRef: "Silva et al. 2021", title: "Atitudes dos estudantes" },
+	];
+	L.disambiguateRefs(docs);
+	assert.equal(docs[0].ref, "Silva et al., 2021b");
+	assert.equal(docs[1].ref, "Silva et al., 2021a");
+});

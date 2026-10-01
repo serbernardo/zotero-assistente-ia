@@ -1,0 +1,1 @@
+Estilos e locales CSL de https://github.com/citation-style-language (licença CC BY-SA 3.0), usados só nos testes.

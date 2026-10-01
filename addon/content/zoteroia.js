@@ -44,6 +44,8 @@ var ZoteroIA = {
 		this.rootURI = rootURI;
 		this.ChatView = ZIAChatView;
 		this.applyLanguage();
+		// Citações no estilo escolhido no Zotero (se não houver estilo, usa o formato simples)
+		this.lib.setCiteFormatter((cites, docsMap) => this.formatCitesWithStyle(cites, docsMap));
 		// Migra chaves antigas guardadas sem encriptação
 		this.migrateSecrets().catch(e => this.log("Migração de chaves: " + e));
 		// Uma vez: Gemini 3.5 Flash-Lite como modelo por omissão
@@ -284,6 +286,100 @@ var ZoteroIA = {
 			walk(top, 0, libs.length > 1 ? l.name : null);
 		}
 		return out;
+	},
+
+	// ------------------------------------------------------------------
+	// Citações no estilo escolhido no Zotero (APA, Chicago, ABNT, ...)
+	// ------------------------------------------------------------------
+
+	/** Estilos instalados no Zotero, por ordem alfabética: [{ id, title }]. */
+	citationStyles() {
+		try {
+			return Zotero.Styles.getVisible()
+				.map(st => ({ id: st.styleID, title: st.title }))
+				.sort((a, b) => String(a.title).localeCompare(String(b.title)));
+		}
+		catch (e) {
+			this.log("Estilos: " + e);
+			return [];
+		}
+	},
+
+	/** Estilo escolhido nas definições ("" = formato simples do addon). */
+	citeStyleID() {
+		const id = String(this.pref("cite.style") || "").trim();
+		if (!id) return "";
+		try { return Zotero.Styles.get(id) ? id : ""; }
+		catch (e) { return ""; }
+	},
+
+	/** Motor de citações (citeproc) do estilo, guardado para não o recriar a cada resposta. */
+	_citeEngine(styleID) {
+		const locale = this.lib.I18N.getLang() === "en" ? "en-US" : "pt-PT";
+		const key = styleID + "|" + locale;
+		this._citeEngines = this._citeEngines || new Map();
+		let engine = this._citeEngines.get(key);
+		if (!engine) {
+			const style = Zotero.Styles.get(styleID);
+			if (!style) return null;
+			engine = style.getCiteProc(locale, "text");
+			this._citeEngines.set(key, engine);
+			if (this._citeEngines.size > 6) this._citeEngines.delete(this._citeEngines.keys().next().value);
+		}
+		return engine;
+	},
+
+	/**
+	 * Formata um grupo de citações [{ doc, page, pageEnd }] no estilo escolhido, num só
+	 * parêntesis (ou nota de rodapé, nos estilos de notas). Devolve null se não for possível
+	 * (sem estilo escolhido, artigo sem item no Zotero, erro do estilo): o chamador usa o formato simples.
+	 */
+	formatCitesWithStyle(cites, docsMap, { single } = {}) {
+		const styleID = this.citeStyleID();
+		if (!styleID || !cites || !cites.length) return null;
+		try {
+			const engine = this._citeEngine(styleID);
+			if (!engine) return null;
+			// Todos os artigos da conversa, pela ordem D1, D2...: a desambiguação (2021a, 2021b)
+			// e a numeração dos estilos numéricos dependem do conjunto completo
+			const all = Object.keys(docsMap || {}).sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10));
+			const itemOf = id => {
+				const d = docsMap[id];
+				const it = d && d.parentID ? Zotero.Items.get(d.parentID) : null;
+				return it && it.isRegularItem && it.isRegularItem() ? it : null;
+			};
+			const regular = all.filter(id => itemOf(id));
+			// Estado limpo a cada pedido (o motor fica guardado, o estado não)
+			engine.rebuildProcessorState([], "text", []);
+			engine.setOutputFormat("text");
+			engine.updateItems(regular.map(id => itemOf(id).id));
+			const order = [];
+			const byDoc = new Map();
+			for (const c of cites) {
+				if (!itemOf(c.doc)) return null;
+				if (!byDoc.has(c.doc)) { byDoc.set(c.doc, []); order.push(c.doc); }
+				byDoc.get(c.doc).push(c);
+			}
+			const citationItems = order.map(id => {
+				const pages = byDoc.get(id).filter(c => c.page != null)
+					.map(c => (c.pageEnd && c.pageEnd !== c.page ? `${c.page}-${c.pageEnd}` : String(c.page)));
+				const item = { id: itemOf(id).id };
+				if (pages.length) { item.locator = pages.join(", "); item.label = "page"; }
+				return item;
+			});
+			// Primeiro uma citação escondida com todos os artigos: só assim o motor distingue
+			// Silva et al., 2021a e 2021b (a desambiguação só vale para o que foi citado)
+			const prime = { citationID: "zia-all", citationItems: regular.map(id => ({ id: itemOf(id).id })), properties: { noteIndex: 1 } };
+			engine.processCitationCluster(prime, [], []);
+			const mine = { citationID: "zia-cite", citationItems, properties: { noteIndex: 2 } };
+			const res = engine.processCitationCluster(mine, [["zia-all", 1]], []);
+			const hit = (res[1] || []).find(r => r[2] === "zia-cite");
+			return hit ? String(hit[1]).replace(/\s+/g, " ").trim() || null : null;
+		}
+		catch (e) {
+			this.log("Citações no estilo " + styleID + ": " + e);
+			return null;
+		}
 	},
 
 	/** Itens com PDF de uma coleção (por id). */

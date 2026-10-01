@@ -1,6 +1,6 @@
 # Assistente IA para Zotero
 
-Addon para o Zotero (versao 0.5) que ajuda a ler, avaliar e escrever a partir
+Addon para o Zotero (versao 0.6) que ajuda a ler, avaliar e escrever a partir
 de artigos cientificos, com a conta de IA do proprio utilizador (gratuita ou
 paga). Cinco motores: Claude com chave da API (`anthropic`), Claude com a
 subscricao Pro/Max atraves do Claude Code em subprocesso (`claude`), ChatGPT
@@ -104,6 +104,17 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   (`ref.and`); varias fontes no mesmo parentesis separadas por ";" e varias paginas do
   mesmo documento juntas (`joinCites`): (Silva et al., 2021, pp. 1, 5; Costa, 2019, p. 3).
   As ligacoes clicaveis continuam uma por pagina.
+- **Estilo de citacao do Zotero** (pref `cite.style`, "" = formato simples):
+  `formatCitesWithStyle` (zoteroia.js) usa o motor de citacoes do proprio Zotero
+  (`Zotero.Styles.get(id).getCiteProc`) com os dados do item (autores e ano do
+  Zotero, nunca da IA). Regista primeiro uma citacao escondida com todos os
+  artigos da conversa (so assim o citeproc distingue 2021a e 2021b) e depois
+  formata a citacao pedida num so parentesis, com paginas (`locator`, label
+  `page`). Usado ao copiar e nas notas (`lib.setCiteFormatter`); no ecra os botoes
+  das citacoes ficam curtos. Sem item-pai, estilo inexistente ou erro: formato
+  simples. O APA oficial usa "&" no parentesis tambem em portugues.
+  As letras do formato simples (`disambiguateRefs`) seguem a ordem alfabetica do
+  titulo, como o APA.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -201,7 +212,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (32), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (33), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -223,6 +234,9 @@ npm install
   acoes com a IA REAL, mais perguntas-armadilha (informacao que nao existe,
   premissa falsa) e uma pergunta de seguimento, verificadas com `verifyAnswer`.
   Respostas em `tests/harness/out/ia_real_<motor>/` (gasta quota)
+- `ZOTERO_SRC=<clone> node tests/harness/run_cite.js` — citacoes nos estilos APA e
+  ABNT com o `citeproc.js` REAL do Zotero (precisa de `git sparse-checkout add
+  chrome/content/zotero/xpcom`); estilos de teste em `tests/harness/csl/`
 - `ZOTERO_SRC=<clone> node tests/harness/run_bootstrap.mjs` — valida
   `bootstrap.js` contra o codigo fonte REAL do `PluginAPIBase`/
   `ItemPaneManager`/`MenuManager` do Zotero. Clone esparso:
@@ -241,7 +255,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.5.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)
