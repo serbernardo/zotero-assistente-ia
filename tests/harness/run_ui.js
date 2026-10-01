@@ -68,13 +68,15 @@ async function main() {
 		await page.click("text=Guardar como nota");
 		await page.waitForSelector("text=Nota guardada");
 		assert.equal(await page.evaluate(() => window.lastHeading), "Comparação: visão geral · Silva et al. 2021, García e Ortega 2023", "título da nota da comparação");
-		// pergunta de seguimento usa o histórico
-		await page.evaluate(() => { window.MOCK.answer = "Resposta de seguimento [D2:p4]."; });
+		// uma pergunta abre o seu próprio separador (a comparação fica no dela)
+		await page.evaluate(() => { window.MOCK.answer = "Resposta da pergunta [D2:p4]."; });
 		await page.fill(".zia-textarea", "E quanto à confiança dos utilizadores?");
 		await page.click(".zia-send");
-		await page.waitForSelector("text=Resposta de seguimento");
-		assert.match(await page.evaluate(() => window.lastPrompt), /<historico>/);
-		console.log(`OK janela ${dark ? "(escuro)" : ""}: comparação com ${cites} citações, abrir página, copiar, nota, seguimento`);
+		await page.waitForSelector("text=Resposta da pergunta");
+		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "comparação e pergunta em separadores diferentes");
+		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /E quanto à confiança/);
+		assert.doesNotMatch(await page.evaluate(() => window.lastPrompt), /<historico>/, "pergunta num separador novo, sem histórico");
+		console.log(`OK janela ${dark ? "(escuro)" : ""}: comparação com ${cites} citações, abrir página, copiar, nota, pergunta noutro separador`);
 		await page.close();
 	}
 
@@ -276,52 +278,56 @@ async function main() {
 		await page.waitForSelector("text=Guardar como nota");
 		assert.match(await page.evaluate(() => window.lastPrompt), /Indicações adicionais do utilizador: foca a metodologia/);
 		assert.equal(await page.locator('button[data-action="resumo"].zia-done').count(), 1, "ação já pedida fica marcada");
+		// cada ação tem o seu separador
 		await act(page, "pontos");
-		await page.waitForFunction(() => document.querySelectorAll(".zia-msg-assistant").length === 2 && !document.querySelector(".zia-typing"));
-		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1, "a resposta anterior fica recolhida");
-		assert.equal(await page.locator(".zia-msg-user:not([hidden])").count(), 1, "a pergunta da resposta recolhida fica escondida");
-		await page.screenshot({ path: path.join(OUT, "ui_painel_recolhido.png") });
-		// escolher uma ação já pedida mostra a resposta que existe
+		await page.waitForFunction(() => document.querySelectorAll(".zia-conv-tab").length === 2 && !document.querySelector(".zia-send.zia-stop"));
+		assert.equal(await page.locator(".zia-msg-assistant").count(), 1, "o separador Pontos-chave só tem a sua resposta");
+		assert.match(await page.textContent(".zia-conv-tab >> nth=0"), /Resumir/);
+		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /Pontos-chave/);
+		await page.screenshot({ path: path.join(OUT, "ui_painel_separadores.png") });
+		// escolher uma ação já pedida abre o separador dela, sem repetir o pedido
 		const before = await page.evaluate(() => window.lastPrompt);
 		await page.click('button[data-action="resumo"]');
-		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 0, "a resposta do resumo volta a abrir");
+		assert.equal(await page.getAttribute(".zia-conv-tab >> nth=0", "aria-selected"), "true", "abre o separador Resumir");
 		assert.match(await page.textContent(".zia-status"), /Já pediste/);
 		assert.equal(await page.evaluate(() => window.lastPrompt), before, "nada foi enviado");
 		await page.click('button[data-action="resumo"]');
 		// o título recolhe e abre
 		await page.locator(".zia-msg-assistant .zia-msg-head").first().click();
 		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1);
-		// histórico: outra sessão do Zotero (memória vazia) recupera a conversa guardada
-		assert.equal(await page.evaluate(() => [...window.FILES.keys()].length), 1, "conversa guardada num ficheiro");
+		await page.screenshot({ path: path.join(OUT, "ui_painel_recolhido.png") });
+		// histórico: outra sessão do Zotero (memória vazia) recupera os separadores guardados
+		assert.equal(await page.evaluate(() => [...window.FILES.keys()].length), 1, "conversas guardadas num ficheiro");
 		await page.evaluate(async () => {
 			await view.showItem(null);
 			ZoteroIA.sessions.clear();
 			await view.showItem(window.ITEM_A);
 		});
-		await page.waitForSelector(".zia-msg-assistant");
-		assert.equal(await page.locator(".zia-msg-assistant").count(), 2, "respostas recuperadas");
-		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1, "só a última fica aberta");
+		await page.waitForSelector(".zia-conv-tab");
+		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "separadores recuperados");
 		assert.match(await page.textContent(".zia-status"), /Conversa anterior recuperada/);
-		// Nova conversa: abre um separador novo e a anterior fica no seu separador (nada é apagado)
+		// histórico antigo (tudo numa conversa) é separado por ação
+		await page.evaluate(async () => {
+			const L = ZoteroIA.lib;
+			const msgs = [
+				{ role: "user", display: "Resumir", promptText: "x" }, { role: "assistant", text: "R1 [D1:p1]", actionID: "resumo", actionLabel: "Resumir" },
+				{ role: "user", display: "Pontos-chave", promptText: "y" }, { role: "assistant", text: "R2 [D1:p1]", actionID: "pontos", actionLabel: "Pontos-chave" },
+				{ role: "user", display: "Qual a amostra?", promptText: "Qual a amostra?" }, { role: "assistant", text: "R3 [D1:p1]" },
+			];
+			window.splitCount = view._splitByAction(msgs).length;
+		});
+		assert.equal(await page.evaluate(() => window.splitCount), 3, "histórico antigo: um separador por ação e por pergunta");
+		// Nova conversa abre um separador vazio
 		await page.click(".zia-footer button:has-text(\"Nova conversa\")");
-		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "dois separadores");
+		assert.equal(await page.locator(".zia-conv-tab").count(), 3);
 		assert.equal(await page.locator(".zia-msg-assistant").count(), 0, "conversa nova vazia");
-		assert.match(await page.textContent(".zia-conv-tab >> nth=0"), /Resumir|Pontos/, "o separador antigo tem o título da primeira ação");
-		await page.evaluate(a => { window.MOCK.answer = a; }, "Conclusões curtas [D1:p2].");
-		await tab(page, "avaliar");
-		await act(page, "conclusoes");
-		await page.waitForFunction(() => document.querySelectorAll(".zia-msg-assistant").length === 1 && !document.querySelector(".zia-send.zia-stop"));
-		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /Conclusões/);
-		await page.locator(".zia-conv-label >> nth=0").click();
-		assert.equal(await page.locator(".zia-msg-assistant").count(), 2, "voltar ao separador antigo mostra as respostas dele");
-		await page.screenshot({ path: path.join(OUT, "ui_painel_separadores.png") });
-		const saved = await page.evaluate(() => JSON.parse([...window.FILES.values()][0]));
-		assert.equal(saved.conversations.length, 2, "as duas conversas ficam guardadas");
-		// fechar um separador pede confirmação se houver respostas não guardadas
-		page.once("dialog", d => d.accept());
-		await page.locator(".zia-conv-close >> nth=1").click();
-		assert.equal(await page.locator(".zia-conv-tab").count(), 0, "com uma só conversa, os separadores escondem-se");
-		console.log("OK ações: escolher e depois pedir, respostas anteriores recolhidas, ação já pedida mostra a resposta, histórico guardado por artigo");
+		// fechar um separador pede sempre confirmação
+		let asked = 0;
+		page.on("dialog", d => { asked++; d.accept(); });
+		await page.locator(".zia-conv-close >> nth=0").click();
+		assert.equal(asked, 1, "pede confirmação");
+		assert.equal(await page.locator(".zia-conv-tab").count(), 2);
+		console.log("OK ações: escolher e depois pedir, um separador por ação, ação já pedida abre o seu separador, histórico guardado e antigo separado por ação, fechar com aviso");
 		await page.close();
 	}
 
@@ -372,8 +378,10 @@ async function main() {
 		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.answer = "Resposta B [D1:p2]."; });
 		await act(page, "resumo");
-		await page.waitForFunction(() => document.querySelectorAll(".zia-msg-assistant").length === 2 && !document.querySelector(".zia-send.zia-stop"));
-		assert.match(await page.textContent(".zia-msg-assistant >> nth=0"), /Resposta B/, "a mais recente em cima");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && [...document.querySelectorAll(".zia-msg-assistant")].some(e => /Resposta B/.test(e.textContent)));
+		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "Teoria e Resumir em separadores diferentes");
+		// recolher a resposta e guardá-la como nota sem a abrir
+		await page.locator(".zia-msg-assistant .zia-msg-head").first().click();
 		await page.evaluate(() => { window.saved = []; const o = ZoteroIA.saveNote; ZoteroIA.saveNote = async a => { window.saved.push(a.heading); return o(a); }; });
 		await page.click(".zia-msg-assistant.zia-collapsed .zia-head-save");
 		assert.equal(await page.evaluate(() => window.saved.length), 1, "resposta recolhida guardada como nota");
@@ -465,7 +473,8 @@ async function main() {
 		await page.waitForSelector("text=Eliminar este erro da conversa?");
 		await page.click(".zia-confirm-del button:has-text(\"Eliminar\")");
 		assert.equal(await page.locator(".zia-msg").count(), before - 2, "erro e pergunta retirados");
-		// resposta com conteúdo ainda não guardada: aviso com a opção de guardar como nota primeiro
+		// resposta com conteúdo: no separador da ficha, cancelar o aviso não apaga
+		await page.locator(".zia-conv-label >> nth=0").click();
 		const n0 = await page.locator(".zia-msg").count();
 		await page.locator(".zia-msg-assistant >> nth=0").locator(".zia-msg-del").click();
 		await page.waitForSelector(".zia-confirm-del");

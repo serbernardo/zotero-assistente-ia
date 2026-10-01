@@ -1,6 +1,6 @@
 # Assistente IA para Zotero
 
-Addon para o Zotero (versao 0.6) que ajuda a ler, avaliar e escrever a partir
+Addon para o Zotero (versao 0.7) que ajuda a ler, avaliar e escrever a partir
 de artigos cientificos, com a conta de IA do proprio utilizador (gratuita ou
 paga). Cinco motores: Claude com chave da API (`anthropic`), Claude com a
 subscricao Pro/Max atraves do Claude Code em subprocesso (`claude`), ChatGPT
@@ -153,11 +153,14 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   fichas tambem aparece junto de "Usar fichas" e a lista das fichas em Comparar.
 - **Eliminar:** uma resposta com texto nunca e tratada como erro no aviso (oferece
   guardar como nota), mesmo que tenha um erro associado.
-- **Varias conversas (separadores):** `state.convs` (listas de mensagens) e
-  `state.active`; `state.messages` e sempre `convs[active]`. "Nova conversa"
-  (`newConversation`) abre um separador novo sem apagar o anterior; o titulo e a
-  primeira acao ou o inicio da primeira pergunta (`_convTitle`); fechar pede
-  confirmacao se houver respostas nao guardadas. Ficheiro de historico versao 2
+- **Separadores (um por acao e por pergunta):** `state.convs` (listas de
+  mensagens) e `state.active`; `state.messages` e sempre `convs[active]`.
+  `_routeConversation` (chamado em `_ask`): uma acao vai para o separador dela
+  (ou um novo), cada pergunta abre um novo (sem historico), um separador vazio e
+  aproveitado; "Repetir" fica no mesmo (`stay`). Escolher uma acao ja pedida abre
+  o separador dela sem enviar. "Nova conversa" abre um separador vazio. Fechar
+  pede sempre confirmacao. Sem limite automatico. O historico antigo (tudo numa
+  conversa) e separado por acao ao abrir (`_splitByAction`). Ficheiro de historico versao 2
   (`conversations`, `active`); a versao 1 ainda se le.
 - **Respostas:** Copiar e Guardar como nota ficam por cima do texto; o titulo
   mostra um circulo com seta e "abrir"/"recolher". Rodape do painel so com
@@ -302,7 +305,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.9.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

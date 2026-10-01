@@ -523,7 +523,10 @@ var ZIAChatView = class {
 			// Conversa guardada de uma sessão anterior do Zotero
 			const old = this.core.loadConversation ? await this.core.loadConversation(this.historyKey) : null;
 			if (old && old.convs && old.convs.some(c => c.length) && this.sessionKey === key) {
-				this.state.convs = old.convs.map(c => c.map(m => Object.assign({}, m, { collapsed: m.role === "assistant" })));
+				let convs = old.convs.map(c => c.map(m => Object.assign({}, m, { collapsed: m.role === "assistant" })));
+				// Conversas antigas (tudo junto): um separador por ação e por pergunta
+				if (convs.length === 1) convs = this._splitByAction(convs[0]);
+				this.state.convs = convs;
 				this.state.active = Math.min(Math.max(0, old.active || 0), this.state.convs.length - 1);
 				this.state.messages = this.state.convs[this.state.active];
 				const last = [...this.state.messages].reverse().find(m => m.role === "assistant");
@@ -539,6 +542,24 @@ var ZIAChatView = class {
 	// ------------------------------------------------------------------
 	// Várias conversas por artigo (separadores)
 	// ------------------------------------------------------------------
+
+	_splitByAction(msgs) {
+		const out = [];
+		const byAction = new Map();
+		for (let i = 0; i < msgs.length; i++) {
+			const q = msgs[i], a = msgs[i + 1];
+			const pair = q.role === "user" && a && a.role === "assistant" ? [q, a] : [q];
+			if (pair.length === 2) i++;
+			const act = pair[pair.length - 1].actionID;
+			if (act && byAction.has(act)) byAction.get(act).push(...pair);
+			else {
+				const c = pair.slice();
+				out.push(c);
+				if (act) byAction.set(act, c);
+			}
+		}
+		return out.length ? out : [[]];
+	}
 
 	_ensureConvs() {
 		if (!this.state.convs) {
@@ -586,7 +607,6 @@ var ZIAChatView = class {
 		}
 		const fresh = [];
 		this.state.convs.push(fresh);
-		if (this.state.convs.length > 10) this.state.convs.shift();
 		this.state.active = this.state.convs.length - 1;
 		this.state.messages = fresh;
 		this._afterConvChange();
@@ -606,8 +626,10 @@ var ZIAChatView = class {
 		this._ensureConvs();
 		const msgs = this.state.convs[i];
 		if (!msgs) return;
-		if (msgs.some(m => m.role === "assistant" && m.text && !m.noteID)) {
-			if (!this.win.confirm(this.T("chat.conv.closeConfirm", { title: this._convTitle(msgs) }))) return;
+		if (msgs.length) {
+			const unsaved = msgs.some(m => m.role === "assistant" && m.text && !m.noteID);
+			const key = unsaved ? "chat.conv.closeConfirm" : "chat.conv.closeConfirmSaved";
+			if (!this.win.confirm(this.T(key, { title: this._convTitle(msgs) }))) return;
 		}
 		this.state.convs.splice(i, 1);
 		if (!this.state.convs.length) this.state.convs.push([]);
@@ -1021,7 +1043,9 @@ var ZIAChatView = class {
 		if (a) {
 			const prev = this._lastAnswerFor(a.id);
 			if (prev) {
-				// Já foi pedido: mostra a resposta anterior em vez de a repetir sem querer
+				// Já foi pedido: abre o separador dessa ação e mostra a resposta, sem repetir o pedido
+				const ci = this.state.convs.findIndex(msgs => msgs.includes(prev));
+				if (ci >= 0 && ci !== this.state.active) this._switchTo(ci);
 				prev.collapsed = false;
 				this._renderMessage(prev);
 				this._applyCollapse();
@@ -1077,14 +1101,51 @@ var ZIAChatView = class {
 		}
 	}
 
+	/** Última resposta válida de uma ação, em qualquer separador. */
 	_lastAnswerFor(actionID) {
+		this._ensureConvs();
 		const docIDs = this.state.docs.map(d => d.id).join(",");
-		for (let i = this.state.messages.length - 1; i >= 0; i--) {
-			const m = this.state.messages[i];
-			if (m.role === "assistant" && m.actionID === actionID && !m.error && !m.pending && m.text
-				&& (!m.docIDs || m.docIDs.join(",") === docIDs)) return m;
+		for (const msgs of this.state.convs) {
+			for (let i = msgs.length - 1; i >= 0; i--) {
+				const m = msgs[i];
+				if (m.role === "assistant" && m.actionID === actionID && !m.error && !m.pending && m.text
+					&& (!m.docIDs || m.docIDs.join(",") === docIDs)) return m;
+			}
 		}
 		return null;
+	}
+
+	/** Separador de uma ação (cada ação tem o seu), ou -1. */
+	_findConvFor(actionID) {
+		this._ensureConvs();
+		return this.state.convs.findIndex(msgs => msgs.some(m => m.role === "assistant" && m.actionID === actionID));
+	}
+
+	/**
+	 * Cada ação e cada pergunta têm o seu separador: a ação vai para o separador dela (ou um novo),
+	 * a pergunta abre um novo. Um separador vazio é aproveitado.
+	 */
+	_routeConversation(actionID) {
+		this._ensureConvs();
+		if (actionID) {
+			const i = this._findConvFor(actionID);
+			if (i >= 0) {
+				if (i !== this.state.active) this._switchTo(i);
+				return;
+			}
+		}
+		if (this.state.messages.length) {
+			const fresh = [];
+			this.state.convs.push(fresh);
+			this._switchTo(this.state.convs.length - 1);
+		}
+	}
+
+	_switchTo(i) {
+		this.state.active = i;
+		this.state.messages = this.state.convs[i];
+		this._renderConvTabs();
+		this._renderMessages();
 	}
 
 	async sendQuestion(text) {
@@ -1217,7 +1278,7 @@ var ZIAChatView = class {
 	 * Envia um pedido e mostra a resposta em fluxo.
 	 * Devolve true/false (ou a mensagem, se returnMessage).
 	 */
-	async _ask({ promptText, display, heading, actionID, docs, noHistory, returnMessage, engine }) {
+	async _ask({ promptText, display, heading, actionID, docs, noHistory, returnMessage, engine, stay }) {
 		if (this.busy) return false;
 		engine = engine || this.engine;
 		if (!this.core.isEngineReady(engine)) {
@@ -1229,6 +1290,7 @@ var ZIAChatView = class {
 			return false;
 		}
 		if (this.busy) return false;
+		if (!stay) this._routeConversation(actionID);
 		// As ações são pedidos completos: não precisam do histórico. As perguntas livres levam
 		// só as últimas trocas (ver selectHistory).
 		const history = (noHistory || actionID) ? [] : this.L.selectHistory(this._historyPairs());
@@ -1423,7 +1485,7 @@ var ZIAChatView = class {
 		const idx = this.state.messages.indexOf(msg);
 		if (idx > 0) this.state.messages.splice(idx - 1, 2);
 		this._renderMessages();
-		await this._ask(Object.assign({}, msg.request, { engine }));
+		await this._ask(Object.assign({}, msg.request, { engine, stay: true }));
 	}
 
 	// ------------------------------------------------------------------
