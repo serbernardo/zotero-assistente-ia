@@ -37,7 +37,7 @@ Em **todas as respostas**: citações clicáveis, **Guardar como nota**, **Expor
 
 1. No Zotero: **Ferramentas → Plugins**
 2. Roda dentada → **Install Plugin From File…**
-3. Escolhe o ficheiro `assistente-ia-0.7.0.xpi`
+3. Escolhe o ficheiro `assistente-ia-0.7.1.xpi`
 
 Precisa do Zotero 8 ou superior.
 

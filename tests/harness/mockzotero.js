@@ -51,9 +51,11 @@ function makeSubprocessShim(log) {
 			log && log(`spawn ${command} ${args.join(" ")}`);
 			const child = spawn(command, args, { cwd: workdir || undefined, env: environment || process.env, stdio: ["pipe", "pipe", "pipe"] });
 			const exitP = new Promise(r => child.on("close", code => r({ exitCode: code == null ? -9 : code })));
+			// Como no Zotero: escrever para um processo já terminado falha com erro, sem rebentar
+			child.stdin.on("error", () => {});
 			return {
 				stdin: {
-					write(s) { return new Promise(r => child.stdin.write(s, () => r())); },
+					write(s) { return new Promise((r, j) => child.stdin.write(s, e => (e ? j(e) : r()))); },
 					close() { return new Promise(r => child.stdin.end(() => r())); },
 				},
 				stdout: pipeReader(child.stdout),

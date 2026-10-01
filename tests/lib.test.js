@@ -469,3 +469,12 @@ test("letras do mesmo autor e ano seguem a ordem alfabética do título (regra A
 	assert.equal(docs[0].ref, "Silva et al., 2021b");
 	assert.equal(docs[1].ref, "Silva et al., 2021a");
 });
+
+test("os identificadores D1 e D2 nunca aparecem a quem lê", () => {
+	const map = { D1: { ref: "Silva et al., 2021" }, D2: { ref: "Costa, 2019" } };
+	assert.equal(L.replaceDocIds("Métodos (D1, D2)", map), "Métodos");
+	assert.equal(L.replaceDocIds("Pontos principais do documento D1", map), "Pontos principais de Silva et al., 2021");
+	assert.equal(L.replaceDocIds("No documento D2 há 40 casos.", map), "Em Costa, 2019 há 40 casos.");
+	assert.equal(L.replaceDocIds("D1 usa inquéritos.", map), "Silva et al., 2021 usa inquéritos.");
+	assert.equal(L.replaceDocIds("D3 e vitamina D", map), "D3 e vitamina D");
+});

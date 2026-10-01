@@ -29,6 +29,13 @@ async function main() {
 		return page;
 	};
 	const tab = (page, group) => page.click(`.zia-tab[data-group="${group}"]`);
+	// Janela: juntar os dois PDFs pelo seletor "+ PDF"
+	const addAll = async page => {
+		await page.click(".zia-bar-tools button:has-text(\"+ PDF\")");
+		await page.waitForSelector(".zia-picker-row");
+		for (const cb of await page.$$(".zia-picker-row input")) await cb.check();
+		await page.click(".zia-picker button:has-text(\"Juntar\")");
+	};
 	// Escolher uma ação e depois pedir (clicar numa ação já não envia logo)
 	const act = async (page, id) => {
 		await page.click(`button[data-action="${id}"]`);
@@ -39,9 +46,9 @@ async function main() {
 	for (const dark of [false, true]) {
 		const page = await open("?mode=window" + (dark ? "&dark=1" : ""), { width: 820, height: 900 });
 		await page.evaluate(a => { window.MOCK.answer = a; }, comparar);
-		await tab(page, "comparar");
+		assert.equal(await page.isHidden(".zia-tabs"), true, "janela: só Comparar, sem separadores");
 		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false, "comparar ativo: abre o seletor de PDFs");
-		await page.click("button:has-text(\"Selecionados\")");
+		await addAll(page);
 		await page.waitForSelector(".zia-chip >> nth=1");
 		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false);
 		await act(page, "comparar");
@@ -117,7 +124,7 @@ async function main() {
 	// ---------- Janela: + PDF com seletor e pesquisa ----------
 	{
 		const page = await open("?mode=window", { width: 820, height: 700 });
-		await page.click(".zia-chip-add");
+		await page.click(".zia-bar-tools button:has-text(\"+ PDF\")");
 		await page.waitForSelector(".zia-picker-row");
 		assert.equal(await page.locator(".zia-picker-row").count(), 2);
 		await page.fill(".zia-picker-search", "garcía");
@@ -131,7 +138,6 @@ async function main() {
 		await page.waitForSelector(".zia-chip");
 		assert.equal(await page.isHidden(".zia-picker"), true);
 		// "i" junto de "Usar fichas" e lista das fichas em Comparar
-		await tab(page, "comparar");
 		await page.click(".zia-info-btn");
 		await page.waitForSelector(".zia-info-panel");
 		assert.equal(await page.locator(".zia-fichas-list").count(), 1);
@@ -267,7 +273,7 @@ async function main() {
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "clicar numa ação não envia logo");
 		assert.equal(await page.getAttribute('button[data-action="resumo"]', "aria-pressed"), "true");
 		assert.equal(await page.textContent(".zia-pending-chip"), "Resumir✕");
-		assert.equal(await page.textContent(".zia-send"), "Pedir ➤");
+		assert.equal(await page.textContent(".zia-send"), "Enviar ➤");
 		await page.click('button[data-action="resumo"]');
 		assert.equal(await page.isHidden(".zia-pending"), true, "clicar outra vez cancela a escolha");
 		await page.click('button[data-action="resumo"]');
@@ -292,10 +298,14 @@ async function main() {
 		assert.match(await page.textContent(".zia-status"), /Já pediste/);
 		assert.equal(await page.evaluate(() => window.lastPrompt), before, "nada foi enviado");
 		await page.click('button[data-action="resumo"]');
-		// o título recolhe e abre
-		await page.locator(".zia-msg-assistant .zia-msg-head").first().click();
-		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1);
-		await page.screenshot({ path: path.join(OUT, "ui_painel_recolhido.png") });
+		// o título só tem a ação e o x: o motor usado fica por baixo do texto
+		assert.equal(await page.locator(".zia-msg-head .zia-engine-tag, .zia-msg-head .zia-fold").count(), 0, "sem motor nem recolher no título");
+		assert.equal(await page.locator(".zia-msg-assistant .zia-msg-meta").count() >= 1, true, "motor por baixo da resposta");
+		assert.equal(await page.evaluate(() => {
+			const m = document.querySelector(".zia-msg-assistant .zia-msg-meta");
+			return m === m.parentNode.lastElementChild || !!m.previousElementSibling;
+		}), true);
+		await page.screenshot({ path: path.join(OUT, "ui_painel_motor_em_baixo.png") });
 		// histórico: outra sessão do Zotero (memória vazia) recupera os separadores guardados
 		assert.equal(await page.evaluate(() => [...window.FILES.keys()].length), 1, "conversas guardadas num ficheiro");
 		await page.evaluate(async () => {
@@ -380,14 +390,13 @@ async function main() {
 		await act(page, "resumo");
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && [...document.querySelectorAll(".zia-msg-assistant")].some(e => /Resposta B/.test(e.textContent)));
 		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "Teoria e Resumir em separadores diferentes");
-		// recolher a resposta e guardá-la como nota sem a abrir
-		await page.locator(".zia-msg-assistant .zia-msg-head").first().click();
+		// guardar como nota a partir do botão por cima do texto
 		await page.evaluate(() => { window.saved = []; const o = ZoteroIA.saveNote; ZoteroIA.saveNote = async a => { window.saved.push(a.heading); return o(a); }; });
-		await page.click(".zia-msg-assistant.zia-collapsed .zia-head-save");
-		assert.equal(await page.evaluate(() => window.saved.length), 1, "resposta recolhida guardada como nota");
-		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 1, "guardar não abre nem fecha a resposta");
+		await page.click(".zia-msg-assistant >> nth=0 >> button:has-text(\"Guardar como nota\")");
+		assert.equal(await page.evaluate(() => window.saved.length), 1, "resposta guardada como nota");
+		assert.equal(await page.locator(".zia-msg-assistant.zia-collapsed").count(), 0, "as respostas nunca ficam recolhidas");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_personalizado.png") });
-		console.log("OK personalizado: criar, usar, editar e apagar ações no painel; caixa de texto antes das respostas; guardar nota numa resposta recolhida");
+		console.log("OK personalizado: criar, usar, editar e apagar ações no painel; caixa de texto antes das respostas; guardar nota a partir da resposta");
 		await page.close();
 	}
 
@@ -424,7 +433,6 @@ async function main() {
 		await page.waitForSelector(".zia-chip-col:has-text(\"Coleção: Tese\")");
 		await page.waitForSelector("text=Coleção «Tese» selecionada");
 		await page.waitForSelector(".zia-chip >> nth=1");
-		await tab(page, "comparar");
 		await page.check(".zia-fichas-toggle input");
 		await act(page, "comparar");
 		await page.waitForFunction(() => window.calls.length === 3 && !document.querySelector(".zia-stop"), null, { timeout: 30000 });

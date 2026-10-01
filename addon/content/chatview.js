@@ -78,8 +78,8 @@ var ZIAChatView = class {
 		bar.appendChild(this.docsEl);
 		const tools = this._el("div", "zia-bar-tools");
 		if (this.mode === "window") {
-			tools.appendChild(this._button(this.T("chat.addSelected"), "zia-btn-small", () => this.addSelected(),
-				this.T("chat.addSelected.tip")));
+			tools.appendChild(this._button(this.T("chat.addPdf"), "zia-btn-small", () => this._openPicker(),
+				this.T("chat.addPdf.tip")));
 			tools.appendChild(this._button(this.T("chat.addCollection"), "zia-btn-small", () => this.addCollection(),
 				this.T("chat.addCollection.tip")));
 		}
@@ -291,7 +291,9 @@ var ZIAChatView = class {
 	_renderTabs() {
 		const box = this.tabsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
-		const groups = this.L.ACTION_GROUPS;
+		// A janela é só para comparar (as outras ações estão no painel lateral)
+		const groups = this.mode === "window" ? this.L.ACTION_GROUPS.filter(g => g.id === "comparar") : this.L.ACTION_GROUPS;
+		box.hidden = this.mode === "window";
 		if (!groups.some(g => g.id === this.group)) this.group = groups[0].id;
 		// No painel lateral, comparar faz-se só na janela grande: o separador leva lá
 		const external = g => this.mode === "section" && g.id === "comparar";
@@ -569,11 +571,11 @@ var ZIAChatView = class {
 	}
 
 	/** Título de uma conversa: a primeira ação pedida ou o início da primeira pergunta. */
-	_convTitle(msgs) {
+	_convTitle(msgs, full) {
 		const a = msgs.find(m => m.role === "assistant");
-		if (a && a.actionLabel) return a.actionLabel.split(" · ")[0];
+		if (a && a.actionLabel) return full ? a.actionLabel : a.actionLabel.split(" · ")[0];
 		const q = msgs.find(m => m.role === "user");
-		if (q && q.display) return q.display.length > 28 ? q.display.slice(0, 26) + "…" : q.display;
+		if (q && q.display) return (!full && q.display.length > 28) ? q.display.slice(0, 26) + "…" : q.display;
 		return this.T("chat.new");
 	}
 
@@ -590,7 +592,7 @@ var ZIAChatView = class {
 			tab.setAttribute("role", "tab");
 			tab.setAttribute("aria-selected", i === this.state.active ? "true" : "false");
 			const label = this._button(this._convTitle(msgs), "zia-conv-label", () => this.switchConversation(i));
-			label.title = this._convTitle(msgs);
+			label.title = this._convTitle(msgs, true);
 			tab.appendChild(label);
 			tab.appendChild(this._button("×", "zia-conv-close", () => this.closeConversation(i), this.T("chat.conv.close")));
 			box.appendChild(tab);
@@ -775,9 +777,6 @@ var ZIAChatView = class {
 		if (!this.state.docs.length) {
 			box.appendChild(this._el("span", "zia-muted",
 				this.T(this.mode === "window" ? "chat.noDocs.window" : "chat.noDocs.section")));
-			if (this.core.pickableItems && this.mode === "window") {
-				box.appendChild(this._button(this.T("chat.addPdf"), "zia-chip-add", () => this._openPicker(), this.T("chat.addPdf.tip")));
-			}
 			return;
 		}
 		// Coleção juntada: fica indicada antes dos artigos
@@ -798,11 +797,6 @@ var ZIAChatView = class {
 				chip.appendChild(x);
 			}
 			box.appendChild(chip);
-		}
-		// Vários PDFs só na janela grande: o painel lateral é para o artigo selecionado
-		if (this.core.pickableItems && this.mode === "window") {
-			const add = this._button(this.T("chat.addPdf"), "zia-chip-add", () => this._openPicker(), this.T("chat.addPdf.tip"));
-			box.appendChild(add);
 		}
 	}
 
@@ -979,7 +973,7 @@ var ZIAChatView = class {
 				b.title = a.hint || "";
 			}
 		}
-		this.sendBtn.textContent = this.busy ? this.T("chat.stop") : this.T(this.selectedAction ? "chat.sendAction" : "chat.send");
+		this.sendBtn.textContent = this.busy ? this.T("chat.stop") : this.T("chat.send");
 		this.sendBtn.classList.toggle("zia-stop", this.busy);
 		this.sendBtn.disabled = false;
 		this.engineSel.disabled = this.busy;
@@ -1208,7 +1202,7 @@ var ZIAChatView = class {
 			for (const d of docs) {
 				const ok = await this._ask({
 					promptText: this.L.actionPrompt(a, [d]),
-					display: `${a.label}: ${d.id} ${d.shortRef}`,
+					display: `${a.label}: ${d.shortRef}`,
 					heading: actionID === "ficha" ? `${this.L.fichaPrefix()} · ${d.shortRef}` : `${a.title} · ${d.shortRef}`,
 					actionID,
 					docs: [d],
@@ -1224,7 +1218,7 @@ var ZIAChatView = class {
 		}
 		await this._ask({
 			promptText: this.L.actionPrompt(a, docs),
-			display: `${a.label}${docs.length > 1 ? ` (${docs.map(d => d.id).join(", ")})` : ""}`,
+			display: a.label,
 			heading: this._heading(a, docs),
 			actionID,
 			docs,
@@ -1245,7 +1239,7 @@ var ZIAChatView = class {
 			}
 			const msg = await this._ask({
 				promptText: this.L.actionPrompt("ficha", [d]),
-				display: this.T("chat.fichaFor", { doc: `${d.id} ${d.shortRef}`, action: a.label.toLowerCase() }),
+				display: this.T("chat.fichaFor", { doc: d.shortRef, action: a.label.toLowerCase() }),
 				heading: `${this.L.fichaPrefix()} · ${d.shortRef}`,
 				actionID: "ficha",
 				docs: [d],
@@ -1267,7 +1261,7 @@ var ZIAChatView = class {
 		this._setStatus(this.T("chat.fichasDone", { reused, created }));
 		await this._ask({
 			promptText: this.L.actionPrompt(a, docs) + "\n\nTrabalha sobre as fichas de extração fornecidas.",
-			display: this.T("chat.viaFichas", { label: a.label, docs: docs.map(d => d.id).join(", ") }),
+			display: this.T("chat.viaFichas", { label: a.label, docs: docs.map(d => d.shortRef).join(", ") }),
 			heading: this._heading(a, docs),
 			actionID: a.id,
 			docs: fichaDocs,
@@ -1303,12 +1297,6 @@ var ZIAChatView = class {
 			asked: display, time: Date.now(),
 		};
 		// As respostas anteriores ficam recolhidas (só o título): a conversa não fica corrida
-		for (const m of this.state.messages) {
-			if (m.role === "assistant" && !m.pending && !m.collapsed) {
-				m.collapsed = true;
-				this._renderMessage(m);
-			}
-		}
 		this.state.messages.push(userMsg, botMsg);
 		this._appendMessage(userMsg);
 		this._appendMessage(botMsg);
@@ -1357,6 +1345,8 @@ var ZIAChatView = class {
 				prompt,
 				promptParts,
 				heavy: this.L.isHeavyTask({ actionID: actionID && String(actionID).split(":")[0] === "custom" ? null : actionID, docCount: docs.length }),
+				// Comparar exige um modelo completo: nunca os "lite"
+				noLite: !!(actionID && this.L.ACTIONS[actionID] && this.L.ACTIONS[actionID].group === "comparar"),
 				win: this.win,
 				signal: this.abort.signal,
 				onDelta: (d, all) => {
@@ -1713,30 +1703,11 @@ var ZIAChatView = class {
 			el.appendChild(this._el("div", "zia-user-text", m.display));
 			return;
 		}
-		// Resposta: o título abre e fecha a resposta
+		// Resposta: título da ação e x (o motor usado aparece por baixo do texto)
 		const head = this._el("div", "zia-msg-head");
-		const canFold = !m.pending;
-		el.classList.toggle("zia-collapsed", !!m.collapsed);
-		if (canFold) {
-			head.classList.add("zia-foldable");
-			head.setAttribute("role", "button");
-			head.setAttribute("tabindex", "0");
-			head.setAttribute("aria-expanded", m.collapsed ? "false" : "true");
-			head.title = this.T(m.collapsed ? "chat.expand" : "chat.collapse");
-			const toggle = () => {
-				m.collapsed = !m.collapsed;
-				this._renderMessage(m);
-				this._applyCollapse();
-			};
-			head.addEventListener("click", toggle);
-			head.addEventListener("keydown", ev => {
-				if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); }
-			});
-			head.appendChild(this._el("span", "zia-fold", m.collapsed ? "▸" : "▾"));
-		}
+		m.collapsed = false;
+		el.classList.remove("zia-collapsed");
 		head.appendChild(this._el("span", "zia-action-tag", m.actionLabel || this.T("chat.question")));
-		head.appendChild(this._el("span", "zia-engine-tag", this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "")));
-		if (canFold) head.appendChild(this._el("span", "zia-fold-hint", this.T(m.collapsed ? "chat.foldOpen" : "chat.foldClose")));
 		// Qualquer resposta pode ser retirada da conversa, depois de confirmar
 		if (!m.pending) {
 			const del = this._button("×", "zia-msg-del", ev => {
@@ -1816,6 +1787,8 @@ var ZIAChatView = class {
 			el.insertBefore(this._messageTools(m), body);
 			if (m.check) el.appendChild(this._checkBox(m.check));
 			if (m.tags && m.tags.length) el.appendChild(this._tagsRow(m));
+			const meta = [m.engine ? this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "") : "", m.usageNote, m.tokensNote].filter(Boolean);
+			if (meta.length) el.appendChild(this._el("div", "zia-msg-meta", meta.join(" · ")));
 		}
 	}
 
@@ -1913,8 +1886,6 @@ var ZIAChatView = class {
 		for (const other of this._otherReadyEngines(m.engine).slice(0, 2)) {
 			row.appendChild(this._button(this.T("chat.retryWith", { engine: this.core.engineLabel(other) }), "zia-btn-small zia-btn-quiet", () => this._retry(m, other)));
 		}
-		const notes = [m.usageNote, m.tokensNote].filter(Boolean);
-		if (notes.length) row.appendChild(this._el("span", "zia-usage", notes.join(" · ")));
 		return row;
 	}
 

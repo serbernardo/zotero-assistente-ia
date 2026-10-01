@@ -84,7 +84,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   ao modelo principal e evita o de analise durante 15 minutos (ou ate ao fim do
   dia, se for quota diaria). A lista de modelos fica em cache 1 hora
   (`geminiModels`). Botao "Testar modelos agora" (`probeGeminiModels`) testa
-  varios modelos em paralelo.
+  varios modelos em paralelo. As comparacoes (grupo `comparar`) passam `noLite`:
+  nunca usam modelos "lite" (nem na troca, nem nos alternativos). Sem modelo
+  completo disponivel, erro claro `err.geminiNoFull`.
 - **Janela:** "+ Colecao" abre uma lista de todas as colecoes (`listCollections`,
   `collectionItems`), sem ter de selecionar antes no Zotero. A janela carrega o
   `zoteroia.css` pelo rootURI com `?v=<versao>` (o chrome:// ficava em cache
@@ -100,7 +102,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   texto branco, mesmo tamanho. O Enviar nunca fica cinzento: se faltar algo, o
   clique explica o que falta.
 - **Mesmo autor e ano:** `disambiguateRefs` (lib.js) acrescenta a, b, c ao ano
-  (Silva et al., 2021a e 2021b) nos chips, citacoes e notas. O id Dn continua unico.
+  (Silva et al., 2021a e 2021b) nos chips, citacoes e notas. O id Dn continua unico
+  internamente, mas nunca aparece a quem le: `replaceDocIds` (lib.js) troca "D1" pelo
+  autor e ano, retira "(D1, D2)" e "documento D1" no texto, titulos e notas.
 - **Citacoes ao estilo APA de cada lingua:** dois autores com "e" em PT e "&" em ingles
   (`ref.and`); varias fontes no mesmo parentesis separadas por ";" e varias paginas do
   mesmo documento juntas (`joinCites`): (Silva et al., 2021, pp. 1, 5; Costa, 2019, p. 3).
@@ -121,7 +125,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   os artigos da conversa (`_fichasListEl`): as que existem abrem a nota do Zotero,
   as que faltam criam-se com um clique e ficam logo guardadas como nota
   (`_createFicha`). As fichas so existem como notas do Zotero (uma so copia).
-- **Eliminar respostas:** todas as respostas (abertas ou recolhidas) tem um x no
+- **Eliminar respostas:** todas as respostas tem um x no
   titulo. Antes de eliminar aparece um aviso (`_confirmDelEl`): se a resposta ainda
   nao esta guardada como nota, oferece "Guardar como nota e eliminar". Retira a
   resposta e a pergunta da conversa e do historico (`_removeMessage`); a nota ja
@@ -138,7 +142,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Comparar so na janela:** no painel o separador Comparar e um atalho
   (`openInWindow({ group: "comparar" })`) e o painel nunca salta para Comparar.
   O menu do clique direito nos itens tem so as 5 comparacoes (precisam de 2 ou
-  mais PDFs) e abre a janela ja no separador Comparar.
+  mais PDFs) e abre a janela ja no separador Comparar. A janela mostra so as
+  acoes de Comparar (sem a fila de separadores, `.zia-tabs[hidden]`): as outras
+  acoes estao no painel.
 - **Painel sem deslocacao interna:** as respostas no painel nao tem altura maxima
   (o painel do Zotero ja desliza); evita texto cortado.
 - **Titulos das notas de comparacao:** "Comparacao: <tipo> · <artigos>" (PT) e
@@ -148,7 +154,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Nunca fixado:** o Zotero fixa a seccao cujo icone se carregou; o `onItemChange`
   desfaz isso para o assistente, para cada registo abrir na Info.
 - **Painel = um artigo:** no painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
-  so na janela (com "+ PDF", "+ Selecionados", "+ Colecao"). O cartao "sem PDF" tem
+  so na janela (com "+ PDF" e "+ Colecao" na barra de cima). O cartao "sem PDF" tem
   "Abrir a janela do assistente" e "Comparar uma colecao". Na janela, o "i" das
   fichas tambem aparece junto de "Usar fichas" e a lista das fichas em Comparar.
 - **Eliminar:** uma resposta com texto nunca e tratada como erro no aviso (oferece
@@ -162,8 +168,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   pede sempre confirmacao. Sem limite automatico. O historico antigo (tudo numa
   conversa) e separado por acao ao abrir (`_splitByAction`). Ficheiro de historico versao 2
   (`conversations`, `active`); a versao 1 ainda se le.
-- **Respostas:** Copiar e Guardar como nota ficam por cima do texto; o titulo
-  mostra um circulo com seta e "abrir"/"recolher". Rodape do painel so com
+- **Respostas:** Copiar e Guardar como nota ficam por cima do texto. O titulo
+  tem so a acao e o x (nunca recolhe). O motor, o modelo e o consumo ficam por
+  baixo do texto (`.zia-msg-meta`). Rodape do painel so com
   "Nova conversa" e "Abrir em janela".
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
@@ -192,7 +199,8 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   Pronto, Falta testar, Não funciona, Por configurar), só o motor escolhido
   mostra a sua configuração e o botão Testar faz um pedido real curto
   (`testEngine`). O estado vem das prefs `<motor>.lastTest`, atualizadas
-  também pelos pedidos reais na conversa. O Claude Code tambem e procurado na
+  também pelos pedidos reais na conversa. O motor em uso nunca aparece "Por
+  configurar": sem teste mostra "Falta testar". O Claude Code tambem e procurado na
   pasta da aplicacao Claude para computador.
 - **Instalar e iniciar sessao no Claude Code** (`openClaudeSetup`): depois de
   uma confirmacao, escreve um script na pasta temporaria e abre-o numa janela
@@ -222,8 +230,8 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   e aparecem num bloco "Detalhes tecnicos".
 - **Notas:** `saveNote` define sempre `libraryID` antes de `parentID` (o Zotero
   le a biblioteca ao consultar o item-pai; sem isso da "Library ID not
-  provided"). O `mockzotero.js` imita esta regra. Todas as respostas, mesmo
-  recolhidas, tem "Guardar como nota".
+  provided"). O `mockzotero.js` imita esta regra. Todas as respostas tem
+  "Guardar como nota".
 - **Painel:** caixa de texto por cima das respostas e a resposta mais recente
   logo abaixo dela. Separador "Personalizado" (grupo `meus`) com formulario
   para criar, editar e apagar acoes (`setCustomPrompt`/`removeCustomPrompt`,
@@ -234,8 +242,8 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   Enviar com a caixa vazia mostra um aviso. O seletor "+ PDF" ordena por data de
   adicao (omissao), autor ou data de publicacao.
 - **Acoes em dois passos:** clicar numa acao so a escolhe (`selectAction`); o
-  pedido segue com "Pedir", com indicacoes opcionais. Respostas
-  anteriores ficam recolhidas (`collapsed`), acoes ja pedidas levam um visto e
+  pedido segue com "Enviar" (o mesmo botao das perguntas, no painel e na janela),
+  com indicacoes opcionais. Acoes ja pedidas levam um visto e
   escolher uma acao ja feita mostra a resposta existente.
 - **Historico por artigo:** `saveConversation`/`loadConversation` guardam as
   mensagens (sem o texto dos PDFs) em
@@ -262,7 +270,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (33), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (34), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -305,7 +313,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

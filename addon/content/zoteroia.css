@@ -1585,3 +1585,11 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-msg-head .zia-engine-tag { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zia-msg-head .zia-fold-hint, .zia-msg-head .zia-head-save, .zia-msg-head .zia-msg-del { flex: none; margin-inline-start: 0; }
 .zia-fold { flex: none; margin-right: 0; }
+
+.zia-credits-body { background: var(--zia-panel, #f5f0ed); }
+.zia-credits-label { margin-right: 6px; }
+
+/* Motor e modelo usados: discreto, por baixo da resposta */
+.zia-msg-meta { margin-top: 8px; padding-top: 4px; border-top: 1px dashed var(--zia-border); font-size: 11px; color: var(--zia-fg2); overflow-wrap: anywhere; }
+/* Janela: só Comparar, sem a fila de separadores das ações */
+.zia-tabs[hidden] { display: none; }

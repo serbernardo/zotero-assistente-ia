@@ -226,6 +226,23 @@ function sseResponse(events, status = 200) {
 	assert.equal(h3.text, "Lite", "pedidos simples vão para o modelo principal");
 	console.log("OK Gemini: tarefas exigentes tentam o modelo de análise uma vez e passam logo ao principal se falhar");
 
+	// Comparar: nunca usa modelos "lite", mesmo com o modelo de análise sobrecarregado
+	core._geminiBusyUntil = {};
+	core._geminiSwap = null;
+	core._geminiListCache = { at: Date.now(), models: avail };
+	calls = [];
+	let n37 = 0;
+	const cmpWin = { fetch: async url => {
+		calls.push(url);
+		if (url.includes("3.7-flash:")) { n37++; return n37 <= 2 ? busy() : ok("Comparação completa"); }
+		if (url.includes("lite")) return ok("Lite");
+		return busy();
+	} };
+	const c1 = await core.runEngine("gemini", { system: "s", prompt: "p", heavy: true, noLite: true, win: cmpWin });
+	assert.equal(c1.text, "Comparação completa");
+	assert.equal(calls.filter(u => /lite/.test(u)).length, 0, "comparar nunca chama modelos lite");
+	console.log("OK Gemini: comparar usa só modelos completos (nunca lite)");
+
 	// Teste rápido de vários modelos ao mesmo tempo
 	const probeWin = { fetch: async url => {
 		if (url.includes("3.7-flash:")) return busy();

@@ -204,7 +204,8 @@ window.ZIAPrefs = {
 			return last === "fail" ? "fail" : last === "ok" ? "ok" : "saved";
 		}
 		if (last === "fail" || last === "ok") return last;
-		return core.pref(e + ".enabled") ? "saved" : "todo";
+		// Motor em uso ou ativado mas ainda sem teste: "Falta testar" (nunca "Por configurar")
+		return core.pref(e + ".enabled") || core.defaultEngine() === e ? "saved" : "todo";
 	},
 
 	/** Separador aberto (só mostra a configuração, não muda o motor em uso). */

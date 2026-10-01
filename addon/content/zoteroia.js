@@ -1150,7 +1150,8 @@ var ZoteroIA = {
 	 * crescentes e, se o modelo continuar indisponível, tenta até três modelos alternativos
 	 * da conta (primeiro os "lite", que costumam ter menos procura). Avisa na conversa.
 	 */
-	async runGemini({ system, prompt, model, onDelta, onInfo, signal, win }) {
+	async runGemini(opts0) {
+		let { system, prompt, model, onDelta, onInfo, signal, win } = opts0;
 		const key = await this.getSecret("gemini");
 		if (!key) {
 			throw this.error("auth", this.t("err.noKey", { label: this.t("key.gemini") }));
@@ -1160,12 +1161,12 @@ var ZoteroIA = {
 		// Quota diária do modelo escolhido já esgotada hoje: vai direto ao modelo que respondeu
 		const today = new Date().toDateString();
 		const swap = this._geminiSwap;
-		if (swap && swap.day === today && swap.from === model) {
+		if (swap && swap.day === today && swap.from === model && !(opts0.noLite && /lite/i.test(swap.to))) {
 			const original = model;
 			model = swap.to;
 			notify("chat.geminiAltQuota", { model, original });
 			try {
-				const r = await this.runGemini({ system, prompt, model, onDelta, onInfo, signal, win });
+				const r = await this.runGemini({ system, prompt, model, onDelta, onInfo, signal, win, noLite: opts0.noLite });
 				r.notice = r.notice || this.t("chat.geminiUsedAltQuota", { model, original });
 				return r;
 			}
@@ -1208,7 +1209,10 @@ var ZoteroIA = {
 			}
 		}
 		let alternatives = [];
-		try { alternatives = this.lib.geminiFallbacks(model, await this.geminiModels(win)); }
+		try {
+			alternatives = this.lib.geminiFallbacks(model, await this.geminiModels(win), opts0.noLite ? 6 : 3);
+			if (opts0.noLite) alternatives = alternatives.filter(n => !/lite/i.test(n)).slice(0, 3);
+		}
 		catch (e) { this.log("Lista de modelos Gemini: " + e); }
 		const tried = [];
 		for (const alt of alternatives) {
@@ -1292,6 +1296,16 @@ var ZoteroIA = {
 				this.log(`Gemini ${m} indisponível (${e.kind}), a passar ao seguinte`);
 				notify("chat.geminiStrongBusy", { model: m });
 			}
+		}
+		// Comparar: nunca os modelos "lite". Usa o melhor flash completo, com as tentativas normais
+		if (opts.noLite) {
+			let list = [];
+			try { list = await this.geminiModels(win); }
+			catch (e) { /* sem lista */ }
+			const full = cands[0] || (/lite/i.test(main) ? this.lib.geminiStrongCandidates(main, list, "auto")[0] : main);
+			if (!full) throw this.error("model", this.t("err.geminiNoFull"));
+			if (this._geminiBusyUntil) delete this._geminiBusyUntil[full];
+			return this.runGemini(Object.assign({}, opts, { model: full }));
 		}
 		const r = await this.runGemini(Object.assign({}, opts, { model: main }));
 		if (skipped && !r.notice) r.notice = this.t("chat.geminiUsedFast", { model: r.model, strong: skipped });
