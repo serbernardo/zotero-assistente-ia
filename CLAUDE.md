@@ -141,6 +141,10 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   mais PDFs) e abre a janela ja no separador Comparar.
 - **Painel sem deslocacao interna:** as respostas no painel nao tem altura maxima
   (o painel do Zotero ja desliza); evita texto cortado.
+- **Titulos das notas de comparacao:** "Comparacao: <tipo> · <artigos>" (PT) e
+  "Comparison: <type> · <articles>" (EN), com ate 3 artigos e "e mais N" / "and N more"
+  (`_heading`). No menu do clique direito os mesmos tipos aparecem como verbo:
+  "Comparar: metodos" / "Compare: methods".
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -281,7 +285,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.5.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.6.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

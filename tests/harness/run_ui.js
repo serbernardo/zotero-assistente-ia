@@ -67,6 +67,7 @@ async function main() {
 		// guardar nota
 		await page.click("text=Guardar como nota");
 		await page.waitForSelector("text=Nota guardada");
+		assert.equal(await page.evaluate(() => window.lastHeading), "Comparação: visão geral · Silva et al. 2021, García e Ortega 2023", "título da nota da comparação");
 		// pergunta de seguimento usa o histórico
 		await page.evaluate(() => { window.MOCK.answer = "Resposta de seguimento [D2:p4]."; });
 		await page.fill(".zia-textarea", "E quanto à confiança dos utilizadores?");

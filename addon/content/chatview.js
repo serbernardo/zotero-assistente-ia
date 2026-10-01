@@ -522,6 +522,15 @@ var ZIAChatView = class {
 		}
 	}
 
+	/** Título da nota: "Comparação: métodos · Silva 2021, García 2023, Chen 2024 e mais 5". */
+	_heading(a, docs) {
+		const refs = docs.map(d => d.shortRef);
+		const list = refs.length > 3
+			? this.T("heading.more", { list: refs.slice(0, 3).join(", "), n: refs.length - 3 })
+			: refs.join(", ");
+		return `${a.title} · ${list}`;
+	}
+
 	/** Abre a janela grande com a lista das coleções, para comparar os PDFs de uma coleção. */
 	openCollectionWindow() {
 		this.core.openWindow({ items: [], pickCollection: true });
@@ -1038,7 +1047,7 @@ var ZIAChatView = class {
 		await this._ask({
 			promptText: this.L.actionPrompt(a, docs),
 			display: `${a.label}${docs.length > 1 ? ` (${docs.map(d => d.id).join(", ")})` : ""}`,
-			heading: `${a.title} · ${docs.map(d => d.shortRef).join(", ").slice(0, 120)}`,
+			heading: this._heading(a, docs),
 			actionID,
 			docs,
 		});
@@ -1081,7 +1090,7 @@ var ZIAChatView = class {
 		await this._ask({
 			promptText: this.L.actionPrompt(a, docs) + "\n\nTrabalha sobre as fichas de extração fornecidas.",
 			display: this.T("chat.viaFichas", { label: a.label, docs: docs.map(d => d.id).join(", ") }),
-			heading: `${a.title} · ${docs.map(d => d.shortRef).join(", ").slice(0, 120)}`,
+			heading: this._heading(a, docs),
 			actionID: a.id,
 			docs: fichaDocs,
 		});

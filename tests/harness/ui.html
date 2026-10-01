@@ -101,7 +101,7 @@
 	};
 	core.openAtPage = async (d, p) => window.opened.push(`${d.attachmentKey}#${p}`);
 	core.copyToClipboard = t => { window.copied = t; };
-	core.saveNote = async ({ heading }) => ({ id: 999, parentID: heading.startsWith("Comparação") ? null : 1 });
+	core.saveNote = async ({ heading }) => { window.lastHeading = heading; return { id: 999, parentID: heading.startsWith("Comparação") ? null : 1 }; };
 	core.saveCSV = async () => "/tmp/tabela.csv";
 	core.addTags = async (id, tags) => { window.tagged = { id, tags: Array.from(tags) }; return tags.length; };
 	core.selectedCollectionItems = () => ({ name: "Tese", id: 7, items: [A, B] });
