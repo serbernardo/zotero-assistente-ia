@@ -114,20 +114,9 @@ window.ZIAPrefs = {
 		this.showPromptCount();
 	},
 
-	/** Versão e data da última atualização (data gravada ao empacotar, em content/buildinfo.json). */
-	async showBuildInfo() {
-		const core = this.core();
-		this.setText("zia-credits-version", core.version || "?");
-		let date = null;
-		try {
-			const txt = await Zotero.File.getContentsFromURLAsync(core.rootURI + "content/buildinfo.json");
-			date = JSON.parse(txt).date;
-		}
-		catch (e) { /* versão de desenvolvimento, sem data */ }
-		const lang = core.lib.I18N.getLang() === "en" ? "en-GB" : "pt-PT";
-		this.setText("zia-credits-date", date
-			? new Date(date).toLocaleDateString(lang, { day: "numeric", month: "long", year: "numeric" })
-			: "?");
+	/** Versão instalada, no cartão dos créditos. */
+	showBuildInfo() {
+		this.setText("zia-credits-version", this.core().version || "?");
 	},
 
 	setText(id, text, isError) {

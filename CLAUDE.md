@@ -145,6 +145,8 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   "Comparison: <type> · <articles>" (EN), com ate 3 artigos e "e mais N" / "and N more"
   (`_heading`). No menu do clique direito os mesmos tipos aparecem como verbo:
   "Comparar: metodos" / "Compare: methods".
+- **Nunca fixado:** o Zotero fixa a seccao cujo icone se carregou; o `onItemChange`
+  desfaz isso para o assistente, para cada registo abrir na Info.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -285,13 +287,13 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.6.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.7.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
 
-Servico de Infoliteracia, Biblioteca da FEUP. Sergio Bernardo (sergiob@fe.up.pt).
-Grupo "Creditos" no fim das definicoes e campo `author` do manifest. Nao mostrar
+Sergio Bernardo (sem email por agora). Grupo "Creditos" no fim das definicoes
+(nome da app, versao e autor; sem data) e campo `author` do manifest. Nao mostrar
 autoria do Claude no addon, na documentacao nem nos commits.
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

@@ -101,7 +101,14 @@ function registerSection(pluginID, rootURI) {
 				},
 			},
 		],
-		onItemChange: ({ item, setEnabled }) => {
+		onItemChange: ({ body, item, setEnabled }) => {
+			// O Zotero "fixa" a secção cujo ícone se carregou e depois abre sempre nela.
+			// O assistente nunca fica fixado: cada registo abre na Info, como no Zotero normal.
+			try {
+				const details = body && body.closest && body.closest("item-details");
+				if (details && sectionID && details.pinnedPane === sectionID) details.pinnedPane = "";
+			}
+			catch (e) { /* versão do Zotero sem fixar secções */ }
 			// Sempre visível (também em registos sem PDF): o painel explica o que fazer
 			setEnabled(!!item);
 			return true;

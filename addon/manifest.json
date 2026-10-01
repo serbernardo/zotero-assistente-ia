@@ -1,9 +1,9 @@
 {
 	"manifest_version": 2,
 	"name": "Assistente IA",
-	"version": "0.6.6",
+	"version": "0.6.7",
 	"description": "Assistente de leitura científica / research reading assistant: resumos, avaliação crítica, fichas, comparação de PDFs, revisão de literatura e lacunas, com citações à página. Claude, ChatGPT ou Gemini, com contas gratuitas ou pagas.",
-	"author": "Sérgio Bernardo, Serviço de Infoliteracia, Biblioteca da FEUP",
+	"author": "Sérgio Bernardo",
 	"icons": {
 		"48": "content/icons/icon48.svg",
 		"96": "content/icons/icon48.svg"
