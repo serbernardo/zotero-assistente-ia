@@ -15,7 +15,8 @@ Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`):
 Compreender (resumo, pontos, simples, conceitos, esquema), Avaliar (critica,
 metodos, conclusoes), Escrever (ficha, excertos, revisao, etiquetas),
 Investigar (lacunas, perguntas), Comparar (visao geral, metodos, resultados,
-conceitos, sintese; abre sozinho quando a conversa passa a ter 2 PDFs) e
+conceitos, sintese; so na janela grande, no painel o separador "Comparar ↗"
+abre a janela com os PDFs da conversa) e
 Personalizado (prompts do utilizador,
 pref `custom.prompts`, uma linha "Nome: instrucao").
 
