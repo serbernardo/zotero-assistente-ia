@@ -432,3 +432,16 @@ test("verificação: excertos, páginas, números e contas confirmados no texto 
 	assert.ok(bad.unknownNumbers.includes("0,63") && bad.unknownNumbers.includes("92%"));
 	assert.equal(L.verifyAnswer("texto", {}), null, "sem texto dos PDFs não verifica");
 });
+
+test("dois artigos com o mesmo autor e ano ficam distinguíveis (2021a, 2021b)", () => {
+	const mk = (id, ref, short) => ({ id, ref, shortRef: short });
+	const docs = [mk("D1", "Silva et al., 2021", "Silva et al. 2021"), mk("D2", "Costa, 2020", "Costa 2020"), mk("D3", "Silva et al., 2021", "Silva et al. 2021")];
+	L.disambiguateRefs(docs);
+	assert.equal(docs[0].ref, "Silva et al., 2021a");
+	assert.equal(docs[2].shortRef, "Silva et al. 2021b");
+	assert.equal(docs[1].ref, "Costa, 2020", "os únicos não mudam");
+	docs.pop();
+	L.disambiguateRefs(docs);
+	assert.equal(docs[0].ref, "Silva et al., 2021", "sem o duplicado volta ao original");
+	assert.equal(L.citesToText("[D1:p3]", { D1: { ref: "Silva et al., 2021a" } }), "(Silva et al., 2021a, p. 3)");
+});

@@ -488,6 +488,8 @@ var ZIAChatView = class {
 			this.state.allDocs[d.id] = d;
 			added++;
 		}
+		// Mesmo autor e ano em dois artigos: Silva et al., 2021a e 2021b
+		this.L.disambiguateRefs(Object.values(this.state.allDocs));
 		this._renderDocs();
 		// Passou a haver vários PDFs: abre logo o separador Comparar (sem mudar uma ação já escolhida)
 		if (!quiet && before < 2 && this.state.docs.length >= 2 && this.group !== "comparar"

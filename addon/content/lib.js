@@ -476,6 +476,36 @@ var ZIALib = (function () {
 	}
 
 	/** Autor curto para citações: Silva / Silva & Costa / Silva et al. */
+	/**
+	 * Dois artigos com o mesmo autor e ano ("Silva et al., 2021") ficariam iguais nos botões e
+	 * nas citações. Acrescenta a, b, c ao ano (como nas normas de citação), pela ordem D1, D2, ...
+	 * docs: lista de documentos; mexe em ref e shortRef e guarda o original em baseRef/baseShort.
+	 */
+	function disambiguateRefs(docs) {
+		const list = (docs || []).filter(Boolean);
+		for (const d of list) {
+			if (d.baseRef == null) { d.baseRef = d.ref; d.baseShort = d.shortRef; }
+			d.ref = d.baseRef;
+			d.shortRef = d.baseShort;
+		}
+		const groups = new Map();
+		for (const d of list) {
+			if (!groups.has(d.baseRef)) groups.set(d.baseRef, []);
+			groups.get(d.baseRef).push(d);
+		}
+		for (const g of groups.values()) {
+			if (g.length < 2) continue;
+			g.sort((a, b) => parseInt(String(a.id).slice(1), 10) - parseInt(String(b.id).slice(1), 10));
+			g.forEach((d, i) => {
+				const letter = String.fromCharCode(97 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26)) : "");
+				d.ref = d.baseRef.replace(/(\d{4})(?!.*\d{4})/, "$1" + letter);
+				d.shortRef = d.baseShort.replace(/(\d{4})(?!.*\d{4})/, "$1" + letter);
+				if (d.ref === d.baseRef) { d.ref += " " + letter; d.shortRef += " " + letter; }
+			});
+		}
+		return list;
+	}
+
 	function shortAuthor(creators) {
 		const names = (creators || [])
 			.map(c => (c.lastName || c.name || "").trim())
@@ -1914,7 +1944,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS,
-		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 
