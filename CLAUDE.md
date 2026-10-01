@@ -147,6 +147,12 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   "Comparar: metodos" / "Compare: methods".
 - **Nunca fixado:** o Zotero fixa a seccao cujo icone se carregou; o `onItemChange`
   desfaz isso para o assistente, para cada registo abrir na Info.
+- **Painel = um artigo:** no painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
+  so na janela (com "+ PDF", "+ Selecionados", "+ Colecao"). O cartao "sem PDF" tem
+  "Abrir a janela do assistente" e "Comparar uma colecao". Na janela, o "i" das
+  fichas tambem aparece junto de "Usar fichas" e a lista das fichas em Comparar.
+- **Eliminar:** uma resposta com texto nunca e tratada como erro no aviso (oferece
+  guardar como nota), mesmo que tenha um erro associado.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -287,7 +293,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.6.7.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.6.8.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

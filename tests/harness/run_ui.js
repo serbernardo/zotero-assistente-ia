@@ -93,22 +93,10 @@ async function main() {
 		await page.click('.zia-tab[data-group="comparar"]');
 		assert.equal(await page.evaluate(() => window.openedWindow && window.openedWindow.group), "comparar", "abre a janela em Comparar");
 		assert.equal(await page.getAttribute('.zia-tab[data-group="comparar"]', "aria-selected"), "false", "o painel não muda para Comparar");
-		// + PDF: seletor com pesquisa
-		await page.click(".zia-chip-add");
-		await page.waitForSelector(".zia-picker-row");
-		assert.equal(await page.locator(".zia-picker-row").count(), 1, "só aparecem os artigos que ainda não estão na conversa");
-		await page.fill(".zia-picker-search", "garcía");
-		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 1);
-		await page.fill(".zia-picker-search", "xyz");
-		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 0, "pesquisa filtra a lista");
-		await page.fill(".zia-picker-search", "");
-		await page.check(".zia-picker-row input");
-		await page.screenshot({ path: path.join(OUT, "ui_painel_seletor.png") });
-		await page.click(".zia-picker button:has-text(\"Juntar (1)\")");
-		await page.waitForSelector(".zia-chip >> nth=1");
-		assert.notEqual(await page.getAttribute('.zia-tab[data-group="comparar"]', "aria-selected"), "true", "no painel não salta para Comparar");
-		assert.equal(await page.isHidden(".zia-picker"), true);
-		await page.click(".zia-chip:has-text(\"García\") .zia-chip-x");
+		// o painel é para o artigo selecionado: sem "+ PDF" (vários PDFs só na janela)
+		assert.equal(await page.locator(".zia-chip-add").count(), 0, "sem + PDF no painel");
+		assert.doesNotMatch(await page.textContent(".zia-docs"), /D1/, "sem D1 nos chips");
+
 		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.error = { kind: "limit", message: "Atingiste o limite de utilização da subscrição do Claude. Podes repetir o pedido com o Gemini ou esperar que o limite reinicie." }; });
 		await act(page, "pontos");
@@ -121,6 +109,31 @@ async function main() {
 		assert.equal(await page.locator(".zia-error").count(), 0, "erro retirado após repetição");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_pontos.png") });
 		console.log("OK painel: sugestões, erro de limite, repetição com Gemini, resposta com citações");
+		await page.close();
+	}
+
+	// ---------- Janela: + PDF com seletor e pesquisa ----------
+	{
+		const page = await open("?mode=window", { width: 820, height: 700 });
+		await page.click(".zia-chip-add");
+		await page.waitForSelector(".zia-picker-row");
+		assert.equal(await page.locator(".zia-picker-row").count(), 2);
+		await page.fill(".zia-picker-search", "garcía");
+		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 1);
+		await page.fill(".zia-picker-search", "xyz");
+		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 0, "pesquisa filtra a lista");
+		await page.fill(".zia-picker-search", "");
+		await page.check(".zia-picker-row >> nth=0 >> input");
+		await page.screenshot({ path: path.join(OUT, "ui_janela_seletor.png") });
+		await page.click(".zia-picker button:has-text(\"Juntar (1)\")");
+		await page.waitForSelector(".zia-chip");
+		assert.equal(await page.isHidden(".zia-picker"), true);
+		// "i" junto de "Usar fichas" e lista das fichas em Comparar
+		await tab(page, "comparar");
+		await page.click(".zia-info-btn");
+		await page.waitForSelector(".zia-info-panel");
+		assert.equal(await page.locator(".zia-fichas-list").count(), 1);
+		console.log("OK janela: + PDF com seletor e pesquisa, i das fichas junto de Usar fichas");
 		await page.close();
 	}
 

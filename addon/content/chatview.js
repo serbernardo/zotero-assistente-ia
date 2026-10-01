@@ -334,6 +334,11 @@ var ZIAChatView = class {
 				box.appendChild(info);
 			}
 		}
+		// Na janela, a lista das fichas aparece também em Comparar (onde se usam)
+		if (this.mode === "window" && this.group === "comparar") {
+			const fl = this._fichasListEl();
+			if (fl) box.appendChild(fl);
+		}
 		if (this.group === "escrever") {
 			if (this._fichaInfoOpen) box.appendChild(this._fichaInfoEl());
 			const fl = this._fichasListEl();
@@ -351,7 +356,18 @@ var ZIAChatView = class {
 			}
 			if (this._customForm) box.appendChild(this._customFormEl());
 		}
-		if (this.group !== "compreender" && !custom) box.appendChild(this.fichasLabel);
+		if (this.group !== "compreender" && !custom) {
+			box.appendChild(this.fichasLabel);
+			if (this.mode === "window" && this.group !== "escrever") {
+				const info = this._button("i", "zia-info-btn", () => {
+					this._fichaInfoOpen = !this._fichaInfoOpen;
+					this._renderActions();
+				}, this.T("ficha.info.tip"));
+				info.setAttribute("aria-expanded", this._fichaInfoOpen ? "true" : "false");
+				box.appendChild(info);
+				if (this._fichaInfoOpen) box.appendChild(this._fichaInfoEl());
+			}
+		}
 		this._updateButtons();
 	}
 
@@ -639,6 +655,9 @@ var ZIAChatView = class {
 		if (!this.state.docs.length) {
 			box.appendChild(this._el("span", "zia-muted",
 				this.T(this.mode === "window" ? "chat.noDocs.window" : "chat.noDocs.section")));
+			if (this.core.pickableItems && this.mode === "window") {
+				box.appendChild(this._button(this.T("chat.addPdf"), "zia-chip-add", () => this._openPicker(), this.T("chat.addPdf.tip")));
+			}
 			return;
 		}
 		// Coleção juntada: fica indicada antes dos artigos
@@ -650,8 +669,7 @@ var ZIAChatView = class {
 		for (const d of this.state.docs) {
 			const chip = this._el("span", "zia-chip");
 			chip.title = d.fullRef;
-			chip.appendChild(this._el("b", null, d.id));
-			chip.appendChild(this.doc.createTextNode(" " + d.shortRef));
+			chip.appendChild(this.doc.createTextNode(d.shortRef));
 			if (this.mode === "window" || this.state.docs.length > 1) {
 				const x = this._el("span", "zia-chip-x", "×");
 				x.title = this.T("chat.removeDoc");
@@ -661,7 +679,8 @@ var ZIAChatView = class {
 			}
 			box.appendChild(chip);
 		}
-		if (this.core.pickableItems) {
+		// Vários PDFs só na janela grande: o painel lateral é para o artigo selecionado
+		if (this.core.pickableItems && this.mode === "window") {
 			const add = this._button(this.T("chat.addPdf"), "zia-chip-add", () => this._openPicker(), this.T("chat.addPdf.tip"));
 			box.appendChild(add);
 		}
@@ -1257,8 +1276,9 @@ var ZIAChatView = class {
 	_confirmDelEl(m) {
 		const box = this._el("div", "zia-confirm-del");
 		box.setAttribute("role", "alertdialog");
-		const unsaved = !m.error && m.text && !m.noteID;
-		const key = m.error ? "chat.del.error" : m.noteID ? "chat.del.saved" : "chat.del.unsaved";
+		const hasText = !!(m.text && String(m.text).trim());
+		const unsaved = hasText && !m.noteID;
+		const key = !hasText ? "chat.del.error" : m.noteID ? "chat.del.saved" : "chat.del.unsaved";
 		box.appendChild(this._el("div", "zia-confirm-text", this.T(key)));
 		const row = this._el("div", "zia-custom-btns");
 		if (unsaved) {
@@ -1292,7 +1312,7 @@ var ZIAChatView = class {
 		list.splice(from, i - from + 1);
 		this._renderMessages();
 		this._persist();
-		this._setStatus(this.T(m.error ? "chat.errorRemoved" : "chat.answerRemoved"));
+		this._setStatus(this.T(m.error && !(m.text && String(m.text).trim()) ? "chat.errorRemoved" : "chat.answerRemoved"));
 	}
 
 	async _retry(msg, engine) {
@@ -1445,7 +1465,7 @@ var ZIAChatView = class {
 				card.appendChild(this._el("div", "zia-nopdf-title", this.T("nopdf.title")));
 				card.appendChild(this._el("p", null, this.T("nopdf.text")));
 				const row = this._el("div", "zia-custom-btns");
-				if (this.core.pickableItems) row.appendChild(this._button(this.T("nopdf.add"), "zia-btn-small", () => this._openPicker()));
+				row.appendChild(this._button(this.T("nopdf.window"), "zia-btn-small zia-btn-primary", () => this.openInWindow()));
 				row.appendChild(this._button(this.T("nopdf.collection"), "zia-btn-small", () => this.openCollectionWindow()));
 				card.appendChild(row);
 				box.appendChild(card);
@@ -1562,7 +1582,7 @@ var ZIAChatView = class {
 				if (ev && ev.stopPropagation) ev.stopPropagation();
 				m.confirmDel = true;
 				this._renderMessage(m);
-			}, this.T(m.error ? "chat.removeError" : "chat.removeAnswer"));
+			}, this.T(m.error && !(m.text && String(m.text).trim()) ? "chat.removeError" : "chat.removeAnswer"));
 			del.addEventListener("keydown", ev => ev.stopPropagation());
 			head.appendChild(del);
 		}
