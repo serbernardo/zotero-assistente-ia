@@ -369,6 +369,9 @@ async function main() {
 			window.MOCK.answer = "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p3] |";
 		});
 		await page.click("button:has-text(\"+ Coleção\")");
+		// escolhe a coleção numa lista, sem ter de a selecionar antes no Zotero
+		assert.equal(await page.locator(".zia-col-row").count(), 2);
+		await page.click(".zia-col-row:has-text(\"Tese\")");
 		await page.waitForSelector(".zia-chip >> nth=1");
 		await tab(page, "comparar");
 		await page.check(".zia-fichas-toggle input");

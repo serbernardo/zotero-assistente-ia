@@ -1439,3 +1439,42 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-check-title { font-weight: 700; color: var(--zia-orange); }
 .zia-check ul { margin: 4px 0; padding-inline-start: 18px; }
 .zia-check-foot { color: var(--zia-fg2); font-size: 11.5px; }
+
+/* Escolhido: sóbrio e elegante (fundo claro, contorno fino, texto a tinta) em vez de tinta cheia */
+.zia-tabs .zia-tab[aria-selected="true"],
+.zia-tabs .zia-tab[aria-selected="true"]:hover:not(:disabled) {
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	border-color: var(--zia-border);
+	box-shadow: 0 1px 2px rgba(17, 23, 41, 0.08);
+	font-weight: 700;
+}
+.zia-action.zia-selected,
+.zia-action.zia-selected:hover:not(:disabled) {
+	background: var(--zia-sand);
+	border-color: var(--zia-fg2);
+	color: var(--zia-fg);
+	font-weight: 600;
+}
+.zia-action.zia-selected.zia-done::after { color: var(--zia-green); }
+.zia-pending-chip { background: var(--zia-sand); color: var(--zia-fg); border: 1px solid var(--zia-border); }
+.zia-seg.selected { background: var(--zia-bg); color: var(--zia-fg); border-color: var(--zia-fg2); }
+
+/* Fechar avisos */
+.zia-status { display: flex; align-items: center; gap: 6px; }
+.zia-status-x {
+	margin-inline-start: auto;
+	border: none; background: none; cursor: pointer;
+	font-size: 15px; line-height: 1; padding: 0 4px;
+	color: inherit; opacity: 0.7;
+}
+.zia-status-x:hover { opacity: 1; }
+
+/* Seletor de coleções */
+.zia-col-row { display: block; width: 100%; text-align: start; border: none; border-bottom: 1px solid var(--zia-border); background: none; color: var(--zia-fg); font: inherit; font-size: 12.5px; padding: 5px 8px; cursor: pointer; }
+.zia-col-row:hover { background: var(--zia-sand); }
+.zia-col-row[hidden] { display: none; }
+.zia-col-selected { font-weight: 700; }
+.zia-col-selected::after { content: "  ●"; color: var(--zia-gold); }
+.zia-picker-lib { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--zia-muted); padding: 6px 8px 2px; }
+.zia-textarea:focus, .zia-picker-search:focus { outline: none; border-color: var(--zia-fg2); box-shadow: 0 0 0 3px var(--zia-accent-soft); }

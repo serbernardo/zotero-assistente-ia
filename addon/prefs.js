@@ -57,3 +57,5 @@ pref("extensions.zoteroia.privacy.ack.claude", false);
 pref("extensions.zoteroia.privacy.ack.openai", false);
 pref("extensions.zoteroia.privacy.ack.codex", false);
 pref("extensions.zoteroia.privacy.ack.gemini", false);
+// Ícone do assistente já colocado a seguir à Info (só uma vez)
+pref("extensions.zoteroia.sidenav.placed", false);

@@ -251,6 +251,51 @@ var ZoteroIA = {
 		return added;
 	},
 
+	/**
+	 * Todas as coleções das bibliotecas, em árvore (com profundidade), para escolher na janela
+	 * sem ter de selecionar antes a coleção no Zotero. A coleção selecionada vem marcada.
+	 */
+	listCollections() {
+		const out = [];
+		let sel = null;
+		try {
+			const zp = Zotero.getActiveZoteroPane && Zotero.getActiveZoteroPane();
+			const c = zp && zp.getSelectedCollection && zp.getSelectedCollection();
+			if (c) sel = c.id;
+		}
+		catch (e) { /* sem coleção */ }
+		const walk = (cols, depth, lib) => {
+			cols = (cols || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+			for (const c of cols) {
+				out.push({ id: c.id, name: c.name, depth, library: lib, selected: c.id === sel });
+				let kids = [];
+				try { kids = c.getChildCollections(false) || []; }
+				catch (e) { /* sem subcoleções */ }
+				walk(kids, depth + 1, lib);
+			}
+		};
+		let libs = [];
+		try { libs = Zotero.Libraries.getAll().filter(l => l.libraryType === "user" || l.libraryType === "group"); }
+		catch (e) { this.log("Bibliotecas: " + e); }
+		for (const l of libs) {
+			let top = [];
+			try { top = Zotero.Collections.getByLibrary(l.libraryID) || []; }
+			catch (e) { continue; }
+			walk(top, 0, libs.length > 1 ? l.name : null);
+		}
+		return out;
+	},
+
+	/** Itens com PDF de uma coleção (por id). */
+	collectionItems(id) {
+		const col = Zotero.Collections.get(id);
+		if (!col) return { name: null, items: [] };
+		let items = [];
+		try { items = col.getChildItems(false) || []; }
+		catch (e) { this.log("getChildItems: " + e); }
+		return { name: col.name, id: col.id, items: items.filter(i => i.isRegularItem() || (i.isAttachment() && i.isPDFAttachment())) };
+	},
+
 	/** Itens (artigos) da coleção selecionada na biblioteca. */
 	selectedCollectionItems() {
 		const zp = Zotero.getActiveZoteroPane && Zotero.getActiveZoteroPane();

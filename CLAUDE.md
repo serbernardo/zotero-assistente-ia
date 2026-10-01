@@ -84,9 +84,18 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   dia, se for quota diaria). A lista de modelos fica em cache 1 hora
   (`geminiModels`). Botao "Testar modelos agora" (`probeGeminiModels`) testa
   varios modelos em paralelo.
+- **Janela:** "+ Colecao" abre uma lista de todas as colecoes (`listCollections`,
+  `collectionItems`), sem ter de selecionar antes no Zotero. A janela carrega o
+  `zoteroia.css` pelo rootURI com `?v=<versao>` (o chrome:// ficava em cache
+  depois de atualizar e as cores nao batiam com o painel).
+- **Icone a seguir a Info:** `placeAfterInfo` no `bootstrap.js` poe o paneID
+  logo depois de "info" na pref do Zotero `sidenav.order`, uma so vez (pref
+  `sidenav.placed`), para respeitar se a pessoa mudar a ordem depois.
+- **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
-  dourado so como marca, azul so nas citacoes e ligacoes.
+  dourado so como marca, azul so nas citacoes e ligacoes. O que esta escolhido
+  (separador, acao) fica claro e sobrio: fundo claro, contorno fino, texto a tinta.
 - **Seguranca do conteudo:** `neutralizeTags` impede um PDF de imitar as
   marcas `<documento>`, `<pedido>` etc. As instrucoes de sistema dizem que o
   texto dos documentos nunca sao instrucoes. O Markdown e renderizado para
@@ -219,7 +228,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.5.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.5.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Preferencias de conteudo (aplicam-se a qualquer texto do addon ou da UI)

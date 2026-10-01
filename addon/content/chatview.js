@@ -458,6 +458,7 @@ var ZIAChatView = class {
 	}
 
 	async addCollection() {
+		if (this.core.listCollections) return this._openCollectionPicker();
 		const c = this.core.selectedCollectionItems ? this.core.selectedCollectionItems() : { items: [] };
 		if (!c.name) {
 			this._setStatus(this.T("chat.noCollection"), "warn");
@@ -649,9 +650,67 @@ var ZIAChatView = class {
 		search.focus();
 	}
 
+	/** Escolher uma coleção numa lista, sem ter de a selecionar antes no Zotero. */
+	_openCollectionPicker() {
+		if (this.busy) return;
+		const box = this.pickerEl;
+		if (!box.hidden && box.dataset.kind === "col") return this._closePicker();
+		while (box.firstChild) box.removeChild(box.firstChild);
+		box.hidden = false;
+		box.dataset.kind = "col";
+		box.appendChild(this._el("div", "zia-picker-title", this.T("chat.colPicker.title")));
+		let cols = [];
+		try { cols = this.core.listCollections(); }
+		catch (e) { this.core.log("listCollections: " + e); }
+		if (!cols.length) {
+			box.appendChild(this._el("div", "zia-muted", this.T("chat.colPicker.empty")));
+			box.appendChild(this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()));
+			return;
+		}
+		const search = this._el("input", "zia-picker-search");
+		search.setAttribute("type", "search");
+		search.setAttribute("placeholder", this.T("chat.colPicker.search"));
+		search.setAttribute("aria-label", this.T("chat.colPicker.search"));
+		box.appendChild(search);
+		const ul = this._el("div", "zia-picker-list");
+		ul.setAttribute("role", "listbox");
+		const rows = [];
+		let lastLib = null;
+		for (const c of cols) {
+			if (c.library && c.library !== lastLib) {
+				lastLib = c.library;
+				ul.appendChild(this._el("div", "zia-picker-lib", c.library));
+			}
+			const row = this._button(c.name, "zia-picker-row zia-col-row" + (c.selected ? " zia-col-selected" : ""), async () => {
+				this._closePicker();
+				const r = this.core.collectionItems(c.id);
+				if (!r.items.length) {
+					this._setStatus(this.T("chat.emptyCollection", { name: r.name || c.name }), "warn");
+					return;
+				}
+				this.collectionIDs = [c.id];
+				await this._addItems(r.items, {});
+			});
+			row.style.paddingInlineStart = (8 + c.depth * 14) + "px";
+			row.setAttribute("role", "option");
+			rows.push({ row, text: String(c.name).toLowerCase() });
+			ul.appendChild(row);
+		}
+		search.addEventListener("input", () => {
+			const q = search.value.trim().toLowerCase();
+			for (const r of rows) r.row.hidden = !!q && !r.text.includes(q);
+		});
+		box.appendChild(ul);
+		const btns = this._el("div", "zia-custom-btns");
+		btns.appendChild(this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()));
+		box.appendChild(btns);
+		search.focus();
+	}
+
 	_closePicker() {
 		const box = this.pickerEl;
 		box.hidden = true;
+		delete box.dataset.kind;
 		while (box.firstChild) box.removeChild(box.firstChild);
 	}
 
@@ -697,6 +756,10 @@ var ZIAChatView = class {
 		while (s.firstChild) s.removeChild(s.firstChild);
 		if (working) s.appendChild(this._el("span", "zia-spinner"));
 		if (text) s.appendChild(this.doc.createTextNode(text));
+		// Avisos e erros podem ser fechados
+		if (text && (kind === "warn" || kind === "error")) {
+			s.appendChild(this._button("×", "zia-status-x", () => this._setStatus(""), this.T("chat.dismiss")));
+		}
 		s.className = "zia-status" + (kind ? " zia-status-" + kind : "");
 	}
 

@@ -14,6 +14,11 @@ var ZIAWindow = {
 			return;
 		}
 		document.title = core.t("app.name");
+		// A mesma folha de estilos do painel lateral, sempre a versão instalada
+		const css = document.createElementNS("http://www.w3.org/1999/xhtml", "link");
+		css.rel = "stylesheet";
+		css.href = core.rootURI + "content/zoteroia.css?v=" + encodeURIComponent(core.version || "");
+		document.documentElement.appendChild(css);
 		const host = document.getElementById("zia-host");
 		this.view = new core.ChatView({ doc: document, win: window, container: host, mode: "window", core });
 		const args = window.arguments && window.arguments[0];

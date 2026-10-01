@@ -105,6 +105,8 @@
 	core.saveCSV = async () => "/tmp/tabela.csv";
 	core.addTags = async (id, tags) => { window.tagged = { id, tags: Array.from(tags) }; return tags.length; };
 	core.selectedCollectionItems = () => ({ name: "Tese", id: 7, items: [A, B] });
+	core.listCollections = () => [{ id: 7, name: "Tese", depth: 0, selected: true }, { id: 8, name: "Capítulo 1", depth: 1 }];
+	core.collectionItems = id => (id === 7 ? { name: "Tese", id: 7, items: [A, B] } : { name: "Capítulo 1", id: 8, items: [] });
 	core.openWindow = o => { window.openedWindow = o; };
 	core.runEngine = async (engine, { onDelta, signal, system, prompt }) => {
 		window.lastEngine = engine;

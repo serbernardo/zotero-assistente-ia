@@ -51,10 +51,30 @@ async function startup({ id, version, rootURI }) {
 	}
 
 	registerSection(id, rootURI);
+	placeAfterInfo(sectionID);
 	registerMenus(id, rootURI);
 
 	for (const win of Zotero.getMainWindows()) {
 		if (win.ZoteroPane) onMainWindowLoad({ window: win });
+	}
+}
+
+// Ícone do assistente logo a seguir à Info na barra lateral do item. Só uma vez: se a pessoa
+// mudar a ordem (botão direito no ícone), essa escolha fica.
+const BUILT_IN_PANES = ["info", "abstract", "attachments", "notes", "note-info", "attachment-info", "attachment-annotations", "libraries-collections", "tags", "related"];
+function placeAfterInfo(paneID) {
+	try {
+		if (!paneID || ZoteroIA.pref("sidenav.placed")) return;
+		const cur = Zotero.Prefs.get("sidenav.order");
+		let order = cur ? String(cur).split(",") : BUILT_IN_PANES.slice();
+		order = order.filter(p => p && p !== paneID);
+		const i = order.indexOf("info");
+		order.splice(i + 1, 0, paneID);
+		Zotero.Prefs.set("sidenav.order", order.join(","));
+		ZoteroIA.setPref("sidenav.placed", true);
+	}
+	catch (e) {
+		Zotero.logError(e);
 	}
 }
 
@@ -189,7 +209,7 @@ function onMainWindowLoad({ window }) {
 		link.id = "zoteroia-stylesheet";
 		link.type = "text/css";
 		link.rel = "stylesheet";
-		link.href = ZoteroIA.rootURI + "content/zoteroia.css";
+		link.href = ZoteroIA.rootURI + "content/zoteroia.css?v=" + encodeURIComponent(ZoteroIA.version || "");
 		doc.documentElement.appendChild(link);
 	}
 }
