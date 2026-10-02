@@ -149,11 +149,6 @@
 	align-items: center;
 }
 
-.zia-action[data-action="comparar"],
-.zia-action[data-action="lacunas"] {
-	border-color: var(--zia-accent);
-}
-
 .zia-fichas-toggle {
 	display: inline-flex;
 	align-items: center;
@@ -188,7 +183,6 @@
 
 .zia-mode-section .zia-messages {
 	min-height: 140px;
-	max-height: 60vh;
 }
 
 .zia-empty {
@@ -353,9 +347,28 @@
 }
 
 .zia-error {
-	color: var(--zia-red);
+	color: var(--zia-fg);
 	white-space: pre-wrap;
 	margin: 4px 0;
+	padding: 6px 8px;
+	border-left: 3px solid var(--zia-red);
+	border-radius: 4px;
+	background: rgba(217, 63, 51, 0.08);
+}
+
+.zia-error-text::before {
+	content: "⚠ ";
+	color: var(--zia-red);
+}
+
+.zia-error-detail {
+	margin-top: 4px;
+	font-size: 11.5px;
+	color: var(--zia-fg2);
+}
+
+.zia-error-detail > summary {
+	cursor: pointer;
 }
 
 .zia-msg-tools {
@@ -519,19 +532,6 @@
 .zia-tab:disabled {
 	opacity: 0.45;
 	cursor: default;
-}
-
-.zia-tab-add {
-	margin-left: auto;
-	font-weight: 600;
-}
-
-.zia-action[data-action="comparar"],
-.zia-action[data-action="lacunas"],
-.zia-action[data-action="critica"],
-.zia-action[data-action="resumo"],
-.zia-action[data-action="ficha"] {
-	border-color: var(--zia-accent);
 }
 
 /* Cartões: configuração e privacidade */
@@ -702,3 +702,900 @@
 	gap: 4px;
 	flex-shrink: 0;
 }
+
+/* ---------- Definições: secção principal destacada ---------- */
+
+.zia-hero {
+	--zia-fg: var(--fill-primary, #1e1e1e);
+	--zia-fg2: var(--fill-secondary, #555);
+	--zia-bg: var(--material-background, #fff);
+	--zia-border: var(--fill-quinary, #dcdcdc);
+	--zia-accent: var(--accent-blue, #4072e5);
+	--zia-accent-soft: var(--accent-blue10, rgba(64, 114, 229, 0.10));
+	--zia-green: var(--accent-green, #2e8b3d);
+	--zia-red: var(--accent-red, #d93f33);
+	--zia-orange: var(--accent-orange, #c77700);
+	margin: 4px 0 18px;
+	padding: 16px 18px 12px;
+	border: 1px solid var(--zia-accent);
+	border-top-width: 4px;
+	border-radius: 8px;
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	max-width: 720px;
+}
+
+.zia-hero-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.zia-hero-title {
+	margin: 0;
+	font-size: 17px;
+	color: var(--zia-accent);
+}
+
+.zia-hero-lang { margin: 0; }
+
+.zia-hero-steps {
+	font-size: 12px;
+	color: var(--zia-fg2);
+	margin: 6px 0 4px;
+}
+
+.zia-step {
+	font-weight: 600;
+	font-size: 13px;
+	margin: 14px 0 6px;
+}
+
+
+
+
+
+
+
+
+
+
+.zia-engine-sub {
+	font-size: 11.5px;
+	color: var(--zia-fg2);
+}
+
+.zia-badge {
+	flex: none;
+	font-size: 11px;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 10px;
+	border: 1px solid currentColor;
+	white-space: nowrap;
+}
+
+.zia-badge-ok { color: var(--zia-green); }
+.zia-badge-fail { color: var(--zia-red); }
+.zia-badge-saved { color: var(--zia-orange); }
+.zia-badge-todo { color: var(--zia-fg2); border-style: dashed; }
+
+.zia-engine-panel {
+	padding: 4px 0 0 2px;
+}
+
+.zia-engine-panel[hidden] { display: none; }
+
+.zia-engine-panel input[type="password"] { min-width: 280px; }
+
+.zia-main-btn { font-weight: 600; }
+
+.zia-hero .zia-short { min-width: 160px; }
+.zia-hero .zia-num { min-width: 120px; }
+
+.zia-advanced {
+	margin: 8px 0 4px;
+	font-size: 12px;
+}
+
+.zia-advanced > summary {
+	cursor: pointer;
+	color: var(--zia-fg2);
+	margin-bottom: 4px;
+}
+
+.zia-test-result {
+	font-size: 12.5px;
+	white-space: pre-wrap;
+	margin: 10px 0 4px;
+	max-width: 680px;
+}
+
+.zia-test-result:empty { display: none; }
+
+.zia-test-result.ok,
+.zia-test-result.fail,
+.zia-test-result.busy {
+	padding: 8px 10px;
+	border-radius: 6px;
+	border-left: 4px solid;
+}
+
+.zia-test-result.ok { border-color: var(--zia-green); background: rgba(46, 139, 61, 0.08); }
+.zia-test-result.fail { border-color: var(--zia-red); background: rgba(217, 63, 51, 0.08); }
+.zia-test-result.busy { border-color: var(--zia-accent); background: var(--zia-accent-soft); }
+
+.zia-hero-foot { margin-top: 10px; }
+
+.zia-mode-section {
+	padding: 2px 6px 8px;
+}
+
+/* Painel estreito: nada pode obrigar o painel do Zotero a ficar mais largo.
+   A barra de cima passa para duas linhas e o ⚙ fica sempre visível. */
+.zia-mode-section {
+	contain: inline-size;
+	min-width: 0;
+}
+
+.zia-bar {
+	flex-wrap: wrap;
+	row-gap: 4px;
+}
+
+.zia-docs {
+	flex: 1 1 110px;
+}
+
+.zia-chip {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.zia-bar-tools {
+	flex-shrink: 1;
+	min-width: 0;
+	margin-inline-start: auto;
+}
+
+.zia-engine {
+	flex: 0 1 auto;
+	min-width: 72px;
+}
+
+.zia-bar-tools .zia-btn-icon {
+	flex-shrink: 0;
+}
+
+.zia-textarea {
+	min-width: 0;
+	width: 0;
+}
+
+.zia-footer {
+	flex-wrap: wrap;
+	row-gap: 2px;
+}
+
+.zia-command {
+	font-family: ui-monospace, Consolas, Menlo, monospace;
+	font-size: 12px;
+	padding: 3px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--zia-border);
+	background: var(--zia-accent-soft);
+	user-select: all;
+	-moz-user-select: all;
+}
+
+/* ---------- Ações: escolher primeiro, pedir depois ---------- */
+
+.zia-action.zia-selected {
+	border-color: var(--zia-accent);
+	background: var(--zia-accent-soft);
+	color: var(--zia-accent);
+	font-weight: 600;
+	box-shadow: inset 0 0 0 1px var(--zia-accent);
+}
+
+/* Ação já pedida nesta conversa */
+.zia-action.zia-done::after {
+	content: " ✓";
+	color: var(--accent-green, #2e8b3d);
+	font-weight: 600;
+}
+
+.zia-pending {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--zia-fg2);
+}
+
+.zia-pending[hidden] { display: none; }
+
+.zia-pending-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 4px 1px 10px;
+	border-radius: 10px;
+	background: var(--zia-accent);
+	color: var(--zia-bg);
+	font-weight: 600;
+}
+
+.zia-pending-chip .zia-chip-x {
+	background: none;
+	border: none;
+	color: inherit;
+	padding: 0 4px;
+	cursor: pointer;
+}
+
+.zia-meus-empty {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--zia-fg2);
+}
+
+/* ---------- Respostas recolhíveis ---------- */
+
+.zia-msg-head.zia-foldable {
+	cursor: pointer;
+	border-radius: 4px;
+	padding: 2px 2px;
+}
+
+.zia-msg-head.zia-foldable:hover { background: var(--zia-accent-soft); }
+
+.zia-msg-head.zia-foldable:focus-visible {
+	outline: 2px solid var(--zia-accent);
+	outline-offset: 1px;
+}
+
+.zia-fold {
+	color: var(--zia-accent);
+	font-size: 11px;
+	width: 10px;
+}
+
+.zia-preview {
+	font-size: 12px;
+	color: var(--zia-fg2);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding-left: 16px;
+}
+
+.zia-preview-error { color: var(--zia-red); }
+
+.zia-msg[hidden] { display: none; }
+
+.zia-msg.zia-flash {
+	animation: zia-flash 1.6s ease-out;
+}
+
+@keyframes zia-flash {
+	0% { background: var(--zia-accent-soft); }
+	100% { background: transparent; }
+}
+
+/* ---------- Definições: separadores dos motores ---------- */
+
+.zia-etabs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 2px 4px;
+	border-bottom: 1px solid var(--zia-border);
+}
+
+.zia-etab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	border: 1px solid transparent;
+	border-bottom: none;
+	border-radius: 6px 6px 0 0;
+	cursor: pointer;
+	font-weight: 600;
+	color: var(--zia-fg2);
+	margin-bottom: -1px;
+}
+
+.zia-etab.minor {
+	font-weight: 500;
+	font-size: 12px;
+	padding: 4px 8px;
+}
+
+.zia-etab:hover { color: var(--zia-accent); }
+
+.zia-etab:focus-visible {
+	outline: 2px solid var(--zia-accent);
+	outline-offset: -2px;
+}
+
+.zia-etab.selected {
+	color: var(--zia-accent);
+	background: var(--zia-bg);
+	border-color: var(--zia-border);
+	border-bottom: 2px solid var(--zia-accent);
+}
+
+.zia-etab-star { color: var(--zia-orange); }
+
+.zia-etab-sep {
+	font-size: 11px;
+	color: var(--zia-fg2);
+	padding: 0 2px 6px 10px;
+}
+
+.zia-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--zia-border);
+	flex: none;
+}
+
+.zia-dot-ok { background: var(--zia-green); }
+.zia-dot-fail { background: var(--zia-red); }
+.zia-dot-saved { background: var(--zia-orange); }
+
+.zia-engine-summary {
+	padding: 8px 2px 2px;
+}
+
+.zia-engine-summary-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.zia-use-btn {
+	font: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 3px 10px;
+	border-radius: 5px;
+	border: 1px solid var(--zia-accent);
+	background: var(--zia-accent);
+	color: #fff;
+	cursor: pointer;
+}
+
+.zia-use-btn.current {
+	background: none;
+	color: var(--zia-green);
+	border-color: var(--zia-green);
+	cursor: default;
+}
+
+.zia-steps {
+	margin: 4px 0 8px;
+	padding-inline-start: 20px;
+	font-size: 12.5px;
+}
+
+.zia-steps li { margin: 2px 0; }
+
+.zia-link {
+	color: var(--zia-accent);
+	text-decoration: underline;
+	cursor: pointer;
+	font-size: 12.5px;
+}
+
+/* Botão "Guardar nota" no título de uma resposta recolhida */
+.zia-head-save {
+	margin-inline-start: auto;
+	font-size: 10.5px;
+	padding: 0 6px;
+	border-color: transparent;
+	background: none;
+	color: var(--zia-accent);
+}
+
+.zia-head-save:hover { border-color: var(--zia-accent); }
+
+/* ---------- Personalizado: criar e editar ações no painel ---------- */
+
+.zia-action-new {
+	border-style: dashed;
+	color: var(--zia-accent);
+	font-weight: 600;
+}
+
+.zia-action.zia-editing {
+	border-style: dashed;
+	border-color: var(--zia-accent);
+}
+
+.zia-action.zia-editing::before { content: "✎ "; }
+
+.zia-custom-form {
+	flex-basis: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 4px;
+	padding: 8px;
+	border: 1px solid var(--zia-accent);
+	border-radius: 6px;
+	background: var(--zia-bg);
+}
+
+.zia-custom-title { font-weight: 600; font-size: 12px; }
+
+.zia-custom-form input,
+.zia-custom-form textarea {
+	font: inherit;
+	font-size: 12.5px;
+	padding: 4px 6px;
+	border: 1px solid var(--zia-border);
+	border-radius: 5px;
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	min-width: 0;
+	width: 100%;
+	box-sizing: border-box;
+	resize: vertical;
+}
+
+.zia-custom-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.zia-btn-danger { color: var(--zia-red); border-color: var(--zia-red); }
+
+.zia-other-switch {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 2px 0;
+	font-size: 12px;
+	color: var(--zia-fg2);
+}
+
+.zia-other-switch[hidden] { display: none; }
+
+.zia-seg {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font: inherit;
+	font-size: 12px;
+	padding: 3px 10px;
+	border: 1px solid var(--zia-border);
+	border-radius: 14px;
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	cursor: pointer;
+}
+
+.zia-seg.selected {
+	border-color: var(--zia-accent);
+	background: var(--zia-accent-soft);
+	color: var(--zia-accent);
+	font-weight: 600;
+}
+
+.zia-steps-title {
+	font-size: 12.5px;
+	font-weight: 600;
+	margin-top: 6px;
+}
+
+/* ---------- Seletor de PDFs para juntar à conversa ---------- */
+
+.zia-chip-add {
+	display: inline-flex;
+	align-items: center;
+	border-radius: 10px;
+	font-size: 12px;
+	border: 1px dashed var(--zia-accent);
+	background: none;
+	color: var(--zia-accent);
+	font-weight: 600;
+	cursor: pointer;
+	padding: 1px 8px;
+}
+
+.zia-picker {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+	border: 1px solid var(--zia-accent);
+	border-radius: 6px;
+	background: var(--zia-bg);
+}
+
+.zia-picker[hidden] { display: none; }
+
+.zia-picker-title { font-size: 12px; font-weight: 600; }
+
+.zia-picker-search {
+	font: inherit;
+	font-size: 12.5px;
+	padding: 4px 6px;
+	border: 1px solid var(--zia-border);
+	border-radius: 5px;
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	min-width: 0;
+}
+
+.zia-picker-list {
+	max-height: 220px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--zia-border);
+	border-radius: 5px;
+}
+
+.zia-picker-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 4px 6px;
+	font-size: 12px;
+	cursor: pointer;
+	border-bottom: 1px solid var(--zia-border);
+}
+
+.zia-picker-row:last-child { border-bottom: none; }
+.zia-picker-row:hover { background: var(--zia-accent-soft); }
+.zia-picker-row[hidden] { display: none; }
+.zia-picker-row input { margin-top: 2px; flex: none; }
+
+.zia-picker-sort { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.zia-picker-sortsel { min-width: 0; flex: 1; }
+
+/* ==========================================================================
+   Paleta (inspirada no Beaver): fundo creme quente, tinta azul-noite para o
+   texto e para o que está escolhido, dourado só como marca, azul só nas
+   citações e ligações. Um único sítio para as cores, claro e escuro.
+   ========================================================================== */
+
+.zia-root,
+.zia-hero,
+collapsible-section[data-pane$="zoteroia-section"] {
+	--zia-fg: #111729;
+	--zia-fg2: #3f4555;
+	--zia-muted: #5d6474;
+	--zia-bg: #ffffff;
+	--zia-panel: #f5f0ed;
+	--zia-sand: #ebe3dc;
+	--zia-border: #ddd2c9;
+	--zia-accent: #111729;
+	--zia-on-accent: #ffffff;
+	--zia-accent-soft: rgba(17, 23, 41, 0.07);
+	--zia-gold: #f2c200;
+	--zia-link: #0b6a9c;
+	--zia-cite-bg: rgba(46, 168, 229, 0.14);
+	--zia-green: #15803d;
+	--zia-red: #c62828;
+	--zia-orange: #b45309;
+}
+
+@media (prefers-color-scheme: dark) {
+	.zia-root,
+	.zia-hero,
+	collapsible-section[data-pane$="zoteroia-section"] {
+		--zia-fg: #f5f0ed;
+		--zia-fg2: #d9d2cc;
+		--zia-muted: #aaa39d;
+		--zia-bg: #232428;
+		--zia-panel: #2c2b2a;
+		--zia-sand: #3a3836;
+		--zia-border: #4a4743;
+		--zia-accent: #f5f0ed;
+		--zia-on-accent: #111729;
+		--zia-accent-soft: rgba(245, 240, 237, 0.10);
+		--zia-gold: #f2c200;
+		--zia-link: #7cc7ee;
+		--zia-cite-bg: rgba(46, 168, 229, 0.22);
+		--zia-green: #4ade80;
+		--zia-red: #ff8a80;
+		--zia-orange: #fbbf24;
+	}
+}
+
+/* Painel lateral do Zotero: cartão creme com marca dourada */
+collapsible-section[data-pane$="zoteroia-section"] {
+	background: var(--zia-panel);
+	border: 1px solid var(--zia-border);
+	border-left: 4px solid var(--zia-gold);
+	border-radius: 8px;
+	margin-block: 6px;
+	min-width: 0;
+}
+
+collapsible-section[data-pane$="zoteroia-section"] > .head {
+	padding-inline-start: 8px;
+}
+
+collapsible-section[data-pane$="zoteroia-section"] > .head .title {
+	color: var(--zia-fg);
+	font-weight: 700;
+}
+
+.zia-mode-window { background: var(--zia-panel); }
+
+/* Barra de cima */
+.zia-chip { background: var(--zia-bg); border: 1px solid var(--zia-border); color: var(--zia-fg); }
+.zia-chip b { color: var(--zia-fg); font-weight: 700; }
+.zia-chip-add { border-color: var(--zia-fg2); color: var(--zia-fg); }
+.zia-chip-add:hover { background: var(--zia-sand); }
+
+/* Separadores em forma de pastilha: o escolhido a tinta cheia */
+.zia-tabs { border-bottom: none; gap: 4px; }
+.zia-tabs .zia-tab {
+	background: transparent;
+	color: var(--zia-fg);
+	font-weight: 600;
+	font-size: 11.5px;
+	padding: 3px 10px;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	margin: 0;
+}
+.zia-tabs .zia-tab:hover:not(:disabled) { color: var(--zia-fg); background: var(--zia-sand); border-color: transparent; }
+.zia-tabs .zia-tab[aria-selected="true"],
+.zia-tabs .zia-tab[aria-selected="true"]:hover:not(:disabled) {
+	background: var(--zia-accent);
+	color: var(--zia-on-accent);
+	border-color: var(--zia-accent);
+}
+
+/* Botões */
+.zia-btn { background: var(--zia-bg); border-color: var(--zia-border); color: var(--zia-fg); border-radius: 6px; }
+.zia-btn:hover:not(:disabled) { border-color: var(--zia-fg2); color: var(--zia-fg); background: var(--zia-sand); }
+.zia-send,
+.zia-btn-primary,
+.zia-use-btn {
+	background: var(--zia-accent);
+	border-color: var(--zia-accent);
+	color: var(--zia-on-accent);
+}
+.zia-send:hover:not(:disabled),
+.zia-btn-primary:hover:not(:disabled) { background: var(--zia-accent); color: var(--zia-on-accent); filter: brightness(1.25); }
+.zia-send.zia-stop { background: var(--zia-red); border-color: var(--zia-red); color: #fff; }
+.zia-link-btn, .zia-link-btn:hover:not(:disabled) { background: none; color: var(--zia-link); }
+
+/* Ações: a escolhida a tinta cheia, as já pedidas com um visto verde */
+.zia-action.zia-selected {
+	background: var(--zia-accent);
+	border-color: var(--zia-accent);
+	color: var(--zia-on-accent);
+	box-shadow: none;
+}
+.zia-action.zia-selected:hover:not(:disabled) { background: var(--zia-accent); color: var(--zia-on-accent); }
+.zia-action.zia-done::after { color: var(--zia-green); }
+.zia-action.zia-selected.zia-done::after { color: inherit; }
+.zia-action-new { color: var(--zia-fg); border-color: var(--zia-fg2); }
+.zia-pending-chip { background: var(--zia-accent); color: var(--zia-on-accent); }
+
+/* Caixa de texto e respostas */
+.zia-textarea { background: var(--zia-bg); border-color: var(--zia-border); }
+.zia-textarea:focus { outline: 2px solid var(--zia-fg2); }
+.zia-messages { background: var(--zia-bg); border-color: var(--zia-border); border-radius: 8px; }
+.zia-msg-user,
+.zia-mode-section .zia-msg-user { background: var(--zia-sand); color: var(--zia-fg); }
+.zia-fold { color: var(--zia-fg2); }
+.zia-msg-head.zia-foldable:hover { background: var(--zia-accent-soft); }
+.zia-action-tag { color: var(--zia-fg); }
+.zia-head-save { color: var(--zia-link); }
+.zia-head-save:hover { border-color: var(--zia-link); }
+
+/* Citações e ligações: o único azul */
+.zia-cite { background: var(--zia-cite-bg); color: var(--zia-link); }
+.zia-link { color: var(--zia-link); }
+.zia-suggestion:hover { border-color: var(--zia-fg2); color: var(--zia-fg); background: var(--zia-sand); }
+
+/* Seletor de PDFs e formulário de ações */
+.zia-picker, .zia-custom-form { border-color: var(--zia-border); }
+.zia-picker-row:hover { background: var(--zia-sand); }
+.zia-picker-sortsel { font: inherit; font-size: 12px; }
+
+/* Definições */
+.zia-hero { border-color: var(--zia-border); border-top: 4px solid var(--zia-gold); background: var(--zia-panel); }
+.zia-hero .zia-hero-title { color: var(--zia-fg); }
+.zia-etab:hover { color: var(--zia-fg); }
+.zia-etab.selected { color: var(--zia-fg); background: var(--zia-bg); border-bottom-color: var(--zia-accent); }
+.zia-seg.selected { background: var(--zia-accent); color: var(--zia-on-accent); border-color: var(--zia-accent); }
+.zia-use-btn.current { background: none; color: var(--zia-green); border-color: var(--zia-green); }
+
+/* Teste dos modelos Gemini */
+.zia-probe { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 8px; font-size: 12.5px; }
+.zia-probe:empty { display: none; }
+.zia-probe-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--zia-border); border-radius: 6px; background: var(--zia-bg); }
+.zia-probe-name { font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 12px; min-width: 190px; }
+.zia-probe-state { font-weight: 600; }
+.zia-probe-ok .zia-probe-state { color: var(--zia-green); }
+.zia-probe-busy .zia-probe-state, .zia-probe-minute .zia-probe-state { color: var(--zia-orange); }
+.zia-probe-limit .zia-probe-state, .zia-probe-model .zia-probe-state, .zia-probe-error .zia-probe-state { color: var(--zia-red); }
+.zia-probe-btn { font: inherit; font-size: 11.5px; padding: 1px 8px; border-radius: 5px; border: 1px solid var(--zia-border); background: var(--zia-bg); color: var(--zia-fg); cursor: pointer; }
+.zia-probe-btn:hover { background: var(--zia-sand); }
+.zia-probe-tag { font-size: 11px; color: var(--zia-muted); text-transform: uppercase; }
+
+/* Verificação automática da resposta contra os PDFs */
+.zia-check { margin: 6px 0 2px; padding: 5px 8px; border-radius: 6px; font-size: 12px; }
+.zia-check-ok { color: var(--zia-green); background: none; padding-left: 0; }
+.zia-check-warn { border: 1px solid var(--zia-orange); border-left-width: 3px; background: rgba(232, 133, 12, 0.08); color: var(--zia-fg); }
+.zia-check-title { font-weight: 700; color: var(--zia-orange); }
+.zia-check ul { margin: 4px 0; padding-inline-start: 18px; }
+.zia-check-foot { color: var(--zia-fg2); font-size: 11.5px; }
+
+/* Escolhido: sóbrio e elegante (fundo claro, contorno fino, texto a tinta) em vez de tinta cheia */
+.zia-tabs .zia-tab[aria-selected="true"],
+.zia-tabs .zia-tab[aria-selected="true"]:hover:not(:disabled) {
+	background: var(--zia-bg);
+	color: var(--zia-fg);
+	border-color: var(--zia-border);
+	box-shadow: 0 1px 2px rgba(17, 23, 41, 0.08);
+	font-weight: 700;
+}
+.zia-action.zia-selected,
+.zia-action.zia-selected:hover:not(:disabled) {
+	background: var(--zia-sand);
+	border-color: var(--zia-fg2);
+	color: var(--zia-fg);
+	font-weight: 600;
+}
+.zia-action.zia-selected.zia-done::after { color: var(--zia-green); }
+.zia-pending-chip { background: var(--zia-sand); color: var(--zia-fg); border: 1px solid var(--zia-border); }
+.zia-seg.selected { background: var(--zia-bg); color: var(--zia-fg); border-color: var(--zia-fg2); }
+
+/* Fechar avisos */
+.zia-status { display: flex; align-items: center; gap: 6px; }
+.zia-status-x {
+	margin-inline-start: auto;
+	border: none; background: none; cursor: pointer;
+	font-size: 15px; line-height: 1; padding: 0 4px;
+	color: inherit; opacity: 0.7;
+}
+.zia-status-x:hover { opacity: 1; }
+
+/* Seletor de coleções */
+.zia-col-row { display: block; width: 100%; text-align: start; border: none; border-bottom: 1px solid var(--zia-border); background: none; color: var(--zia-fg); font: inherit; font-size: 12.5px; padding: 5px 8px; cursor: pointer; }
+.zia-col-row:hover { background: var(--zia-sand); }
+.zia-col-row[hidden] { display: none; }
+.zia-col-selected { font-weight: 700; }
+.zia-col-selected::after { content: "  ●"; color: var(--zia-gold); }
+.zia-picker-lib { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--zia-muted); padding: 6px 8px 2px; }
+.zia-textarea:focus, .zia-picker-search:focus { outline: none; border-color: var(--zia-fg2); box-shadow: 0 0 0 3px var(--zia-accent-soft); }
+
+/* Botões principais iguais ao "Guardar": tinta cheia, texto branco, mesmo tamanho */
+.zia-send,
+.zia-btn-primary {
+	font-size: 12px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 6px;
+	background: var(--zia-accent);
+	border: 1px solid var(--zia-accent);
+	color: var(--zia-on-accent);
+}
+.zia-input { align-items: flex-end; }
+.zia-send { padding: 5px 14px; }
+.zia-send.zia-stop { background: var(--zia-red); border-color: var(--zia-red); color: #fff; }
+.zia-pending { flex-wrap: wrap; }
+
+.zia-chip-col { background: var(--zia-sand); border-color: var(--zia-fg2); font-weight: 600; }
+.zia-btn.zia-btn-danger { color: var(--zia-red); border-color: var(--zia-red); }
+.zia-btn.zia-btn-danger:hover:not(:disabled) { background: var(--zia-red); color: #fff; border-color: var(--zia-red); }
+.zia-custom-form input:focus, .zia-custom-form textarea:focus { outline: none; border-color: var(--zia-fg2); box-shadow: 0 0 0 3px var(--zia-accent-soft); }
+
+/* Ficha: botão "i", explicação e lista das fichas da conversa */
+.zia-info-btn {
+	width: 22px; height: 22px; padding: 0; border-radius: 50%;
+	font: italic 700 12px Georgia, serif; line-height: 20px; text-align: center;
+	border: 1px solid var(--zia-fg2); background: var(--zia-bg); color: var(--zia-fg); cursor: pointer;
+}
+.zia-info-btn[aria-expanded="true"] { background: var(--zia-sand); }
+.zia-info-panel {
+	position: relative; flex-basis: 100%;
+	padding: 8px 28px 6px 10px; margin: 2px 0;
+	border: 1px solid var(--zia-border); border-left: 3px solid var(--zia-gold);
+	border-radius: 6px; background: var(--zia-bg); font-size: 12px;
+}
+.zia-info-panel p { margin: 4px 0; }
+.zia-info-title { font-weight: 700; font-size: 12.5px; }
+.zia-info-sub { font-weight: 600; margin-top: 6px; }
+.zia-info-fields { margin: 2px 0 4px; padding-inline-start: 18px; columns: 2 160px; column-gap: 16px; }
+.zia-info-close, .zia-msg-del {
+	border: none; background: none; cursor: pointer; color: var(--zia-fg2);
+	font-size: 15px; line-height: 1; padding: 0 4px;
+}
+.zia-info-close { position: absolute; top: 4px; right: 4px; }
+.zia-info-close:hover, .zia-msg-del:hover { color: var(--zia-red); }
+.zia-msg-del { margin-inline-start: auto; }
+.zia-fichas-list { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; margin-top: 2px; }
+.zia-fichas-label { color: var(--zia-fg2); font-weight: 600; }
+.zia-ficha-chip { font: inherit; font-size: 11.5px; padding: 1px 8px; border-radius: 10px; cursor: pointer; border: 1px solid var(--zia-border); background: var(--zia-bg); color: var(--zia-fg); }
+.zia-ficha-ok { border-color: var(--zia-green); color: var(--zia-green); }
+.zia-ficha-missing { border-style: dashed; color: var(--zia-fg2); }
+.zia-ficha-chip:hover { background: var(--zia-sand); }
+
+.zia-confirm-del { margin: 4px 0 6px; padding: 6px 8px; border: 1px solid var(--zia-orange); border-left-width: 3px; border-radius: 6px; background: rgba(232, 133, 12, 0.08); font-size: 12px; }
+.zia-confirm-text { margin-bottom: 6px; }
+.zia-msg-head .zia-head-save + .zia-msg-del { margin-inline-start: 4px; }
+.zia-msg-head .zia-head-save ~ .zia-msg-del { margin-inline-start: 4px; }
+
+.zia-credits { font-size: 13px; line-height: 1.6; }
+.zia-credits-org { font-weight: 600; }
+.zia-credits-name { margin-top: 6px; font-weight: 600; }
+
+.zia-nopdf { padding: 4px 2px; }
+.zia-nopdf-title { font-weight: 700; color: var(--zia-fg); margin-bottom: 2px; }
+.zia-nopdf p { color: var(--zia-fg2); }
+
+/* Créditos: cartão sóbrio com versão e data */
+.zia-credits { border: 1px solid var(--zia-border, #ddd2c9); border-top: 3px solid var(--zia-gold, #f2c200); border-radius: 8px; background: var(--zia-panel, #f5f0ed); padding: 0; overflow: hidden; max-width: 520px; line-height: 1.5; }
+.zia-credits-app { padding: 12px 16px 10px; border-bottom: 1px solid var(--zia-border, #ddd2c9); }
+.zia-credits-appname { font-size: 15px; font-weight: 700; color: var(--zia-fg, #111729); letter-spacing: 0.01em; }
+.zia-credits-meta { margin-top: 2px; font-size: 12px; color: var(--zia-fg2, #3f4555); }
+.zia-credits-label { text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.06em; color: var(--zia-muted, #5d6474); }
+.zia-credits-value { font-weight: 600; color: var(--zia-fg, #111729); }
+.zia-credits-dot { margin: 0 8px; color: var(--zia-muted, #5d6474); }
+.zia-credits-body { padding: 10px 16px 12px; font-size: 13px; background: var(--zia-bg, #fff); }
+.zia-credits-org { font-weight: 600; color: var(--zia-fg, #111729); }
+.zia-credits-name { font-weight: 600; }
+
+/* Painel: sem segunda barra de deslocação dentro das respostas (o painel do Zotero já desliza) */
+.zia-mode-section .zia-messages { max-height: none; overflow: visible; }
+.zia-tab-external { color: var(--zia-fg2) !important; }
+
+/* Separadores das conversas */
+.zia-conv-tabs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.zia-conv-tabs[hidden] { display: none; }
+.zia-conv-tab { display: inline-flex; align-items: center; border: 1px solid var(--zia-border); border-radius: 6px 6px 0 0; background: var(--zia-sand); max-width: 200px; }
+.zia-conv-tab.zia-conv-active { background: var(--zia-bg); border-bottom-color: var(--zia-bg); font-weight: 700; }
+.zia-conv-label { border: none; background: none; font: inherit; font-size: 12px; color: var(--zia-fg); padding: 3px 4px 3px 9px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+.zia-conv-close { border: none; background: none; color: var(--zia-fg2); cursor: pointer; font-size: 13px; padding: 0 6px 0 2px; }
+.zia-conv-close:hover { color: var(--zia-red); }
+
+/* Texto de ajuda a preto, mais legível */
+.zia-empty, .zia-empty p { color: var(--zia-fg); }
+.zia-tip { color: var(--zia-fg2); }
+
+/* Título das respostas: mais claro que se abre e fecha */
+.zia-msg-head.zia-foldable { padding: 4px 6px; border-radius: 6px; background: var(--zia-accent-soft); margin-bottom: 4px; }
+.zia-msg-head.zia-foldable:hover { background: var(--zia-sand); }
+.zia-fold { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--zia-fg2); color: var(--zia-fg); font-size: 9px; margin-right: 4px; }
+.zia-msg-assistant .zia-msg-tools { margin: 2px 0 6px; }
+
+.zia-fold-hint { margin-inline-start: auto; font-size: 11px; color: var(--zia-fg2); text-decoration: underline; text-underline-offset: 2px; }
+.zia-msg-head .zia-fold-hint ~ .zia-msg-del, .zia-msg-head .zia-fold-hint ~ .zia-head-save { margin-inline-start: 6px; }
+.zia-msg-head.zia-foldable { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; }
+.zia-msg-head .zia-action-tag { flex: none; }
+.zia-msg-head .zia-engine-tag { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zia-msg-head .zia-fold-hint, .zia-msg-head .zia-head-save, .zia-msg-head .zia-msg-del { flex: none; margin-inline-start: 0; }
+.zia-fold { flex: none; margin-right: 0; }
+
+.zia-credits-body { background: var(--zia-panel, #f5f0ed); }
+.zia-credits-label { margin-right: 6px; }
+
+/* Motor e modelo usados: discreto, por baixo da resposta */
+.zia-msg-meta { margin-top: 8px; padding-top: 4px; border-top: 1px dashed var(--zia-border); font-size: 11px; color: var(--zia-fg2); overflow-wrap: anywhere; }
+/* Janela: só Comparar, sem a fila de separadores das ações */
+.zia-tabs[hidden] { display: none; }
+/* Ação sem título repetido: as indicações do pedido ficam ao lado do nome da ação */
+.zia-msg-user[hidden] { display: none; }
+.zia-action-extra { font-size: 12px; color: var(--zia-fg2); min-width: 0; overflow-wrap: anywhere; }
+/* Triagem: passos numerados numa só coluna */
+.zia-triagem-panel .zia-info-fields { columns: auto; padding-inline-start: 20px; }
+.zia-triagem-panel .zia-info-fields li { margin: 3px 0; }

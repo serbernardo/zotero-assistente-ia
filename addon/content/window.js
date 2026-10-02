@@ -14,6 +14,11 @@ var ZIAWindow = {
 			return;
 		}
 		document.title = core.t("app.name");
+		// A mesma folha de estilos do painel lateral, sempre a versão instalada
+		const css = document.createElementNS("http://www.w3.org/1999/xhtml", "link");
+		css.rel = "stylesheet";
+		css.href = core.rootURI + "content/zoteroia.css?v=" + encodeURIComponent(core.version || "");
+		document.documentElement.appendChild(css);
 		const host = document.getElementById("zia-host");
 		this.view = new core.ChatView({ doc: document, win: window, container: host, mode: "window", core });
 		const args = window.arguments && window.arguments[0];
@@ -23,7 +28,15 @@ var ZIAWindow = {
 	/** Recebe itens (ao abrir ou quando a janela já existe). */
 	async receive(args) {
 		if (!this.view || !args) return;
+		if (args.collectionName) this.view.collectionName = args.collectionName;
+		// Vindo do separador "Comparar" do painel: abre logo em Comparar
+		if (args.group) {
+			this.view.group = args.group;
+			this.view._renderTabs();
+		}
 		await this.view.setItems(args.items || [], { collectionIDs: args.collectionIDs || [] });
+		// Vindo de "Comparar coleção": abre logo a lista das coleções
+		if (args.pickCollection) this.view._openCollectionPicker();
 		if (args.autoAction) {
 			const a = Zotero.ZoteroIA.lib.ACTIONS[args.autoAction];
 			if (a && this.view.state.docs.length >= a.minDocs) {

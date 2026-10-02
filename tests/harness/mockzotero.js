@@ -51,9 +51,11 @@ function makeSubprocessShim(log) {
 			log && log(`spawn ${command} ${args.join(" ")}`);
 			const child = spawn(command, args, { cwd: workdir || undefined, env: environment || process.env, stdio: ["pipe", "pipe", "pipe"] });
 			const exitP = new Promise(r => child.on("close", code => r({ exitCode: code == null ? -9 : code })));
+			// Como no Zotero: escrever para um processo já terminado falha com erro, sem rebentar
+			child.stdin.on("error", () => {});
 			return {
 				stdin: {
-					write(s) { return new Promise(r => child.stdin.write(s, () => r())); },
+					write(s) { return new Promise((r, j) => child.stdin.write(s, e => (e ? j(e) : r()))); },
 					close() { return new Promise(r => child.stdin.end(() => r())); },
 				},
 				stdout: pipeReader(child.stdout),
@@ -105,7 +107,13 @@ function createEnv({ prefs = {}, log = null, noOSKeyStore = false } = {}) {
 	const opened = [];
 
 	class NoteItem {
-		constructor(type) { this.itemType = type; this.id = nextID++; this.relations = []; this.collections = []; }
+		constructor(type) { this.itemType = type; this.id = nextID++; this.relations = []; this.collections = []; this.libraryID = null; this._parentID = null; }
+		// Como no Zotero real: ler o item-pai exige a biblioteca definida (senão "Library ID not provided")
+		get parentID() {
+			if (this._parentID && !this.libraryID) throw new Error("Library ID not provided");
+			return this._parentID || false;
+		}
+		set parentID(v) { this._parentID = v; }
 		setNote(h) { this.html = h; }
 		getNote() { return this.html; }
 		getNoteTitle() { const m = /<h1>(.*?)<\/h1>/.exec(this.html || ""); return m ? m[1].replace(/&amp;/g, "&") : ""; }
@@ -190,8 +198,9 @@ function createEnv({ prefs = {}, log = null, noOSKeyStore = false } = {}) {
 			writeUTF8: async (p, s) => fs.writeFileSync(p, s, "utf8"),
 			readUTF8: async p => fs.readFileSync(p, "utf8"),
 			remove: async (p, o) => fs.rmSync(p, { recursive: !!(o && o.recursive), force: true }),
+			getChildren: async p => fs.readdirSync(p).map(n => path.join(p, n)),
 		},
-		PathUtils: { join: (...a) => path.join(...a), parent: p => path.dirname(p) },
+		PathUtils: { join: (...a) => path.join(...a), parent: p => path.dirname(p), filename: p => path.basename(p) },
 		TextDecoder, TextEncoder, setTimeout, clearTimeout, fetch, console, AbortController,
 	};
 	vm.createContext(ctx);

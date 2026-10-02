@@ -1,9 +1,9 @@
 {
 	"manifest_version": 2,
 	"name": "Assistente IA",
-	"version": "0.3.0",
+	"version": "0.7.4",
 	"description": "Assistente de leitura científica / research reading assistant: resumos, avaliação crítica, fichas, comparação de PDFs, revisão de literatura e lacunas, com citações à página. Claude, ChatGPT ou Gemini, com contas gratuitas ou pagas.",
-	"author": "SBHG",
+	"author": "Sérgio Bernardo",
 	"icons": {
 		"48": "content/icons/icon48.svg",
 		"96": "content/icons/icon48.svg"
@@ -11,7 +11,7 @@
 	"applications": {
 		"zotero": {
 			"id": "assistente-ia@sbhg.pt",
-			"update_url": "https://localhost/assistente-ia-updates.json",
+			"update_url": "https://github.com/serbernardo/zotero-assistente-ia/releases/latest/download/updates.json",
 			"strict_min_version": "8.0",
 			"strict_max_version": "11.0.*"
 		}

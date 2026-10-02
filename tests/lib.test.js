@@ -15,7 +15,10 @@ test("splitPages separa por \\f e limpa espaços", () => {
 
 test("shortAuthor e yearFrom", () => {
 	assert.equal(L.shortAuthor([{ lastName: "Silva" }]), "Silva");
-	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }]), "Silva & Costa");
+	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }]), "Silva e Costa", "português: e");
+	L.I18N.setLang("en");
+	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }]), "Silva & Costa", "inglês: &");
+	L.I18N.setLang("pt-PT");
 	assert.equal(L.shortAuthor([{ lastName: "Silva" }, { lastName: "Costa" }, { lastName: "Reis" }]), "Silva et al.");
 	assert.equal(L.shortAuthor([{ name: "OCDE" }]), "OCDE");
 	assert.equal(L.shortAuthor([]), "Sem autor");
@@ -76,7 +79,7 @@ test("citações: parse, rótulo e texto", () => {
 	]);
 	const map = { D1: { ref: "Silva et al., 2020" }, D2: { ref: "Costa, 2019" } };
 	assert.equal(L.citesToText("Isto [D1:p5] e aquilo [D1:p5, D2:pp. 3-4] e [D2].", map),
-		"Isto (Silva et al., 2020, p. 5) e aquilo (Silva et al., 2020, p. 5) (Costa, 2019, pp. 3-4) e (Costa, 2019).");
+		"Isto (Silva et al., 2020, p. 5) e aquilo (Silva et al., 2020, p. 5; Costa, 2019, pp. 3-4) e (Costa, 2019).");
 	// páginas soltas herdam o documento anterior
 	assert.deepEqual(L.parseCiteGroup("D1:p1, p5; D2:p1-2, p5"), [
 		{ doc: "D1", page: 1, pageEnd: null },
@@ -84,7 +87,7 @@ test("citações: parse, rótulo e texto", () => {
 		{ doc: "D2", page: 1, pageEnd: 2 },
 		{ doc: "D2", page: 5, pageEnd: null },
 	]);
-	assert.equal(L.citesToText("x [D1:p1, p5]", map), "x (Silva et al., 2020, p. 1) (Silva et al., 2020, p. 5)");
+	assert.equal(L.citesToText("x [D1:p1, p5]", map), "x (Silva et al., 2020, pp. 1, 5)");
 	// links markdown normais não são citações
 	assert.equal(L.citesToText("[texto](https://x.pt)", map), "[texto](https://x.pt)");
 });
@@ -117,7 +120,7 @@ test("markdown: títulos, listas encaixadas, tabelas e citações", () => {
 		citeHref: c => `zotero://open-pdf/library/items/ABC?page=${c.page}`,
 	});
 	assert.match(html, /<h2>Resultados<\/h2>/);
-	assert.match(html, /<a href="zotero:\/\/open-pdf\/library\/items\/ABC\?page=2">\(Silva, 2020, p\. 2\)<\/a>/);
+	assert.match(html, /\(<a href="zotero:\/\/open-pdf\/library\/items\/ABC\?page=2">Silva, 2020, p\. 2<\/a>\)/);
 	assert.match(html, /<ul><li><p>Ponto A/);
 	assert.match(html, /<table><tr><th>Documento<\/th>/);
 });
@@ -262,7 +265,17 @@ test("prompts do utilizador", () => {
 	assert.equal(list[0].label, "Teoria");
 	assert.equal(list[0].prompt, "Identifica a teoria.");
 	assert.equal(list[1].prompt, "Extrai os dados: tudo.");
-	assert.equal(list[1].id, "custom1");
+	assert.equal(list[1].id, "custom:dados");
+	assert.equal(L.parseCustomPrompts("Métodos Mistos: x")[0].id, "custom:metodos-mistos");
+	// criar, editar e apagar mantém os comentários e as outras linhas
+	let src = "# as minhas ações\nTeoria: Identifica a teoria.";
+	src = L.setCustomPrompt(src, null, "Amostra: tamanho", "Diz o tamanho\nda amostra.");
+	assert.equal(src, "# as minhas ações\nTeoria: Identifica a teoria.\nAmostra tamanho: Diz o tamanho da amostra.");
+	src = L.setCustomPrompt(src, "Teoria", "Teoria", "Identifica o enquadramento teórico.");
+	assert.match(src, /^# as minhas ações\nTeoria: Identifica o enquadramento teórico\./);
+	src = L.removeCustomPrompt(src, "Amostra tamanho");
+	assert.equal(src, "# as minhas ações\nTeoria: Identifica o enquadramento teórico.");
+	assert.equal(L.setCustomPrompt(src, null, "", "x"), src, "sem nome não muda nada");
 	assert.match(L.actionPrompt(list[0], [{ id: "D1", ref: "Silva, 2020" }]), /Identifica a teoria\.\n\nDocumentos a analisar: D1 \(Silva, 2020\)\./);
 });
 
@@ -326,7 +339,7 @@ test("textos: troca de língua e resolução automática", () => {
 	assert.equal(I.resolve("en", "pt-PT"), "en");
 	try {
 		I.setLang("en");
-		assert.equal(L.ACTIONS.resumo.label, "Summarise");
+		assert.equal(L.ACTIONS.resumo.label, "Summary");
 		assert.equal(L.ACTION_GROUPS[0].label, "Understand");
 		assert.equal(L.shortAuthor([]), "No author");
 		assert.equal(L.yearFrom(""), "n.d.");
@@ -339,7 +352,7 @@ test("textos: troca de língua e resolução automática", () => {
 	finally {
 		I.setLang("pt-PT");
 	}
-	assert.equal(L.ACTIONS.resumo.label, "Resumir");
+	assert.equal(L.ACTIONS.resumo.label, "Resumo");
 	assert.equal(L.buildSystemPrompt("ui"), L.SYSTEM_PROMPT);
 	assert.deepEqual(L.FICHA_NOTE_PREFIXES, ["Ficha IA", "AI Sheet"]);
 });
@@ -363,4 +376,139 @@ test("fluxos da OpenAI e do Codex", () => {
 	assert.equal(cs.completed, true);
 	assert.equal(L.classifyOpenAIError(429, '{"error":{"code":"insufficient_quota","message":"quota"}}').kind, "billing");
 	assert.equal(L.classifyOpenAIError(429, '{"error":{"code":"rate_limit_exceeded","message":"slow down"}}').kind, "limit");
+});
+
+test("modelos Gemini: agrupados e ordenados, com recomendado", () => {
+	const { groups, recommended } = L.sortGeminiModels([
+		"gemini-3.5-flash", "gemini-3.8-pro", "gemini-3.7-flash-lite", "gemini-3.6-flash",
+		"gemini-3.9-flash-preview", "gemini-3.6-flash", "gemma-3-27b",
+	]);
+	assert.deepEqual(groups.free.map(i => i.name), ["gemini-3.7-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash"]);
+	assert.deepEqual(groups.preview.map(i => i.name), ["gemini-3.9-flash-preview"]);
+	assert.deepEqual(groups.paid.map(i => i.name), ["gemini-3.8-pro", "gemma-3-27b"]);
+	assert.equal(recommended, "gemini-3.7-flash-lite", "sem o 3.5 Flash-Lite, o lite estável mais recente");
+	assert.equal(L.sortGeminiModels(["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash-lite"]).recommended, "gemini-3.5-flash-lite", "o 3.5 Flash-Lite é o recomendado");
+});
+
+test("instruções: só a informação dos documentos, sem suposições", () => {
+	for (const lang of ["pt-PT", "en", "auto"]) {
+		const sp = L.buildSystemPrompt(lang);
+		assert.match(sp, /FIDELIDADE AOS DOCUMENTOS/);
+		assert.match(sp, /Não inventes, não suponhas/);
+		assert.match(sp, /Uma inferência nunca acrescenta factos novos/);
+	}
+	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_sintese", "triagem"]);
+});
+
+test("histórico: só as últimas trocas e com limite de tamanho", () => {
+	const msgs = [];
+	for (let i = 1; i <= 10; i++) msgs.push({ role: "user", text: "P" + i }, { role: "assistant", text: "R" + i });
+	const h = L.selectHistory(msgs);
+	assert.equal(h.length, 6);
+	assert.equal(h[0].text, "P8");
+	assert.equal(h[5].text, "R10");
+	const big = [{ role: "user", text: "P" }, { role: "assistant", text: "x".repeat(50000) }];
+	const h2 = L.selectHistory(big, { maxChars: 24000 });
+	assert.ok(h2.reduce((a, m) => a + m.text.length, 0) <= 24010);
+	assert.equal(L.selectHistory([{ role: "assistant", text: "só resposta" }]).length, 0, "começa sempre por uma pergunta");
+});
+
+test("verificação: excertos, páginas, números e contas confirmados no texto dos PDFs", () => {
+	const docs = { D1: { pages: [
+		"Resumo. Aplicámos um inquérito online a 412 estudantes. 68% usariam um chatbot.",
+		"A utilidade percebida explicou a maior parte da variância (beta = 0,52). O modelo explicou 47% da variância.",
+		"Discussão sem números.", "Conclusão sem números.",
+	] } };
+	const ok = L.verifyAnswer('Amostra de 412 estudantes: "Aplicámos um inquérito online a 412 estudantes" [D1:p1]. '
+		+ '"A utilidade percebida explicou a maior parte da variância" [D1:p2] (beta = 0,52) [D1:p2].\n'
+		+ '[Inferência] Ficam 53% por explicar (100% - 47% = 53%) [D1:p2].', docs);
+	assert.equal(ok.problems, 0, JSON.stringify(ok));
+	assert.equal(ok.quotesOK, 2);
+	assert.equal(ok.calcs, 1);
+	const bad = L.verifyAnswer('"92% dos estudantes preferem bibliotecários humanos" [D1:p1]. '
+		+ '"Aplicámos um inquérito online a 412 estudantes" [D1:p4]. Ver [D1:p9]. O R2 foi 0,63 [D1:p2].\n'
+		+ '[Inferência] (100% - 47% = 63%) [D1:p2].', docs);
+	assert.equal(bad.badQuotes.length, 1, "excerto inventado");
+	assert.equal(bad.wrongPage.length, 1, "excerto verdadeiro na página errada");
+	assert.equal(bad.badCites.length, 1, "página que não existe");
+	assert.equal(bad.badCalcs.length, 1, "conta errada");
+	assert.ok(bad.unknownNumbers.includes("0,63") && bad.unknownNumbers.includes("92%"));
+	assert.equal(L.verifyAnswer("texto", {}), null, "sem texto dos PDFs não verifica");
+});
+
+test("dois artigos com o mesmo autor e ano ficam distinguíveis (2021a, 2021b)", () => {
+	const mk = (id, ref, short) => ({ id, ref, shortRef: short });
+	const docs = [mk("D1", "Silva et al., 2021", "Silva et al. 2021"), mk("D2", "Costa, 2020", "Costa 2020"), mk("D3", "Silva et al., 2021", "Silva et al. 2021")];
+	L.disambiguateRefs(docs);
+	assert.equal(docs[0].ref, "Silva et al., 2021a");
+	assert.equal(docs[2].shortRef, "Silva et al. 2021b");
+	assert.equal(docs[1].ref, "Costa, 2020", "os únicos não mudam");
+	docs.pop();
+	L.disambiguateRefs(docs);
+	assert.equal(docs[0].ref, "Silva et al., 2021", "sem o duplicado volta ao original");
+	assert.equal(L.citesToText("[D1:p3]", { D1: { ref: "Silva et al., 2021a" } }), "(Silva et al., 2021a, p. 3)");
+});
+
+test("citações no estilo da língua: PT usa e, inglês usa &, várias fontes no mesmo parêntesis", () => {
+	const mk = a => ({ ref: a });
+	L.I18N.setLang("pt-PT");
+	assert.equal(L.shortAuthor([{ lastName: "García" }, { lastName: "Ortega" }]), "García e Ortega");
+	L.I18N.setLang("en");
+	const docs = { D1: mk("Silva et al., 2021"), D2: mk("García & Ortega, 2023") };
+	assert.equal(L.citesToText("[D2:p4, D1:p3]", docs), "(García & Ortega, 2023, p. 4; Silva et al., 2021, p. 3)");
+	assert.equal(L.citesToText("[D1:p3-5]", docs), "(Silva et al., 2021, pp. 3-5)");
+	L.I18N.setLang("pt-PT");
+});
+
+test("letras do mesmo autor e ano seguem a ordem alfabética do título (regra APA)", () => {
+	const docs = [
+		{ id: "D1", ref: "Silva et al., 2021", shortRef: "Silva et al. 2021", title: "Chatbots em bibliotecas" },
+		{ id: "D2", ref: "Silva et al., 2021", shortRef: "Silva et al. 2021", title: "Atitudes dos estudantes" },
+	];
+	L.disambiguateRefs(docs);
+	assert.equal(docs[0].ref, "Silva et al., 2021b");
+	assert.equal(docs[1].ref, "Silva et al., 2021a");
+});
+
+test("os identificadores D1 e D2 nunca aparecem a quem lê", () => {
+	const map = { D1: { ref: "Silva et al., 2021" }, D2: { ref: "Costa, 2019" } };
+	assert.equal(L.replaceDocIds("Métodos (D1, D2)", map), "Métodos");
+	assert.equal(L.replaceDocIds("Pontos principais do documento D1", map), "Pontos principais de Silva et al., 2021");
+	assert.equal(L.replaceDocIds("No documento D2 há 40 casos.", map), "Em Costa, 2019 há 40 casos.");
+	assert.equal(L.replaceDocIds("D1 usa inquéritos.", map), "Silva et al., 2021 usa inquéritos.");
+	assert.equal(L.replaceDocIds("D3 e vitamina D", map), "D3 e vitamina D");
+});
+
+test("triagem: decisão lida da última linha, retirada do texto e resumida numa tabela", () => {
+	assert.equal(L.parseScreening("## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR"), "incluir");
+	assert.equal(L.parseScreening("**TRIAGEM:** EXCLUIR"), "excluir");
+	assert.equal(L.parseScreening("TRIAGEM: DUVIDOSO"), "duvidoso");
+	assert.equal(L.parseScreening("SCREENING: INCLUDE"), "incluir");
+	assert.equal(L.parseScreening("Sem linha técnica"), null);
+	assert.equal(L.removeScreeningLine("Raciocínio [D1:p2].\n\nTRIAGEM: EXCLUIR"), "Raciocínio [D1:p2].");
+	const md = L.screeningSummary([
+		{ ref: "Silva et al., 2021", decision: "incluir" },
+		{ ref: "Costa, 2019", decision: "excluir" },
+		{ ref: "Reis, 2020", decision: null },
+	], "estudos empíricos desde 2018");
+	assert.match(md, /Critérios: estudos empíricos desde 2018/);
+	assert.match(md, /\| Silva et al., 2021 \| Incluir \|/);
+	assert.match(md, /\| Reis, 2020 \| Sem resposta \|/);
+	assert.match(md, /Incluir: 1 · Excluir: 1 · Duvidoso: 0/);
+	assert.equal(L.extractTables(md).length, 1, "a tabela pode ser exportada para CSV");
+	assert.ok(L.ACTIONS.triagem.needsCriteria && L.ACTIONS.triagem.perDoc);
+});
+
+test("ações revistas: afirmações e evidência, grelha de avaliação, documentos que não são artigos", () => {
+	const A = L.ACTIONS;
+	assert.match(A.conclusoes.prompt, /Suporte no texto/);
+	assert.match(A.conclusoes.prompt, /\[Pouco claro\]/);
+	assert.match(A.critica.prompt, /CONSORT, STROBE, PRISMA/);
+	assert.doesNotMatch(A.critica.prompt, /Qualidade global da evidência/);
+	assert.match(A.resumo.prompt, /não for um estudo empírico/);
+	assert.match(A.esquema.prompt, /índice dos temas/);
+	assert.doesNotMatch(A.comparar.prompt, /D1, D2/);
+	assert.match(A.comparar.prompt, /Pontos fortes e fracos/);
+	assert.match(A.ficha.prompt, /Financiamento e conflitos de interesse/);
+	assert.match(A.lacunas.prompt, /Com vários documentos, indica quantos/);
 });

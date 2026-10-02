@@ -4,6 +4,7 @@ node_modules/
 # Pacotes gerados (publicados nas Releases do GitHub)
 dist/*.xpi
 dist/*.zip
+dist/updates.json
 
 # Resultados dos testes (os ficheiros .md de exemplo ficam, são usados pelos testes)
 tests/harness/out/*.png

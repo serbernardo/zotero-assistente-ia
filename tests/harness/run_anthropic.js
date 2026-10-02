@@ -43,7 +43,7 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 		assert.ok(!prefStore.get("extensions.zoteroia.anthropic.key").includes("sk-ant"), "chave encriptada");
 		assert.equal(await core.getSecret("anthropic"), "sk-ant-api03-TESTE-0123456789");
 		assert.equal(core.secretState("anthropic"), "encrypted");
-		assert.deepEqual([...core.readyEngines()], ["anthropic", "gemini"]);
+		assert.deepEqual([...core.readyEngines()], ["gemini", "anthropic"]);
 		await core.clearAllSecrets();
 		assert.equal(core.hasSecret("anthropic") || core.hasSecret("gemini"), false);
 		console.log("OK cofre: migração da 0.1, encriptação, leitura e apagar tudo");
@@ -84,6 +84,7 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 	assert.equal(c.opts.headers["anthropic-beta"], "server-side-fallback-2026-07-01");
 	assert.ok(!c.url.includes("sk-ant"), "a chave não vai no URL");
 	assert.equal(c.body.model, "claude-opus-5");
+	assert.equal(c.body.output_config.effort, "medium", "esforço médio: menos tokens de raciocínio a ler artigos");
 	assert.equal(c.body.stream, true);
 	assert.equal(c.body.system, "SIS");
 	assert.equal(c.body.fallbacks, "default");
@@ -161,5 +162,76 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 
 	// Motor não configurado
 	await assert.rejects(core.runEngine("", { system: "s", prompt: "p" }), e => e.kind === "notconfigured");
+
+	// Claude Code descarregado pela aplicação Claude para computador (macOS)
+	{
+		const fs = require("fs"), os = require("os"), path = require("path");
+		const home = fs.mkdtempSync(path.join(os.tmpdir(), "zia-home-"));
+		const base = path.join(home, "Library", "Application Support", "Claude", "claude-code");
+		for (const v of ["2.1.9", "2.1.10", "2.0.99"]) {
+			fs.mkdirSync(path.join(base, v), { recursive: true });
+			fs.writeFileSync(path.join(base, v, "claude"), "");
+		}
+		env.Zotero.isWin = false;
+		env.Zotero.isMac = true;
+		core.homeDir = () => home;
+		core.toolCandidates = () => [];
+		core._subprocess = { pathSearch: async () => { throw new Error("não está no PATH"); } };
+		core._toolCache.claude = null;
+		core.setPref("claude.path", "");
+		assert.equal(await core.findClaudeExecutable(), path.join(base, "2.1.10", "claude"), "usa a versão mais recente");
+		core._toolCache.claude = null;
+		fs.rmSync(base, { recursive: true, force: true });
+		core.setPref("claude.enabled", true);
+		await assert.rejects(core.findClaudeExecutable(), e => e.kind === "notfound");
+		assert.equal(core.pref("claude.enabled"), false, "deixa de aparecer como ativo quando o programa desaparece");
+		console.log("OK Claude Code: encontra a cópia da aplicação Claude e desativa o motor quando o programa desaparece");
+
+		// Instalar e iniciar sessão: script com o comando oficial, numa janela visível
+		const win = core.claudeSetupScript("win", null);
+		assert.ok(win.includes('powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"'));
+		assert.ok(win.includes('set "CLAUDE_EXE=%USERPROFILE%\\.local\\bin\\claude.exe"'));
+		assert.ok(win.includes('call "%CLAUDE_EXE%"'));
+		assert.ok(win.split("\r\n").filter(l => l.startsWith("echo ") && l !== "echo.").every(l => !/[^\^][&|<>]/.test(l.slice(5))), "echo sem caracteres especiais por escapar");
+		const winExisting = core.claudeSetupScript("win", "C:\\Users\\Ana Silva\\AppData\\Roaming\\npm\\claude.cmd");
+		assert.ok(winExisting.includes('set "CLAUDE_EXE=C:\\Users\\Ana Silva\\AppData\\Roaming\\npm\\claude.cmd"'));
+		assert.ok(core.claudeSetupScript("win", 'C:\\x"&calc').includes("%USERPROFILE%"), "caminho com aspas é recusado");
+		const mac = core.claudeSetupScript("unix", null, "/Users/ana");
+		assert.ok(mac.startsWith("#!/bin/bash"));
+		assert.ok(mac.includes("curl -fsSL https://claude.ai/install.sh | bash"));
+		assert.ok(mac.includes('CLAUDE_EXE="/Users/ana/.local/bin/claude"'));
+		assert.ok(core.claudeSetupScript("unix", "/tmp/$(rm -rf ~)/claude", "/Users/ana").includes('CLAUDE_EXE="/Users/ana/.local/bin/claude"'), "caminho com $ é recusado");
+		const calls = [];
+		core.runProcess = async (cmd, args) => { calls.push({ cmd, args }); return { exitCode: 0, stdout: "", stderr: "" }; };
+		env.Zotero.isMac = false;
+		env.Zotero.isWin = true;
+		core.setPref("claude.lastTest", "fail");
+		const r = await core.openClaudeSetup();
+		assert.equal(r.opened, true);
+		assert.equal(JSON.stringify(calls[0].args.slice(0, 3)), JSON.stringify(["/c", "start", "Claude Code"]));
+		assert.ok(calls[0].args[3].endsWith("claude-code-setup.cmd"));
+		assert.ok(fs.readFileSync(calls[0].args[3], "utf8").includes("install.ps1"));
+		assert.equal(core.pref("claude.lastTest"), "", "volta a Falta testar");
+		env.Zotero.isWin = false;
+		assert.equal((await core.openClaudeSetup()).opened, false, "Linux: usa a alternativa manual");
+		console.log("OK Claude Code: botão Instalar e iniciar sessão abre o comando oficial numa janela visível, sem aceitar caminhos perigosos");
+	}
+	// Guardar uma resposta como nota filha do artigo (erro "Library ID not provided" na 0.4.0)
+	{
+		const env3 = createEnv({});
+		const p = env3.addPaper({ title: "Artigo", date: "2022", creators: [{ lastName: "Mote" }], pdf: "/x.pdf", key: "MOTE" });
+		const d = await env3.core.describeItem(p.parent);
+		d.id = "D1";
+		const note = await env3.core.saveNote({ markdown: "Resumo [D1:p2].", heading: "Resumo · Mote 2022", docs: [d], docsMap: { D1: d }, engine: "gemini", collectionIDs: [] });
+		assert.equal(note.parentID, p.parent.id, "nota filha do artigo");
+		assert.equal(note.libraryID, 1);
+		assert.match(note.getNote(), /zotero:\/\/open-pdf/);
+		const e2 = await env3.core.describeItem(p.parent);
+		e2.id = "D2";
+		const note2 = await env3.core.saveNote({ markdown: "Comparação [D1:p1] [D2:p1].", heading: "Comparação", docs: [d, e2], docsMap: { D1: d, D2: e2 }, engine: "gemini", collectionIDs: [5] });
+		assert.equal(note2.parentID, false, "com vários artigos: nota independente");
+		assert.equal(note2.libraryID, 1);
+		console.log("OK notas: guardar como nota filha e como nota independente");
+	}
 	console.log("\nTodos os testes do Claude API e do cofre de chaves passaram.");
 })().catch(e => { console.error("FALHOU:", e); process.exit(1); });
