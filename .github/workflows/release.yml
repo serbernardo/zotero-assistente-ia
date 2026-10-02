@@ -1,10 +1,13 @@
-# Publica uma versão nova do addon quando se cria uma etiqueta v<versão> (por exemplo v0.4.0).
+# Publica uma versão nova do addon quando o ramo main recebe um número de versão novo
+# (campo "version" do addon/manifest.json). Não é preciso criar etiquetas: a release
+# cria a etiqueta v<versão> sozinha. Se essa versão já estiver publicada, não faz nada.
 # A release fica com o .xpi e o updates.json, que o Zotero consulta para se atualizar sozinho.
 name: Publicar versão
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,16 +20,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Confirmar que a etiqueta coincide com a versão do manifest.json
-        run: |
-          V=$(python -c "import json;print(json.load(open('addon/manifest.json'))['version'])")
-          test "v$V" = "${GITHUB_REF_NAME}" || { echo "Etiqueta ${GITHUB_REF_NAME} diferente da versão v$V"; exit 1; }
-      - name: Empacotar
-        run: python build.py
-      - name: Criar a release
+      - name: Ver se esta versão já está publicada
+        id: version
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            "dist/assistente-ia-${GITHUB_REF_NAME#v}.xpi" dist/updates.json \
-            --title "Assistente IA ${GITHUB_REF_NAME}" --generate-notes
+          V=$(python -c "import json;print(json.load(open('addon/manifest.json'))['version'])")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" >/dev/null 2>&1; then
+            echo "A versão v$V já está publicada. Nada a fazer."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Empacotar
+        if: steps.version.outputs.publish == 'true'
+        run: python build.py
+      - name: Criar a release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$V" \
+            "dist/assistente-ia-$V.xpi" dist/updates.json \
+            --target "$GITHUB_SHA" \
+            --title "Assistente IA v$V" --generate-notes
