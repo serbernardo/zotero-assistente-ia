@@ -342,7 +342,10 @@ Gera `dist/assistente-ia-0.7.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto 
 
 ## Creditos
 
-Sergio Bernardo (sem email por agora). Grupo "Creditos" no fim das definicoes
+Sergio Bernardo (sem email por agora). O repositorio e publico: os commits ficam em nome
+de "SBHG <web@ipsisnet.com>" (`git -c user.name=SBHG -c user.email=web@ipsisnet.com commit`),
+sem linhas Co-Authored-By nem Claude-Session. Versoes novas: commit no `main` e etiqueta
+`v<versao>` (a acao do GitHub cria a release com o `.xpi`). Grupo "Creditos" no fim das definicoes
 (nome da app, versao e autor; sem data) e campo `author` do manifest. Nao mostrar
 autoria do Claude no addon, na documentacao nem nos commits.
 
@@ -355,6 +358,4 @@ autoria do Claude no addon, na documentacao nem nos commits.
 - Evitar ponto e virgula
 - Evitar gerundio (preferir a construcao "a" + infinitivo, por exemplo
   "a abrir" em vez de "abrindo")
-- O utilizador (SBHG) trabalha em HR Technology / Oracle HCM, nao e
-  developer: nas explicacoes e nos textos de commit, manter linguagem
-  simples e direta
+- Nas explicacoes e nos textos de commit, manter linguagem simples e direta
