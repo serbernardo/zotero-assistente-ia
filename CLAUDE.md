@@ -278,8 +278,10 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Atualizacoes:** `update_url` do manifest aponta para
   `releases/latest/download/updates.json` do GitHub. `build.py` gera o
   `updates.json` com o sha256 do `.xpi`. A acao
-  `.github/workflows/release.yml` publica a release quando se cria a etiqueta
-  `v<versao>`. So funciona com o repositorio publico. Botao "Procurar
+  `.github/workflows/release.yml` publica a release sozinha quando o `main` recebe
+  uma versao nova do `manifest.json` (cria a etiqueta `v<versao>`; se ja existir, nao
+  faz nada). Esta sessao nao consegue enviar etiquetas, por isso nao ha etiquetas
+  manuais. As atualizacoes automaticas so funcionam com o repositorio publico. Botao "Procurar
   atualizacoes agora" (`checkForUpdates`, AddonManager).
 - **Contas gratuitas:** ChatGPT (Codex) e Gemini funcionam com contas
   gratuitas. A conta gratuita do Claude nao da acesso ao Claude Code nem a API.
@@ -344,8 +346,8 @@ Gera `dist/assistente-ia-0.7.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto 
 
 Sergio Bernardo (sem email por agora). O repositorio e publico: os commits ficam em nome
 de "SBHG <web@ipsisnet.com>" (`git -c user.name=SBHG -c user.email=web@ipsisnet.com commit`),
-sem linhas Co-Authored-By nem Claude-Session. Versoes novas: commit no `main` e etiqueta
-`v<versao>` (a acao do GitHub cria a release com o `.xpi`). Grupo "Creditos" no fim das definicoes
+sem linhas Co-Authored-By nem Claude-Session. Versoes novas: subir a versao no
+`manifest.json` e enviar para o `main` (a acao do GitHub cria a release com o `.xpi`). Grupo "Creditos" no fim das definicoes
 (nome da app, versao e autor; sem data) e campo `author` do manifest. Nao mostrar
 autoria do Claude no addon, na documentacao nem nos commits.
 
