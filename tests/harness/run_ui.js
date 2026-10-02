@@ -182,7 +182,7 @@ async function main() {
 	// ---------- Interface em inglês ----------
 	{
 		const page = await open("?mode=section&ui=en", { width: 420, height: 800 });
-		assert.equal(await page.textContent('button[data-action="resumo"]'), "Summarise");
+		assert.equal(await page.textContent('button[data-action="resumo"]'), "Summary");
 		assert.equal(await page.textContent('.zia-tab[data-group="compreender"]'), "Understand");
 		assert.equal(await page.textContent(".zia-send"), "Send ➤");
 		assert.match(await page.locator(".zia-suggestion").first().textContent(), /research question/);
@@ -273,7 +273,7 @@ async function main() {
 		await page.click('button[data-action="resumo"]');
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "clicar numa ação não envia logo");
 		assert.equal(await page.getAttribute('button[data-action="resumo"]', "aria-pressed"), "true");
-		assert.equal(await page.textContent(".zia-pending-chip"), "Resumir✕");
+		assert.equal(await page.textContent(".zia-pending-chip"), "Resumo✕");
 		assert.equal(await page.textContent(".zia-send"), "Enviar ➤");
 		await page.click('button[data-action="resumo"]');
 		assert.equal(await page.isHidden(".zia-pending"), true, "clicar outra vez cancela a escolha");
@@ -292,13 +292,13 @@ async function main() {
 		await act(page, "pontos");
 		await page.waitForFunction(() => document.querySelectorAll(".zia-conv-tab").length === 2 && !document.querySelector(".zia-send.zia-stop"));
 		assert.equal(await page.locator(".zia-msg-assistant").count(), 1, "o separador Pontos-chave só tem a sua resposta");
-		assert.match(await page.textContent(".zia-conv-tab >> nth=0"), /Resumir/);
+		assert.match(await page.textContent(".zia-conv-tab >> nth=0"), /Resumo/);
 		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /Pontos-chave/);
 		await page.screenshot({ path: path.join(OUT, "ui_painel_separadores.png") });
 		// escolher uma ação já pedida abre o separador dela, sem repetir o pedido
 		const before = await page.evaluate(() => window.lastPrompt);
 		await page.click('button[data-action="resumo"]');
-		assert.equal(await page.getAttribute(".zia-conv-tab >> nth=0", "aria-selected"), "true", "abre o separador Resumir");
+		assert.equal(await page.getAttribute(".zia-conv-tab >> nth=0", "aria-selected"), "true", "abre o separador Resumo");
 		assert.match(await page.textContent(".zia-status"), /Já pediste/);
 		assert.equal(await page.evaluate(() => window.lastPrompt), before, "nada foi enviado");
 		await page.click('button[data-action="resumo"]');
@@ -393,7 +393,7 @@ async function main() {
 		await page.evaluate(() => { window.MOCK.answer = "Resposta B [D1:p2]."; });
 		await act(page, "resumo");
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && [...document.querySelectorAll(".zia-msg-assistant")].some(e => /Resposta B/.test(e.textContent)));
-		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "Teoria e Resumir em separadores diferentes");
+		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "Teoria e Resumo em separadores diferentes");
 		// guardar como nota a partir do botão por cima do texto
 		await page.evaluate(() => { window.saved = []; const o = ZoteroIA.saveNote; ZoteroIA.saveNote = async a => { window.saved.push(a.heading); return o(a); }; });
 		await page.click(".zia-msg-assistant >> nth=0 >> button:has-text(\"Guardar como nota\")");
@@ -423,11 +423,11 @@ async function main() {
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "sem critérios, nada é enviado");
 		await page.fill(".zia-textarea", "estudos empíricos, desde 2018");
 		await page.click(".zia-send");
-		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
+		await page.waitForSelector("text=Resumo da seleção", { timeout: 30000 });
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
 		assert.match(await page.evaluate(() => window.lastPrompt), /estudos empíricos, desde 2018/);
 		assert.equal(await page.locator("text=TRIAGEM: INCLUIR").count(), 0, "a linha técnica não aparece");
-		const summary = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
+		const summary = page.locator(".zia-msg-assistant", { hasText: "Resumo da seleção" });
 		assert.equal(await summary.locator(".zia-table tbody tr").count(), 2, "uma linha por artigo");
 		assert.match(await summary.textContent(), /Incluir: 2 · Excluir: 0 · Duvidoso: 0/);
 		assert.equal(await summary.locator("button:has-text(\"Exportar tabela (CSV)\")").count(), 1);

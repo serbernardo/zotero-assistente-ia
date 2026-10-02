@@ -339,7 +339,7 @@ test("textos: troca de língua e resolução automática", () => {
 	assert.equal(I.resolve("en", "pt-PT"), "en");
 	try {
 		I.setLang("en");
-		assert.equal(L.ACTIONS.resumo.label, "Summarise");
+		assert.equal(L.ACTIONS.resumo.label, "Summary");
 		assert.equal(L.ACTION_GROUPS[0].label, "Understand");
 		assert.equal(L.shortAuthor([]), "No author");
 		assert.equal(L.yearFrom(""), "n.d.");
@@ -352,7 +352,7 @@ test("textos: troca de língua e resolução automática", () => {
 	finally {
 		I.setLang("pt-PT");
 	}
-	assert.equal(L.ACTIONS.resumo.label, "Resumir");
+	assert.equal(L.ACTIONS.resumo.label, "Resumo");
 	assert.equal(L.buildSystemPrompt("ui"), L.SYSTEM_PROMPT);
 	assert.deepEqual(L.FICHA_NOTE_PREFIXES, ["Ficha IA", "AI Sheet"]);
 });

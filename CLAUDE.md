@@ -17,10 +17,14 @@ painel (sectionButton `zoteroia-lang`, `toggleLanguage`, `showLang` troca o icon
 Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`):
 Compreender (resumo, pontos, simples, conceitos, esquema: resumo e esquema adaptam-se
 a teses, revisoes e textos teoricos, o esquema passa a indice de temas com paginas),
+Nomes atuais na interface (PT/EN): Compreender/Understand, Avaliar/Appraise, Extrair/Extract
+(grupo `escrever`), Investigar/Future research, Comparar/Compare. Acoes: Resumo/Summary,
+Explicacao simples/Plain-language summary, Metodos e dados, Ficha de leitura, Perguntas de
+investigacao/Research questions, Selecao por criterios/Screening (acao `triagem`).
 Avaliar (critica: tipo de estudo e grelha CONSORT/STROBE/PRISMA/COREQ/CASP/JBI e
 "Apreciacao global" marcada como opiniao da IA, sem GRADE; metodos; afirmacoes e
 evidencia: acao `conclusoes`, o id fica por causa do historico, tabela Afirmacao |
-Tipo | Suporte no texto | Avaliacao e [Pouco claro] nas ambiguas), Escrever (ficha, excertos, revisao, palavras-chave: acao `etiquetas`, extrai as
+Tipo | Suporte no texto | Avaliacao e [Pouco claro] nas ambiguas), Extrair (grupo `escrever`: ficha, excertos, revisao, palavras-chave: acao `etiquetas`, extrai as
 palavras-chave do autor e os termos principais e adiciona-as como etiquetas do Zotero),
 Investigar (lacunas, perguntas), Comparar (visao geral com pontos fortes e fracos,
 metodos, resultados, conceitos, sintese, triagem; so na janela grande, no painel o separador "Comparar ↗"
@@ -128,7 +132,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   simples. O APA oficial usa "&" no parentesis tambem em portugues.
   As letras do formato simples (`disambiguateRefs`) seguem a ordem alfabetica do
   titulo, como o APA.
-- **Fichas no separador Escrever:** botao "i" ao lado de "Ficha" com a explicacao e
+- **Fichas no separador Extrair:** botao "i" ao lado de "Ficha de leitura" com a explicacao e
   os 14 campos (com financiamento e conflitos de interesse) (`_fichaInfoEl`, campos em `ficha.info.fields`). Lista "Fichas:" com
   os artigos da conversa (`_fichasListEl`): as que existem abrem a nota do Zotero,
   as que faltam criam-se com um clique e ficam logo guardadas como nota
@@ -333,7 +337,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
