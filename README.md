@@ -11,10 +11,10 @@ No **painel lateral de cada artigo** e no **leitor de PDF** (ícone de estrelas 
 | Separador | Ações |
 |---|---|
 | **Compreender** | Resumir, Pontos-chave, Explicar simples (sem jargão), Conceitos (glossário com as definições dos autores), Esquema do argumento |
-| **Avaliar** | Avaliação crítica (pontos fortes, fragilidades, riscos de enviesamento, qualidade da evidência), Método e dados (com tabela dos resultados numéricos), Conclusões |
+| **Avaliar** | Avaliação crítica (tipo de estudo e grelha adequada, pontos fortes, fragilidades, riscos de enviesamento), Método e dados (com tabela dos resultados numéricos), Afirmações e evidência (separa dados de interpretações e mostra as afirmações com pouco suporte) |
 | **Escrever** | Ficha de extração, Excertos citáveis (citações literais com página), Revisão de literatura (texto corrido por temas), Palavras-chave (do autor e do texto, adicionadas ao item como etiquetas com um clique) |
 | **Investigar** | Lacunas de investigação, Novas perguntas de investigação (com desenho de estudo sugerido) |
-| **Comparar** | Visão geral, Métodos, Resultados, Conceitos e teorias, Síntese para revisão (abre sozinho quando juntas 2 PDFs) |
+| **Comparar** | Visão geral, Métodos, Resultados, Conceitos e teorias, Síntese para revisão, Triagem por critérios (incluir, excluir ou duvidoso, artigo a artigo) |
 | **Personalizado** | As tuas próprias ações, criadas e editadas no painel |
 
 Também podes fazer **perguntas livres**, em conversa. Quando o painel está vazio, aparecem sugestões de perguntas úteis.
@@ -37,7 +37,7 @@ Em **todas as respostas**: citações clicáveis, **Guardar como nota**, **Expor
 
 1. No Zotero: **Ferramentas → Plugins**
 2. Roda dentada → **Install Plugin From File…**
-3. Escolhe o ficheiro `assistente-ia-0.7.2.xpi`
+3. Escolhe o ficheiro `assistente-ia-0.7.3.xpi`
 
 Precisa do Zotero 8 ou superior.
 

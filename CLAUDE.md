@@ -15,11 +15,15 @@ painel (sectionButton `zoteroia-lang`, `toggleLanguage`, `showLang` troca o icon
 (zotero://open-pdf/library/items/<key>?page=<n>).
 
 Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`):
-Compreender (resumo, pontos, simples, conceitos, esquema), Avaliar (critica,
-metodos, conclusoes), Escrever (ficha, excertos, revisao, palavras-chave: acao `etiquetas`, extrai as
+Compreender (resumo, pontos, simples, conceitos, esquema: resumo e esquema adaptam-se
+a teses, revisoes e textos teoricos, o esquema passa a indice de temas com paginas),
+Avaliar (critica: tipo de estudo e grelha CONSORT/STROBE/PRISMA/COREQ/CASP/JBI e
+"Apreciacao global" marcada como opiniao da IA, sem GRADE; metodos; afirmacoes e
+evidencia: acao `conclusoes`, o id fica por causa do historico, tabela Afirmacao |
+Tipo | Suporte no texto | Avaliacao e [Pouco claro] nas ambiguas), Escrever (ficha, excertos, revisao, palavras-chave: acao `etiquetas`, extrai as
 palavras-chave do autor e os termos principais e adiciona-as como etiquetas do Zotero),
-Investigar (lacunas, perguntas), Comparar (visao geral, metodos, resultados,
-conceitos, sintese; so na janela grande, no painel o separador "Comparar ↗"
+Investigar (lacunas, perguntas), Comparar (visao geral com pontos fortes e fracos,
+metodos, resultados, conceitos, sintese, triagem; so na janela grande, no painel o separador "Comparar ↗"
 abre a janela com os PDFs da conversa) e
 Personalizado (prompts do utilizador,
 pref `custom.prompts`, uma linha "Nome: instrucao").
@@ -125,7 +129,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   As letras do formato simples (`disambiguateRefs`) seguem a ordem alfabetica do
   titulo, como o APA.
 - **Fichas no separador Escrever:** botao "i" ao lado de "Ficha" com a explicacao e
-  os 13 campos (`_fichaInfoEl`, campos em `ficha.info.fields`). Lista "Fichas:" com
+  os 14 campos (com financiamento e conflitos de interesse) (`_fichaInfoEl`, campos em `ficha.info.fields`). Lista "Fichas:" com
   os artigos da conversa (`_fichasListEl`): as que existem abrem a nota do Zotero,
   as que faltam criam-se com um clique e ficam logo guardadas como nota
   (`_createFicha`). As fichas so existem como notas do Zotero (uma so copia).
@@ -172,6 +176,14 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   pede sempre confirmacao. Sem limite automatico. O historico antigo (tudo numa
   conversa) e separado por acao ao abrir (`_splitByAction`). Ficheiro de historico versao 2
   (`conversations`, `active`); a versao 1 ainda se le.
+- **Triagem por criterios** (acao `triagem`, grupo comparar, `perDoc`,
+  `needsCriteria`): sem criterios na caixa de texto nao envia e a acao fica escolhida.
+  Um pedido por PDF: tabela "Verificacao dos criterios" e so depois a decisao. Ultima
+  linha tecnica `TRIAGEM: INCLUIR|EXCLUIR|DUVIDOSO` (`parseScreening`, retirada do texto
+  com `removeScreeningLine`). No fim a app junta "Resumo da triagem"
+  (`screeningSummary`, `_addScreeningSummary`), sem motor e sem "Repetir", com CSV.
+  Botao "i" (`_triagemInfoEl`). Nunca pedir "raciocinio" a IA: o filtro do Sonnet 5.5
+  recusa isso como extracao do pensamento interno (`reasoning_extraction`).
 - **Sem titulo repetido:** numa acao a bolha do pedido fica escondida
   (`_hideRepeatedAsks`) e as indicacoes aparecem ao lado do nome da acao
   (`.zia-action-extra`). As perguntas livres mantem a bolha.
@@ -277,7 +289,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (34), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (36), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -294,6 +306,7 @@ npm install
   carrega em todos os botoes, separadores e ligacoes das definicoes (cada um tem
   de fazer alguma coisa e nenhum pode dar erro). O `run_ui.js` faz o mesmo para
   os botoes do painel
+- `ONLY=<acoes>` corre so essas acoes (ex.: `ONLY=triagem,critica`).
 - `CLAUDE_PATH=<exe> node tests/harness/run_ai_real.js claude` ou
   `GEMINI_API_KEY=<chave> node tests/harness/run_ai_real.js gemini` — todas as
   acoes com a IA REAL, mais perguntas-armadilha (informacao que nao existe,
@@ -320,7 +333,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

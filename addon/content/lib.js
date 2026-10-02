@@ -133,6 +133,7 @@ var ZIALib = (function () {
 		"| Limitações declaradas | |",
 		"| Trabalho futuro declarado | |",
 		"| Contributo principal | Uma frase |",
+		"| Financiamento e conflitos de interesse | Como declarados pelos autores |",
 		"| Palavras-chave | |",
 	].join("\n");
 
@@ -157,7 +158,10 @@ var ZIALib = (function () {
 			minDocs: 1,
 			prompt: "Faz um resumo estruturado de 150 a 250 palavras para cada documento, "
 				+ "com as secções Contexto, Objetivo, Método, Resultados e Conclusão. "
-				+ "Cada secção leva citações. Com vários documentos, usa um título ## por documento.",
+				+ "Cada secção leva citações. Com vários documentos, usa um título ## por documento.\n"
+				+ "Se o documento não for um estudo empírico (por exemplo, revisão, texto teórico, relatório, tese "
+				+ "ou capítulo), diz primeiro que tipo de documento é e adapta as secções: Contexto, Objetivo, "
+				+ "Argumento principal, Ideias centrais e Conclusão. Nunca descrevas um método ou resultados que o documento não tem.",
 		},
 		pontos: {
 			group: "compreender",
@@ -185,17 +189,28 @@ var ZIALib = (function () {
 			minDocs: 1,
 			prompt: "Faz um esquema hierárquico do argumento de cada documento, com listas encaixadas: "
 				+ "Pergunta de investigação, Hipóteses ou proposições, Método, Resultados principais, "
-				+ "Conclusão e Limitações. Cada ramo leva citação.",
+				+ "Conclusão e Limitações. Cada ramo leva citação.\n"
+				+ "Se o documento não for um artigo empírico ou for longo (tese, relatório, livro ou capítulo), faz antes "
+				+ "um índice dos temas principais, pela ordem do documento, com listas encaixadas: cada tema com as páginas "
+				+ "onde é tratado e uma frase sobre o que diz, com citação.",
 		},
 		critica: {
 			group: "avaliar",
 			minDocs: 1,
 			prompt: "Faz uma avaliação crítica, equilibrada e construtiva da qualidade científica de cada documento, com as secções:\n"
+				+ "## Tipo de estudo e grelha de referência: o tipo de estudo, tal como o documento o descreve (por exemplo, "
+				+ "ensaio aleatorizado, estudo observacional, revisão sistemática, estudo qualitativo, métodos mistos ou texto "
+				+ "teórico), e a grelha de avaliação ou de relato que se lhe aplica (por exemplo, CONSORT, STROBE, PRISMA, "
+				+ "COREQ, SRQR, CASP ou JBI). Usa os critérios principais dessa grelha nas secções seguintes. O nome da grelha "
+				+ "e os seus critérios são o único conhecimento de fora dos documentos que podes usar: tudo o que dizes sobre o "
+				+ "documento vem do texto, com citação. Se o tipo de estudo não for claro, di-lo e não escolhas grelha.\n"
 				+ "## Pontos fortes\n"
 				+ "## Fragilidades e ameaças à validade: validade interna, externa, de construto e estatística, quando se aplicarem\n"
 				+ "## Riscos de enviesamento: seleção, medição, análise, publicação e conflitos de interesse declarados\n"
 				+ "## Coerência entre dados e conclusões: os resultados sustentam as conclusões?\n"
-				+ "## Qualidade global da evidência: alta, moderada, baixa ou muito baixa, com uma justificação curta\n"
+				+ "## Apreciação global: duas a três frases, marcadas como [Inferência]. Termina com a frase: esta é uma "
+				+ "apreciação da IA e não substitui a aplicação formal da grelha. Não uses escalas de certeza da evidência "
+				+ "(como o GRADE), que se aplicam a conjuntos de estudos e não a um documento isolado.\n"
 				+ "Separa [Declarado], o que os autores reconhecem, de [Inferência], a tua avaliação. Sê específico.",
 		},
 		metodos: {
@@ -212,9 +227,18 @@ var ZIALib = (function () {
 			group: "avaliar",
 			minDocs: 1,
 			fichasOK: true,
-			prompt: "Apresenta as conclusões dos autores, marcadas como [Declarado], e, numa secção separada, "
-				+ "as implicações que inferes, marcadas como [Inferência]. Com vários documentos, acrescenta "
-				+ "uma secção com as conclusões partilhadas e outra com as conclusões divergentes.",
+			// Afirmações e evidência (o id "conclusoes" mantém-se por causa do histórico guardado)
+			prompt: "Não resumas. Analisa as afirmações principais de cada documento e o suporte que o próprio texto lhes dá.\n"
+				+ "1. Uma tabela Markdown com 8 a 15 afirmações, incluindo as conclusões dos autores, e as colunas: "
+				+ "Afirmação (uma frase, com a citação), Tipo (Dado ou resultado medido, Interpretação dos autores, "
+				+ "ou Especulação e recomendação), Suporte no texto (os dados, a análise ou a referência a outro estudo que "
+				+ "os autores apresentam, ou \"Nenhum indicado\") e Avaliação (Sim, Em parte ou Não: o suporte sustenta "
+				+ "a afirmação? Uma frase, marcada como [Inferência]).\n"
+				+ "2. ## Afirmações mais sólidas: as 3 com melhor suporte no texto.\n"
+				+ "3. ## Afirmações com suporte fraco: as que soam seguras mas têm pouco ou nenhum suporte no texto. "
+				+ "Assinala as que só se apoiam numa referência a outro estudo e indica essa referência, para o utilizador a verificar.\n"
+				+ "4. Com vários documentos: ## Onde os documentos discordam.\n"
+				+ "Se uma afirmação for ambígua, marca-a como [Pouco claro] em vez de a interpretar.",
 		},
 		ficha: {
 			group: "escrever",
@@ -264,11 +288,14 @@ var ZIALib = (function () {
 			prompt: "Compara os documentos entre si.\n"
 				+ "1. Uma tabela Markdown com uma linha por documento e as colunas: Documento, Objetivo, "
 				+ "Método, Amostra e contexto, Resultados principais, Limitações. Na coluna Documento "
-				+ "usa o identificador (D1, D2...).\n"
-				+ "2. ## Convergências: pontos em que os documentos concordam, com a lista de documentos em cada ponto.\n"
-				+ "3. ## Divergências: resultados ou interpretações em conflito e possíveis explicações "
+				+ "usa o autor e o ano.\n"
+				+ "2. ## Pontos fortes e fracos: para cada documento, uma linha com o que faz bem (método, dados ou "
+				+ "clareza dos resultados) e uma com as fragilidades. Separa [Declarado], o que os autores reconhecem, "
+				+ "de [Inferência].\n"
+				+ "3. ## Convergências: pontos em que os documentos concordam, com a lista de documentos em cada ponto.\n"
+				+ "4. ## Divergências: resultados ou interpretações em conflito e possíveis explicações "
 				+ "(método, contexto, amostra), marcadas como [Inferência].\n"
-				+ "4. ## Leitura de conjunto: 3 a 5 frases.",
+				+ "5. ## Leitura de conjunto: 3 a 5 frases.",
 		},
 		cmp_metodos: {
 			group: "comparar",
@@ -311,14 +338,30 @@ var ZIALib = (function () {
 				+ "dos documentos em que se apoia. Mostra onde os documentos concordam e onde discordam.\n"
 				+ "No fim: ## O que estes documentos não permitem concluir.",
 		},
+		triagem: {
+			group: "comparar",
+			minDocs: 1,
+			perDoc: true,
+			needsCriteria: true,
+			prompt: "Verifica se este documento cumpre os critérios de inclusão e de exclusão escritos pelo utilizador "
+				+ "nas indicações adicionais, para a triagem de uma revisão de literatura. Apresenta, por esta ordem:\n"
+				+ "## Verificação dos critérios: uma tabela Markdown com as colunas Critério, Cumpre? (Sim, Não ou "
+				+ "Não é claro) e Evidência no documento (com citação). Se o documento não disser nada sobre um critério, "
+				+ "escreve Não é claro e não o deduzas.\n"
+				+ "## Decisão: Incluir (cumpre todos os critérios), Excluir (falha claramente pelo menos um critério) ou "
+				+ "Duvidoso (falta informação para decidir), com uma frase sobre o motivo, baseada na tabela. Se for "
+				+ "Duvidoso, diz que informação faltou.\n"
+				+ "Na última linha da resposta, escreve exatamente uma destas três linhas, sem traduzir: "
+				+ "TRIAGEM: INCLUIR, TRIAGEM: EXCLUIR ou TRIAGEM: DUVIDOSO",
+		},
 		lacunas: {
 			group: "investigar",
 			minDocs: 1,
 			fichasOK: true,
 			prompt: "Identifica lacunas de investigação em três partes.\n"
 				+ "## A. Lacunas declaradas: agrupa por tema as limitações e o trabalho futuro que os autores "
-				+ "referem. Indica quantos documentos referem cada tema.\n"
-				+ "## B. Lacunas inferidas: a partir do conjunto, procura o que falta: contexto (países, "
+				+ "referem. Com vários documentos, indica quantos referem cada tema.\n"
+				+ "## B. Lacunas inferidas: a partir do documento ou do conjunto, procura o que falta: contexto (países, "
 				+ "populações, setores ausentes), método (por exemplo, apenas estudos transversais), tempo "
 				+ "(dados antigos), teoria (enquadramentos nunca usados ou testados) e contradições por resolver. "
 				+ "Cada lacuna inferida indica os documentos que a sustentam e um grau de confiança: alta, média "
@@ -422,6 +465,39 @@ var ZIALib = (function () {
 	/** Retira a linha técnica das etiquetas (as etiquetas aparecem como botões). */
 	function removeTagLine(text) {
 		return String(text || "").replace(TAG_LINE_RE, "").replace(/\s+$/, "");
+	}
+
+	const SCREEN_LINE_RE = /^[\s>*_-]*(?:TRIAGEM|SCREENING)[\s*_]*:[\s*_]*(INCLUIR|EXCLUIR|DUVIDOSO|INCLUDE|EXCLUDE|UNCLEAR|MAYBE)\b.*$/gim;
+
+	/** Lê a decisão da triagem ("TRIAGEM: INCLUIR") no fim de uma resposta: incluir, excluir, duvidoso ou null. */
+	function parseScreening(text) {
+		const re = new RegExp(SCREEN_LINE_RE.source, "gim");
+		let m, last = null;
+		while ((m = re.exec(String(text || "")))) last = m[1].toUpperCase();
+		if (!last) return null;
+		return { INCLUIR: "incluir", INCLUDE: "incluir", EXCLUIR: "excluir", EXCLUDE: "excluir" }[last] || "duvidoso";
+	}
+
+	/** Retira a linha técnica da triagem (a decisão aparece no resumo). */
+	function removeScreeningLine(text) {
+		return String(text || "").replace(SCREEN_LINE_RE, "").replace(/\s+$/, "");
+	}
+
+	/** Tabela de resumo da triagem, com uma linha por artigo, na língua da interface. */
+	function screeningSummary(rows, criteria) {
+		const label = d => t("triagem.decision." + (d || "none"));
+		const count = k => rows.filter(r => r.decision === k).length;
+		return [
+			t("triagem.summary.criteria") + " " + String(criteria || "").replace(/\s+/g, " ").trim(),
+			"",
+			"| " + t("triagem.summary.article") + " | " + t("triagem.summary.decision") + " |",
+			"|---|---|",
+			...rows.map(r => `| ${String(r.ref).replace(/\|/g, "/")} | ${label(r.decision)} |`),
+			"",
+			`**${label("incluir")}: ${count("incluir")} · ${label("excluir")}: ${count("excluir")} · ${label("duvidoso")}: ${count("duvidoso")}**`,
+			"",
+			t("triagem.summary.note"),
+		].join("\n");
 	}
 
 	/** Lê a linha "ETIQUETAS: a | b | c" no fim de uma resposta. */
@@ -2016,7 +2092,7 @@ var ZIALib = (function () {
 	return {
 		SYSTEM_PROMPT, LANGUAGES, languageInfo, buildSystemPrompt,
 		ACTIONS, ACTION_ORDER, ACTION_GROUPS, FICHA_NOTE_PREFIX, FICHA_NOTE_PREFIXES, fichaPrefix, FICHA_TEMPLATE, I18N: I,
-		parseCustomPrompts, setCustomPrompt, removeCustomPrompt, cleanCustomPrompt, parseTagLine, removeTagLine,
+		parseCustomPrompts, setCustomPrompt, removeCustomPrompt, cleanCustomPrompt, parseTagLine, removeTagLine, parseScreening, removeScreeningLine, screeningSummary,
 		escapeHTML, escapeXMLAttr, cleanPageText, splitPages, shortAuthor, yearFrom,
 		stripReferences, choosePages, fitDocuments, omittedRanges, neutralizeTags, buildDocumentBlock,
 		buildRequestParts, buildRequest, actionPrompt,

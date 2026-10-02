@@ -340,7 +340,17 @@ var ZIAChatView = class {
 				info.setAttribute("aria-expanded", this._fichaInfoOpen ? "true" : "false");
 				box.appendChild(info);
 			}
+			// Triagem: botão "i" com o que faz e como se usa
+			if (a.id === "triagem") {
+				const info = this._button("i", "zia-info-btn zia-triagem-info", () => {
+					this._triagemInfoOpen = !this._triagemInfoOpen;
+					this._renderActions();
+				}, this.T("triagem.info.tip"));
+				info.setAttribute("aria-expanded", this._triagemInfoOpen ? "true" : "false");
+				box.appendChild(info);
+			}
 		}
+		if (this.group === "comparar" && this._triagemInfoOpen) box.appendChild(this._triagemInfoEl());
 		// Na janela, a lista das fichas aparece também em Comparar (onde se usam)
 		if (this.mode === "window" && this.group === "comparar") {
 			const fl = this._fichasListEl();
@@ -376,6 +386,20 @@ var ZIAChatView = class {
 			}
 		}
 		this._updateButtons();
+	}
+
+	/** Explicação da triagem: para que serve, os passos e os cuidados. */
+	_triagemInfoEl() {
+		const box = this._el("div", "zia-info-panel zia-triagem-panel");
+		box.setAttribute("role", "note");
+		box.appendChild(this._button("×", "zia-info-close", () => { this._triagemInfoOpen = false; this._renderActions(); }, this.T("chat.dismiss")));
+		box.appendChild(this._el("div", "zia-info-title", this.T("triagem.info.title")));
+		box.appendChild(this._el("p", null, this.T("triagem.info.what")));
+		const ol = this._el("ol", "zia-info-fields");
+		for (const f of this.T("triagem.info.steps").split("|")) ol.appendChild(this._el("li", null, f.trim()));
+		box.appendChild(ol);
+		box.appendChild(this._el("p", "zia-muted", this.T("triagem.info.note")));
+		return box;
 	}
 
 	/** Explicação das fichas: o que são, onde ficam e os campos. */
@@ -1010,6 +1034,23 @@ var ZIAChatView = class {
 		}
 	}
 
+	/** Resumo da triagem: tabela feita pela app com a decisão sugerida para cada artigo. */
+	_addScreeningSummary(rows, criteria, docs) {
+		const m = {
+			role: "assistant",
+			text: this.L.screeningSummary(rows, criteria),
+			actionID: "triagem",
+			actionLabel: this.T("triagem.summary.title"),
+			heading: this._heading({ title: this.T("triagem.summary.title") }, docs),
+			docIDs: docs.map(d => d.id),
+			time: Date.now(),
+		};
+		this.state.messages.push(m);
+		this._appendMessage(m);
+		this._hideRepeatedAsks();
+		this._persist();
+	}
+
 	_persist() {
 		this._ensureConvs();
 		this._renderConvTabs();
@@ -1147,6 +1188,13 @@ var ZIAChatView = class {
 		if (text == null && this.selectedAction) {
 			const id = this.selectedAction;
 			const extra = this.textarea.value.trim();
+			// Sem os critérios, a ação continua escolhida: basta escrevê-los e enviar outra vez
+			const chosen = this._action(id);
+			if (chosen && chosen.needsCriteria && !extra) {
+				this._setStatus(this.T("chat.triagem.needCriteria"), "warn");
+				this.textarea.focus();
+				return;
+			}
 			this.selectedAction = null;
 			this._renderPending();
 			this.textarea.value = "";
@@ -1187,6 +1235,12 @@ var ZIAChatView = class {
 			prompt: (base.prompt || "") + "\n\n" + this.T("chat.extraPrefix") + " " + extra,
 			label: `${base.label} · ${extra.length > 80 ? extra.slice(0, 77) + "…" : extra}`,
 		}) : base;
+		// A triagem precisa dos critérios do utilizador, escritos na caixa de texto
+		if (base.needsCriteria && !(extra && extra.trim())) {
+			this._setStatus(this.T("chat.triagem.needCriteria"), "warn");
+			this.textarea.focus();
+			return;
+		}
 		const docs = this.state.docs.slice();
 		if (docs.length < a.minDocs) {
 			this._setStatus(this.T("chat.actionNeeds", { label: a.label, n: a.minDocs }), "warn");
@@ -1199,16 +1253,25 @@ var ZIAChatView = class {
 		}
 		// Um pedido por documento (cada resposta fica numa nota própria)
 		if (a.perDoc) {
+			const rows = [];
 			for (const d of docs) {
-				const ok = await this._ask({
+				const msg = await this._ask({
 					promptText: this.L.actionPrompt(a, [d]),
 					display: `${a.label}: ${d.shortRef}`,
 					heading: actionID === "ficha" ? `${this.L.fichaPrefix()} · ${d.shortRef}` : `${a.title} · ${d.shortRef}`,
 					actionID,
 					docs: [d],
 					noHistory: true,
+					returnMessage: true,
 				});
-				if (!ok) break;
+				if (!msg) break;
+				rows.push({ ref: d.ref || d.shortRef, decision: msg.screening || null });
+				if (msg.error) break;
+			}
+			// Triagem: no fim, uma tabela com a decisão sugerida para cada artigo (os que ficaram por fazer aparecem sem resposta)
+			if (actionID === "triagem" && rows.length) {
+				for (const d of docs.slice(rows.length)) rows.push({ ref: d.ref || d.shortRef, decision: null });
+				this._addScreeningSummary(rows, extra, docs);
 			}
 			return;
 		}
@@ -1364,6 +1427,10 @@ var ZIAChatView = class {
 			if (res.rateLimit) botMsg.usageNote = this.L.formatRateLimit(res.rateLimit) || botMsg.usageNote;
 			if (res.notice) botMsg.usageNote = res.notice;
 			botMsg.tokensNote = this.L.formatUsage(res.usage, engine);
+			if (actionID === "triagem") {
+				botMsg.screening = this.L.parseScreening(botMsg.text);
+				botMsg.text = this.L.removeScreeningLine(botMsg.text);
+			}
 			if (actionID === "etiquetas") {
 				botMsg.tags = this.L.parseTagLine(botMsg.text);
 				if (botMsg.tags.length) botMsg.text = this.L.removeTagLine(botMsg.text);
@@ -1890,7 +1957,8 @@ var ZIAChatView = class {
 				}
 			}, this.T("chat.exportCsv.tip")));
 		}
-		for (const other of this._otherReadyEngines(m.engine).slice(0, 2)) {
+		// O resumo da triagem é feito pela app, não por um motor: não há nada para repetir
+		if (m.request) for (const other of this._otherReadyEngines(m.engine).slice(0, 2)) {
 			row.appendChild(this._button(this.T("chat.retryWith", { engine: this.core.engineLabel(other) }), "zia-btn-small zia-btn-quiet", () => this._retry(m, other)));
 		}
 		return row;

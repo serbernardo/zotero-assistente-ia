@@ -397,7 +397,7 @@ test("instruções: só a informação dos documentos, sem suposições", () => 
 		assert.match(sp, /Não inventes, não suponhas/);
 		assert.match(sp, /Uma inferência nunca acrescenta factos novos/);
 	}
-	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_sintese"]);
+	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_sintese", "triagem"]);
 });
 
 test("histórico: só as últimas trocas e com limite de tamanho", () => {
@@ -477,4 +477,38 @@ test("os identificadores D1 e D2 nunca aparecem a quem lê", () => {
 	assert.equal(L.replaceDocIds("No documento D2 há 40 casos.", map), "Em Costa, 2019 há 40 casos.");
 	assert.equal(L.replaceDocIds("D1 usa inquéritos.", map), "Silva et al., 2021 usa inquéritos.");
 	assert.equal(L.replaceDocIds("D3 e vitamina D", map), "D3 e vitamina D");
+});
+
+test("triagem: decisão lida da última linha, retirada do texto e resumida numa tabela", () => {
+	assert.equal(L.parseScreening("## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR"), "incluir");
+	assert.equal(L.parseScreening("**TRIAGEM:** EXCLUIR"), "excluir");
+	assert.equal(L.parseScreening("TRIAGEM: DUVIDOSO"), "duvidoso");
+	assert.equal(L.parseScreening("SCREENING: INCLUDE"), "incluir");
+	assert.equal(L.parseScreening("Sem linha técnica"), null);
+	assert.equal(L.removeScreeningLine("Raciocínio [D1:p2].\n\nTRIAGEM: EXCLUIR"), "Raciocínio [D1:p2].");
+	const md = L.screeningSummary([
+		{ ref: "Silva et al., 2021", decision: "incluir" },
+		{ ref: "Costa, 2019", decision: "excluir" },
+		{ ref: "Reis, 2020", decision: null },
+	], "estudos empíricos desde 2018");
+	assert.match(md, /Critérios: estudos empíricos desde 2018/);
+	assert.match(md, /\| Silva et al., 2021 \| Incluir \|/);
+	assert.match(md, /\| Reis, 2020 \| Sem resposta \|/);
+	assert.match(md, /Incluir: 1 · Excluir: 1 · Duvidoso: 0/);
+	assert.equal(L.extractTables(md).length, 1, "a tabela pode ser exportada para CSV");
+	assert.ok(L.ACTIONS.triagem.needsCriteria && L.ACTIONS.triagem.perDoc);
+});
+
+test("ações revistas: afirmações e evidência, grelha de avaliação, documentos que não são artigos", () => {
+	const A = L.ACTIONS;
+	assert.match(A.conclusoes.prompt, /Suporte no texto/);
+	assert.match(A.conclusoes.prompt, /\[Pouco claro\]/);
+	assert.match(A.critica.prompt, /CONSORT, STROBE, PRISMA/);
+	assert.doesNotMatch(A.critica.prompt, /Qualidade global da evidência/);
+	assert.match(A.resumo.prompt, /não for um estudo empírico/);
+	assert.match(A.esquema.prompt, /índice dos temas/);
+	assert.doesNotMatch(A.comparar.prompt, /D1, D2/);
+	assert.match(A.comparar.prompt, /Pontos fortes e fracos/);
+	assert.match(A.ficha.prompt, /Financiamento e conflitos de interesse/);
+	assert.match(A.lacunas.prompt, /Com vários documentos, indica quantos/);
 });

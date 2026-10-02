@@ -138,7 +138,7 @@ async function main() {
 		await page.waitForSelector(".zia-chip");
 		assert.equal(await page.isHidden(".zia-picker"), true);
 		// "i" junto de "Usar fichas" e lista das fichas em Comparar
-		await page.click(".zia-info-btn");
+		await page.click(".zia-info-btn:not(.zia-triagem-info)");
 		await page.waitForSelector(".zia-info-panel");
 		assert.equal(await page.locator(".zia-fichas-list").count(), 1);
 		console.log("OK janela: + PDF com seletor e pesquisa, i das fichas junto de Usar fichas");
@@ -404,6 +404,39 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Janela: triagem por critérios ----------
+	{
+		const page = await open("?mode=window", { width: 820, height: 900 });
+		await addAll(page);
+		await page.waitForSelector(".zia-chip >> nth=1");
+		await page.evaluate(() => { window.MOCK.answer = "## Verificação dos critérios\n- Estudo empírico: Sim [D1:p1].\n\n## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR"; });
+		// botão i com o que faz e os passos
+		await page.click(".zia-triagem-info");
+		await page.waitForSelector(".zia-triagem-panel");
+		assert.equal(await page.locator(".zia-triagem-panel li").count(), 4, "quatro passos explicados");
+		await page.click(".zia-triagem-panel .zia-info-close");
+		assert.equal(await page.locator(".zia-triagem-panel").count(), 0);
+		// sem critérios não envia
+		await page.click('button[data-action="triagem"]');
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Escreve primeiro os critérios");
+		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "sem critérios, nada é enviado");
+		await page.fill(".zia-textarea", "estudos empíricos, desde 2018");
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
+		assert.match(await page.evaluate(() => window.lastPrompt), /estudos empíricos, desde 2018/);
+		assert.equal(await page.locator("text=TRIAGEM: INCLUIR").count(), 0, "a linha técnica não aparece");
+		const summary = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
+		assert.equal(await summary.locator(".zia-table tbody tr").count(), 2, "uma linha por artigo");
+		assert.match(await summary.textContent(), /Incluir: 2 · Excluir: 0 · Duvidoso: 0/);
+		assert.equal(await summary.locator("button:has-text(\"Exportar tabela (CSV)\")").count(), 1);
+		assert.equal(await summary.locator("button:has-text(\"Repetir com\")").count(), 0, "o resumo é da app, não se repete");
+		await page.screenshot({ path: path.join(OUT, "ui_janela_triagem.png") });
+		console.log("OK triagem: pede os critérios, um pedido por artigo, resumo com a decisão de cada um e exportação CSV");
+		await page.close();
+	}
+
 	// ---------- Cancelamento ----------
 	{
 		const page = await open("?mode=section", { width: 420, height: 700 });
@@ -464,9 +497,9 @@ async function main() {
 			window.MOCK.answer = "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p3] |";
 		});
 		await tab(page, "escrever");
-		await page.click(".zia-info-btn");
+		await page.click(".zia-info-btn:not(.zia-triagem-info)");
 		await page.waitForSelector(".zia-info-panel");
-		assert.equal(await page.locator(".zia-info-fields li").count(), 13, "a explicação lista os campos da ficha");
+		assert.equal(await page.locator(".zia-info-fields li").count(), 14, "a explicação lista os campos da ficha");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_ficha_info.png") });
 		await page.click(".zia-info-close");
 		assert.equal(await page.locator(".zia-info-panel").count(), 0);

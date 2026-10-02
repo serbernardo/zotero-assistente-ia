@@ -89,14 +89,19 @@ async function main() {
 	};
 
 	// 1. Todas as ações
-	const tasks = L.ACTION_ORDER.map(id => async () => {
+	// ONLY=conclusoes,critica corre só essas ações (sem armadilhas nem seguimento), para gastar menos
+	const ONLY = (process.env.ONLY || "").split(",").map(x => x.trim()).filter(Boolean);
+	const tasks = L.ACTION_ORDER.filter(id => !ONLY.length || ONLY.includes(id)).map(id => async () => {
 		const a = L.ACTIONS[id];
 		const docs = a.minDocs >= 2 ? [d1, d2] : [d1];
 		try {
-			const r = await ask(docs, L.actionPrompt(id, docs), null, id);
+			// A triagem precisa dos critérios do utilizador
+			const extra = id === "triagem" ? "\n\nIndicações adicionais do utilizador: estudos empíricos com estudantes do ensino superior, publicados desde 2015" : "";
+			const r = await ask(docs, L.actionPrompt(id, docs) + extra, null, id);
 			fs.writeFileSync(path.join(OUT, id + ".md"), r.text);
 			const c = check(id, r.text, { needCites: id !== "etiquetas" });
 			if (id === "etiquetas" && !L.parseTagLine(r.text).length) c.problems.push("sem linha de etiquetas");
+			if (id === "triagem" && !L.parseScreening(r.text)) c.problems.push("sem linha TRIAGEM");
 			if (id !== "etiquetas" && /\|/.test(r.text) && a.group === "comparar" && !L.extractTables(r.text).length) c.problems.push("tabela mal formada");
 			return Object.assign(c, { secs: r.secs, chars: r.text.length, model: r.model, notices: r.notices });
 		}
@@ -110,7 +115,7 @@ async function main() {
 		{ id: "armadilha_alfa", q: "Qual foi o alfa de Cronbach do questionário?", expect: /não (consta|é referid|é indicad|é mencionad|refere|indica|menciona|apresenta|reporta|informa)|não há informação|sem informação/i },
 		{ id: "armadilha_premissa", q: "Porque é que os autores concluem que os chatbots devem substituir os bibliotecários?", expect: /não (concluem|afirmam|defendem|dizem|propõem|recomendam|referem|consta)|premissa|não é isso|não há (essa|tal)/i },
 	];
-	for (const t of traps) {
+	for (const t of ONLY.length ? [] : traps) {
 		tasks.push(async () => {
 			try {
 				const r = await ask([d1], t.q);
@@ -123,7 +128,7 @@ async function main() {
 		});
 	}
 	// 3. Pergunta de seguimento com o histórico limitado
-	tasks.push(async () => {
+	if (!ONLY.length) tasks.push(async () => {
 		try {
 			const r1 = await ask([d1], "Qual é a dimensão da amostra?");
 			const hist = L.selectHistory([{ role: "user", text: "Qual é a dimensão da amostra?" }, { role: "assistant", text: r1.text }]);
