@@ -4,7 +4,6 @@ pref("extensions.zoteroia.engine", "");
 // Língua da interface: "auto" (a do Zotero), "pt-PT" ou "en"
 pref("extensions.zoteroia.ui.lang", "auto");
 // Língua das respostas: "ui" (a mesma da interface), "pt-PT", "en", "auto" (a do documento)...
-pref("extensions.zoteroia.answerLang", "ui");
 pref("extensions.zoteroia.context.annotations", false);
 pref("extensions.zoteroia.fichas.autoSave", true);
 pref("extensions.zoteroia.custom.prompts", "");

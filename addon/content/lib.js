@@ -248,9 +248,12 @@ var ZIALib = (function () {
 			group: "escrever",
 			minDocs: 1,
 			perDoc: true,
-			prompt: "Sugere 5 a 10 etiquetas (tags) para organizar este documento numa biblioteca Zotero: tema, método, "
-				+ "população ou contexto, e teoria. Etiquetas curtas (1 a 3 palavras), em minúsculas e sem cardinal. "
-				+ "Para cada etiqueta, escreve uma linha com a justificação e a citação. "
+			prompt: "Extrai as palavras-chave do documento. Primeiro, se o documento tiver uma lista de palavras-chave "
+				+ "(por exemplo \"Palavras-chave\" ou \"Keywords\"), copia-as exatamente como estão, com a citação. "
+				+ "Depois acrescenta até 8 termos principais que o texto usa e que a lista não tenha: tema, método, "
+				+ "população ou contexto, e teoria. Separa as duas partes com os títulos \"Palavras-chave do autor\" e "
+				+ "\"Termos principais do texto\" (sem a primeira parte se o documento não tiver lista). Termos curtos "
+				+ "(1 a 3 palavras), em minúsculas e sem cardinal. Para cada termo, escreve uma linha com a justificação e a citação. "
 				+ "Na última linha da resposta, escreve exatamente, sem traduzir a palavra ETIQUETAS:\n"
 				+ "ETIQUETAS: etiqueta 1 | etiqueta 2 | etiqueta 3",
 		},

@@ -31,7 +31,7 @@ ${x}
 	window.opened = []; window.calls = []; window.copied = null;
 	window.Services = { prompt: { confirm: () => true } };
 	const prefs = { engine: "gemini", "gemini.key": "", "gemini.model": "gemini-3.5-flash-lite", "gemini.modelStrong": "auto",
-		"gemini.defaultApplied": true, "ui.lang": "pt-PT", answerLang: "ui", "claude.model": "sonnet", "history.save": true };
+		"gemini.defaultApplied": true, "ui.lang": "pt-PT", "claude.model": "sonnet", "history.save": true };
 	window.PREFS = prefs;
 	window.Zotero = {
 		debug: () => {}, logError: e => console.error(e), locale: "pt-PT",

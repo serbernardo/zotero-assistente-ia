@@ -93,6 +93,16 @@ function registerSection(pluginID, rootURI) {
 		},
 		sectionButtons: [
 			{
+				// Língua da app: mostra PT ou EN e troca com um clique
+				type: "zoteroia-lang",
+				icon: rootURI + "content/icons/lang-pt16.svg",
+				l10nID: "zoteroia-section-lang",
+				onClick: ({ body }) => {
+					ZoteroIA.toggleLanguage();
+					showLang(body, rootURI);
+				},
+			},
+			{
 				type: "zoteroia-open-window",
 				icon: rootURI + "content/icons/window16.svg",
 				l10nID: "zoteroia-section-open-window",
@@ -126,6 +136,7 @@ function registerSection(pluginID, rootURI) {
 				views.set(body, view);
 			}
 			view.showItem(item).catch(e => Zotero.logError(e));
+			showLang(body, rootURI);
 		},
 		onDestroy: ({ body }) => {
 			const view = views.get(body);
@@ -135,6 +146,19 @@ function registerSection(pluginID, rootURI) {
 			}
 		},
 	});
+}
+
+/** O botão da língua mostra PT ou EN, conforme a língua atual da app. */
+function showLang(body, rootURI) {
+	try {
+		const section = body && body.closest && body.closest("collapsible-section");
+		const btn = section && section.querySelector(".zoteroia-lang");
+		if (!btn) return;
+		const icon = `url('${rootURI}content/icons/lang-${ZoteroIA.lib.I18N.getLang() === "en" ? "en" : "pt"}16.svg')`;
+		btn.style.setProperty("--custom-button-icon-light", icon);
+		btn.style.setProperty("--custom-button-icon-dark", icon);
+	}
+	catch (e) { Zotero.logError(e); }
 }
 
 function registerMenus(pluginID, rootURI) {

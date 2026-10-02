@@ -7,13 +7,17 @@ subscricao Pro/Max atraves do Claude Code em subprocesso (`claude`), ChatGPT
 com chave da API da OpenAI (`openai`), ChatGPT com a conta do utilizador,
 gratuita ou paga, atraves do Codex CLI em subprocesso (`codex`) e Gemini com
 chave da API (`gemini`). Interface em PT-PT e ingles (`content/i18n.js`,
-pref `ui.lang`: auto, pt-PT, en). Todas as respostas citam a pagina do PDF em formato
+pref `ui.lang`: auto, pt-PT, en). As respostas da IA saem sempre na lingua da app
+(`buildSystemPrompt("ui")`, ja nao ha opcao propria). Botao PT/EN no titulo do
+painel (sectionButton `zoteroia-lang`, `toggleLanguage`, `showLang` troca o icone
+`lang-pt16.svg`/`lang-en16.svg`). Todas as respostas citam a pagina do PDF em formato
 [Dn:pX], que fica clicavel e abre o PDF nessa pagina
 (zotero://open-pdf/library/items/<key>?page=<n>).
 
 Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`):
 Compreender (resumo, pontos, simples, conceitos, esquema), Avaliar (critica,
-metodos, conclusoes), Escrever (ficha, excertos, revisao, etiquetas),
+metodos, conclusoes), Escrever (ficha, excertos, revisao, palavras-chave: acao `etiquetas`, extrai as
+palavras-chave do autor e os termos principais e adiciona-as como etiquetas do Zotero),
 Investigar (lacunas, perguntas), Comparar (visao geral, metodos, resultados,
 conceitos, sintese; so na janela grande, no painel o separador "Comparar ↗"
 abre a janela com os PDFs da conversa) e
@@ -168,6 +172,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   pede sempre confirmacao. Sem limite automatico. O historico antigo (tudo numa
   conversa) e separado por acao ao abrir (`_splitByAction`). Ficheiro de historico versao 2
   (`conversations`, `active`); a versao 1 ainda se le.
+- **Sem titulo repetido:** numa acao a bolha do pedido fica escondida
+  (`_hideRepeatedAsks`) e as indicacoes aparecem ao lado do nome da acao
+  (`.zia-action-extra`). As perguntas livres mantem a bolha.
 - **Respostas:** Copiar e Guardar como nota ficam por cima do texto. O titulo
   tem so a acao e o x (nunca recolhe). O motor, o modelo e o consumo ficam por
   baixo do texto (`.zia-msg-meta`). Rodape do painel so com
@@ -313,7 +320,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

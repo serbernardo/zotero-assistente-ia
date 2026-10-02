@@ -81,7 +81,6 @@ window.ZIAPrefs = {
 		this.initUILanguage();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
-		this.initAnswerLanguage();
 		this.initCiteStyle();
 		this.initCustomPrompts();
 		this.translate();
@@ -107,7 +106,6 @@ window.ZIAPrefs = {
 		this.showBuildInfo();
 		const cmd = this.$("zia-claude-command");
 		if (cmd) cmd.textContent = this.core().claudeInstallCommand();
-		this.fillAnswerLanguage();
 		if (this._fillCiteStyle) this._fillCiteStyle();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
@@ -175,20 +173,6 @@ window.ZIAPrefs = {
 			sel._ziaBound = true;
 			sel.addEventListener("change", () => core.setPref("cite.style", sel.value));
 		}
-	},
-
-	initAnswerLanguage() {
-		const sel = this.$("zia-answer-lang");
-		if (!sel) return;
-		sel.addEventListener("change", () => this.core().setPref("answerLang", sel.value));
-	},
-
-	fillAnswerLanguage() {
-		const core = this.core();
-		const sel = this.$("zia-answer-lang");
-		if (!sel) return;
-		const cur = core.pref("answerLang") || "ui";
-		this.fillSelect(sel, core.lib.LANGUAGES.map(l => [l.id, l.label]), core.lib.LANGUAGES.some(l => l.id === cur) ? cur : "ui");
 	},
 
 	// ------------------------------------------------------------------

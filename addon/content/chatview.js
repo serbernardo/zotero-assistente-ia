@@ -424,7 +424,7 @@ var ZIAChatView = class {
 		}
 		const msg = await this._ask({
 			promptText: this.L.actionPrompt("ficha", [d]),
-			display: `${this._action("ficha").label}: ${d.id} ${d.shortRef}`,
+			display: `${this._action("ficha").label}: ${d.shortRef}`,
 			heading: `${this.L.fichaPrefix()} · ${d.shortRef}`,
 			actionID: "ficha",
 			docs: [d],
@@ -1042,7 +1042,7 @@ var ZIAChatView = class {
 				if (ci >= 0 && ci !== this.state.active) this._switchTo(ci);
 				prev.collapsed = false;
 				this._renderMessage(prev);
-				this._applyCollapse();
+				this._hideRepeatedAsks();
 				if (prev.el && prev.el.scrollIntoView) prev.el.scrollIntoView({ block: "start", behavior: "smooth" });
 				if (prev.el) {
 					prev.el.classList.add("zia-flash");
@@ -1296,11 +1296,11 @@ var ZIAChatView = class {
 			docIDs: docs.map(d => d.id), request: { promptText, display, heading, actionID, docs, noHistory },
 			asked: display, time: Date.now(),
 		};
-		// As respostas anteriores ficam recolhidas (só o título): a conversa não fica corrida
+		// Pergunta e resposta entram juntas na conversa
 		this.state.messages.push(userMsg, botMsg);
 		this._appendMessage(userMsg);
 		this._appendMessage(botMsg);
-		this._applyCollapse();
+		this._hideRepeatedAsks();
 		this.busy = true;
 		this.abort = new this.win.AbortController();
 		this._updateButtons();
@@ -1341,7 +1341,7 @@ var ZIAChatView = class {
 			this._renderMessage(botMsg);
 			// 3. Motor
 			const res = await this.core.runEngine(engine, {
-				system: this.L.buildSystemPrompt(this.core.pref("answerLang")),
+				system: this.L.buildSystemPrompt("ui"),
 				prompt,
 				promptParts,
 				heavy: this.L.isHeavyTask({ actionID: actionID && String(actionID).split(":")[0] === "custom" ? null : actionID, docCount: docs.length }),
@@ -1641,7 +1641,7 @@ var ZIAChatView = class {
 			return;
 		}
 		for (const m of this.state.messages) this._appendMessage(m);
-		this._applyCollapse();
+		this._hideRepeatedAsks();
 	}
 
 	_appendMessage(m) {
@@ -1665,13 +1665,14 @@ var ZIAChatView = class {
 	}
 
 	/** Esconde a pergunta de cada resposta recolhida (o título da resposta já diz o que foi pedido). */
-	_applyCollapse() {
+	_hideRepeatedAsks() {
 		const list = this.state.messages;
 		for (let i = 0; i < list.length; i++) {
 			const m = list[i];
 			if (m.role !== "user" || !m.el) continue;
 			const next = list[i + 1];
-			m.el.hidden = !!(next && next.role === "assistant" && next.collapsed);
+			// Numa ação, o título da resposta (com o x) já diz o que foi pedido: sem repetir
+			m.el.hidden = !!(next && next.role === "assistant" && next.actionLabel);
 		}
 	}
 
@@ -1708,6 +1709,12 @@ var ZIAChatView = class {
 		m.collapsed = false;
 		el.classList.remove("zia-collapsed");
 		head.appendChild(this._el("span", "zia-action-tag", m.actionLabel || this.T("chat.question")));
+		// Indicações ou artigo do pedido ("Resumir · foca a metodologia", "Ficha: Silva 2021")
+		const asked = String(m.asked || "");
+		if (m.actionLabel && asked.startsWith(m.actionLabel) && asked.length > m.actionLabel.length) {
+			const extra = asked.slice(m.actionLabel.length).replace(/^\s*[·:]\s*/, "");
+			if (extra) head.appendChild(this._el("span", "zia-action-extra", extra));
+		}
 		// Qualquer resposta pode ser retirada da conversa, depois de confirmar
 		if (!m.pending) {
 			const del = this._button("×", "zia-msg-del", ev => {

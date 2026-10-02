@@ -12,7 +12,7 @@ No **painel lateral de cada artigo** e no **leitor de PDF** (ícone de estrelas 
 |---|---|
 | **Compreender** | Resumir, Pontos-chave, Explicar simples (sem jargão), Conceitos (glossário com as definições dos autores), Esquema do argumento |
 | **Avaliar** | Avaliação crítica (pontos fortes, fragilidades, riscos de enviesamento, qualidade da evidência), Método e dados (com tabela dos resultados numéricos), Conclusões |
-| **Escrever** | Ficha de extração, Excertos citáveis (citações literais com página), Revisão de literatura (texto corrido por temas), Sugerir etiquetas (adiciona tags ao item com um clique) |
+| **Escrever** | Ficha de extração, Excertos citáveis (citações literais com página), Revisão de literatura (texto corrido por temas), Palavras-chave (do autor e do texto, adicionadas ao item como etiquetas com um clique) |
 | **Investigar** | Comparar PDFs, Lacunas de investigação, Novas perguntas de investigação (com desenho de estudo sugerido) |
 | **Os meus** | As tuas próprias ações, criadas nas definições |
 
@@ -34,7 +34,7 @@ Em **todas as respostas**: citações clicáveis, **Guardar como nota**, **Expor
 
 1. No Zotero: **Ferramentas → Plugins**
 2. Roda dentada → **Install Plugin From File…**
-3. Escolhe o ficheiro `assistente-ia-0.7.1.xpi`
+3. Escolhe o ficheiro `assistente-ia-0.7.2.xpi`
 
 Precisa do Zotero 8 ou superior.
 

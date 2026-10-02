@@ -67,6 +67,14 @@ var ZoteroIA = {
 		return this.lib.I18N.setLang(this.lib.I18N.resolve(pref, Zotero.locale));
 	},
 
+	/** Troca a língua da app entre português e inglês (botão PT/EN no título do painel). */
+	toggleLanguage() {
+		const next = this.lib.I18N.getLang() === "en" ? "pt-PT" : "en";
+		this.setPref("ui.lang", next);
+		this.applyLanguage();
+		return next;
+	},
+
 	t(key, vars) {
 		return this.lib.I18N.t(key, vars);
 	},

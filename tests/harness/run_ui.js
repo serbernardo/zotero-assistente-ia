@@ -172,9 +172,10 @@ async function main() {
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "a sugestão só preenche a caixa");
 		await page.click(".zia-send");
 		await page.waitForSelector("text=The main finding");
-		assert.match(await page.evaluate(() => window.lastSystem), /inglês/);
+		// a antiga preferência "língua das respostas" já não conta: a resposta segue a língua da app
+		assert.match(await page.evaluate(() => window.lastSystem), /português europeu/);
 		assert.match(await page.locator(".zia-msg-user").first().textContent(), /pergunta de investigação/);
-		console.log("OK sugestão de pergunta enviada, respostas em inglês");
+		console.log("OK sugestão de pergunta enviada, respostas na língua da app");
 		await page.close();
 	}
 
@@ -284,6 +285,9 @@ async function main() {
 		await page.waitForSelector("text=Guardar como nota");
 		assert.match(await page.evaluate(() => window.lastPrompt), /Indicações adicionais do utilizador: foca a metodologia/);
 		assert.equal(await page.locator('button[data-action="resumo"].zia-done').count(), 1, "ação já pedida fica marcada");
+		// sem título repetido: a bolha do pedido some e as indicações ficam ao lado do nome da ação
+		assert.equal(await page.locator(".zia-msg-user:visible").count(), 0, "ação sem bolha repetida");
+		assert.equal(await page.textContent(".zia-msg-assistant .zia-action-extra"), "foca a metodologia");
 		// cada ação tem o seu separador
 		await act(page, "pontos");
 		await page.waitForFunction(() => document.querySelectorAll(".zia-conv-tab").length === 2 && !document.querySelector(".zia-send.zia-stop"));
