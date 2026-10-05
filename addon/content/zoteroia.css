@@ -1610,3 +1610,9 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-guide-cmd > span:first-child { font-size: 11.5px; color: var(--zia-fg2, #3f4555); min-width: 150px; }
 .zia-guide-cmd .zia-command { user-select: all; overflow-wrap: anywhere; }
 .zia-guide-foot { margin-top: 6px; gap: 8px; align-items: center; }
+
+/* Separador das chaves de API em destaque: contorno dourado e etiqueta "Recomendado" */
+.zia-etab.zia-etab-api { border: 1px solid var(--zia-gold, #f2c200); border-bottom-color: transparent; }
+.zia-etab.zia-etab-api.selected { border-bottom-color: var(--zia-bg, #fff); }
+.zia-etab-pill { margin-inline-start: 6px; padding: 0 6px; border-radius: 8px; font-size: 10px; font-weight: 700; line-height: 16px; background: var(--zia-gold, #f2c200); color: #111729; white-space: nowrap; }
+.zia-guide-time { margin: 2px 0; color: var(--zia-fg2, #3f4555); }
