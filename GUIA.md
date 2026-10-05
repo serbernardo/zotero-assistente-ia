@@ -65,7 +65,7 @@ Abre **Editar → Definições** (Windows) ou **Zotero → Settings** (macOS) �
 | **Gemini, chave da API** | Gratuita ou paga | Quota gratuita diária | Criar uma chave em aistudio.google.com |
 | **Claude, subscrição** | Pro ou Max | Sem custos extra, conta para os limites da subscrição | Instalar o Claude Code e iniciar sessão uma vez |
 | **ChatGPT, conta ChatGPT** | Gratuita ou paga | Sem custos extra, conta para os limites da tua conta | Instalar o Codex e iniciar sessão uma vez |
-| **IAEdu** | Conta da tua instituição | Os limites do IAEdu e da tua instituição | Criar um agente e copiar o endereço, o canal e a chave |
+| **IAEdu** | Conta da tua instituição | Os limites do IAEdu e da tua instituição | Criar um agente e copiar o Endpoint da API, o ID do Canal e a Chave da API |
 
 **Contas gratuitas:** as opções gratuitas são o **Gemini** e o **ChatGPT com conta gratuita (Codex)**. A conta gratuita do Claude não dá acesso ao Claude Code nem à API.
 
@@ -105,12 +105,12 @@ O crédito expira ao fim de um ano e não é reembolsável.
 ### IAEdu (agente da tua instituição)
 
 1. Entra em https://iaedu.pt com a conta da tua instituição
-2. Cria um agente: em **Agentes**, **Criar agente**, com um nome à tua escolha e a visibilidade em **Privado**. Nas instruções do agente basta uma linha, por exemplo: *Responde apenas com base no texto que receberes*
+2. Precisas de um agente. Se alguém da tua instituição te partilhou um, pede-lhe o **Endpoint da API** e o **ID do Canal** (nunca a chave dela) e salta para o passo 4. Se não, cria o teu: em **Agentes**, **Criar agente**, com um nome à tua escolha e a visibilidade em **Privado**. Nas instruções do agente basta uma linha, por exemplo: *Responde apenas com base no texto que receberes*
 3. Na lista de modelos, carrega na roda dentada do modelo que o agente usa (por exemplo, GPT-5.5) e escolhe **Informação da API**. A roda dentada está no cartão do modelo, não no do agente
-4. Copia os três valores: o endereço (com o identificador do teu agente, a acabar em `/stream`), o ID do canal e a chave
-5. Nas definições do Assistente IA, separador **IAEdu**, cola os três valores e carrega em **Guardar e testar**
+4. Copia os três valores: o **Endpoint da API** (com o identificador do teu agente, a terminar com `stream`), o **ID do Canal** e a **Chave da API**. A chave é pessoal e não se partilha
+5. Nas definições do Assistente IA, separador **IAEdu**, cola os três valores e carrega em **Guardar e testar**. Se um agente partilhado falhar com a tua chave, cria o teu
 
-O endereço tem de ser do domínio iaedu.pt. A chave só é enviada para lá. Confirma as regras de uso do IAEdu e da tua instituição antes de enviares artigos.
+O endpoint tem de ser do domínio iaedu.pt. A chave só é enviada para lá. Confirma as regras de uso do IAEdu e da tua instituição antes de enviares artigos.
 
 ## Segurança e privacidade
 

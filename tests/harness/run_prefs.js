@@ -166,7 +166,7 @@ async function main() {
 		["codex", null, "codex", ["npm install -g @openai/codex", "codex login", "nodejs.org"]],
 		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $", "2 minutos"]],
 		["outros", "openai", "openai", ["platform.openai.com/api-keys", "Plus ou Pro", "5 $"]],
-		["iaedu", null, "iaedu", ["iaedu.pt", "Criar agente", "roda dentada", "Informação da API", "ID do canal", "/stream"]],
+		["iaedu", null, "iaedu", ["iaedu.pt", "Criar agente", "roda dentada", "Informação da API", "Endpoint da API", "ID do Canal", "Chave da API", "nunca a chave dela"]],
 	]) {
 		const pg = await open();
 		await pg.click(`.zia-etab[data-engine="${tab}"]`);
@@ -215,7 +215,7 @@ async function main() {
 		await pg.fill("#zia-iaedu-endpoint", "https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream");
 		await pg.fill("#zia-iaedu-channel", "curto");
 		await pg.click("#zia-iaedu-save");
-		assert.match(await state(), /canal/, "canal inválido recusado");
+		assert.match(await state(), /Canal/, "canal inválido recusado");
 		assert.equal(await pg.evaluate(() => window.iaeduCall || null), null, "nada saiu até estar tudo certo");
 		await pg.fill("#zia-iaedu-channel", "canal-de-teste-01");
 		await pg.click("#zia-iaedu-save");
