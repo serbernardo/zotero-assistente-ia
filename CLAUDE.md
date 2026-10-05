@@ -225,6 +225,12 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   também pelos pedidos reais na conversa. O motor em uso nunca aparece "Por
   configurar": sem teste mostra "Falta testar". O Claude Code tambem e procurado na
   pasta da aplicacao Claude para computador.
+- **Instrucoes de cada motor** (`GUIDES`, `renderGuides`, `guideText` em
+  `preferences.js`, textos `guide.<motor>.*`): Claude Code, Codex, Claude API e
+  ChatGPT API tem o mesmo bloco: "O que e", "Quanto custa", passos numerados com
+  ligacoes oficiais e comandos com botao Copiar (o do Claude Code em versao Windows e
+  Mac/Linux). "Copiar instrucoes" copia tudo em texto simples, com a ligacao das
+  Releases no fim, para enviar a um colega. Nunca copia chaves.
 - **Instalar e iniciar sessao no Claude Code** (`openClaudeSetup`): depois de
   uma confirmacao, escreve um script na pasta temporaria e abre-o numa janela
   visivel (Windows: `cmd /c start` com um `.cmd`, Mac: Terminal com um
@@ -339,13 +345,13 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.5.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
 
 Sergio Bernardo (sem email por agora). O repositorio e publico: os commits ficam em nome
-de "SBHG <web@ipsisnet.com>" (`git -c user.name=SBHG -c user.email=web@ipsisnet.com commit`),
+do utilizador, "SBHG" com o email da conta dele (`git -c user.name=SBHG -c user.email=<email> commit`),
 sem linhas Co-Authored-By nem Claude-Session. Versoes novas: subir a versao no
 `manifest.json` e enviar para o `main` (a acao do GitHub cria a release com o `.xpi`). Grupo "Creditos" no fim das definicoes
 (nome da app, versao e autor; sem data) e campo `author` do manifest. Nao mostrar

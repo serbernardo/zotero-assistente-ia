@@ -17,6 +17,127 @@ window.ZIAPrefs = {
 		return document.getElementById(id);
 	},
 
+	/**
+	 * Instruções de cada motor: passos com ligações e comandos para copiar.
+	 * Os textos vêm de i18n.js (guide.<motor>.*). "Copiar instruções" copia tudo em texto simples.
+	 */
+	GUIDES: {
+		claude: [
+			{ k: "s1", url: "https://claude.ai/upgrade" },
+			{ k: "s2", cmds: "install", url: "https://code.claude.com/docs/en/setup" },
+			{ k: "s3", cmd: "claude" },
+			{ k: "s4" },
+		],
+		codex: [
+			{ k: "s1", url: "https://nodejs.org/" },
+			{ k: "s2", cmd: "npm install -g @openai/codex" },
+			{ k: "s3", cmd: "codex login" },
+			{ k: "s4" },
+		],
+		anthropic: [
+			{ k: "s1", url: "https://console.anthropic.com/" },
+			{ k: "s2", url: "https://console.anthropic.com/settings/billing" },
+			{ k: "s3", url: "https://console.anthropic.com/settings/keys" },
+			{ k: "s4" },
+		],
+		openai: [
+			{ k: "s1", url: "https://platform.openai.com/signup" },
+			{ k: "s2", url: "https://platform.openai.com/settings/organization/billing/overview" },
+			{ k: "s3", url: "https://platform.openai.com/api-keys" },
+			{ k: "s4" },
+		],
+	},
+
+	/** Comandos de um passo: o de instalação do Claude Code tem uma versão para Windows e outra para Mac e Linux. */
+	_guideCmds(step) {
+		const core = this.core();
+		if (step.cmds === "install") {
+			return [
+				{ label: this.T("guide.win"), cmd: core.CLAUDE_INSTALL_WIN },
+				{ label: this.T("guide.mac"), cmd: core.CLAUDE_INSTALL_UNIX },
+			];
+		}
+		return step.cmd ? [{ label: "", cmd: step.cmd }] : [];
+	},
+
+	/** Copia texto e mostra a confirmação ao lado do botão. */
+	_copy(text, out, msgKey) {
+		try {
+			Zotero.Utilities.Internal.copyTextToClipboard(text);
+			if (out) out.textContent = this.T(msgKey);
+		}
+		catch (e) { this.core().log("Copiar: " + e); }
+	},
+
+	/** Instruções de um motor em texto simples (para colar num email ou enviar a um colega). */
+	guideText(engine) {
+		const steps = this.GUIDES[engine] || [];
+		const lines = [this.T(`guide.${engine}.title`), this.T(`guide.${engine}.what`), this.T(`guide.${engine}.cost`), ""];
+		steps.forEach((s, i) => {
+			lines.push(`${i + 1}. ${this.T(`guide.${engine}.${s.k}`)}`);
+			if (s.url) lines.push(`   ${s.url}`);
+			for (const c of this._guideCmds(s)) lines.push(`   ${c.label ? c.label + ": " : ""}${c.cmd}`);
+		});
+		lines.push("", this.T("guide.footer"));
+		return lines.join("\n");
+	},
+
+	/** Desenha o bloco de instruções de cada motor (refeito quando muda a língua). */
+	renderGuides() {
+		for (const box of document.querySelectorAll(".zia-guide[data-guide]")) {
+			const engine = box.getAttribute("data-guide");
+			while (box.firstChild) box.removeChild(box.firstChild);
+			const what = this.html("p", this.T(`guide.${engine}.what`));
+			what.className = "zia-guide-what";
+			const cost = this.html("p", this.T(`guide.${engine}.cost`));
+			cost.className = "zia-guide-cost";
+			box.append(what, cost);
+			const ol = this.html("ol");
+			ol.className = "zia-steps zia-guide-steps";
+			for (const s of this.GUIDES[engine] || []) {
+				const li = this.html("li");
+				li.append(this.html("span", this.T(`guide.${engine}.${s.k}`)));
+				if (s.url) {
+					const a = this.html("a", s.url.replace(/^https:\/\//, ""));
+					a.className = "zia-link zia-guide-link";
+					a.href = s.url;
+					a.addEventListener("click", ev => {
+						ev.preventDefault();
+						try { Zotero.launchURL(s.url); }
+						catch (e) { this.core().log("Abrir ligação: " + e); }
+					});
+					li.append(" ", a);
+				}
+				for (const c of this._guideCmds(s)) {
+					const row = this.html("div");
+					row.className = "zia-guide-cmd";
+					if (c.label) row.append(this.html("span", c.label));
+					const code = this.html("code", c.cmd);
+					code.className = "zia-command";
+					const btn = this.html("button", this.T("guide.copy"));
+					btn.className = "zia-guide-copy";
+					const done = this.html("span");
+					done.className = "zia-prefs-note";
+					btn.addEventListener("click", () => this._copy(c.cmd, done, "guide.cmdCopied"));
+					row.append(code, btn, done);
+					li.append(row);
+				}
+				ol.append(li);
+			}
+			box.append(ol);
+			const foot = this.html("div");
+			foot.className = "zia-prefs-row zia-guide-foot";
+			const all = this.html("button", this.T("guide.copyAll"));
+			all.className = "zia-guide-copyall";
+			all.title = this.T("guide.copyAllTip");
+			const done = this.html("span");
+			done.className = "zia-prefs-note";
+			all.addEventListener("click", () => this._copy(this.guideText(engine), done, "guide.copied"));
+			foot.append(all, done);
+			box.append(foot);
+		}
+	},
+
 	html(tag, text) {
 		const e = document.createElementNS("http://www.w3.org/1999/xhtml", tag);
 		if (text != null) e.textContent = text;
@@ -53,7 +174,6 @@ window.ZIAPrefs = {
 			on(`zia-${tool}-test`, () => this.test(tool));
 		}
 		on("zia-claude-install", () => this.installClaude());
-		on("zia-claude-copy", () => this.copyClaudeCommand());
 		on("zia-clear-all", () => this.clearAll());
 		on("zia-update-check", () => this.checkUpdates());
 		on("zia-history-clear", async () => {
@@ -104,8 +224,7 @@ window.ZIAPrefs = {
 		if (ta) ta.setAttribute("placeholder", this.T("prefs.prompts.placeholder"));
 		this.setText("zia-version", this.T("prefs.update.version", { v: this.core().version || "?" }));
 		this.showBuildInfo();
-		const cmd = this.$("zia-claude-command");
-		if (cmd) cmd.textContent = this.core().claudeInstallCommand();
+		this.renderGuides();
 		if (this._fillCiteStyle) this._fillCiteStyle();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
@@ -517,16 +636,6 @@ window.ZIAPrefs = {
 		catch (e) {
 			this.setText(out, this.T("prefs.update.error") + "\n" + (e.message || String(e)), true);
 		}
-	},
-
-	copyClaudeCommand() {
-		const core = this.core();
-		try {
-			Zotero.Utilities.Internal.copyTextToClipboard(core.claudeInstallCommand());
-			this.setText("zia-test-result", this.T("prefs.copied"));
-			this.$("zia-test-result").className = "zia-test-result";
-		}
-		catch (e) { core.log("Copiar: " + e); }
 	},
 
 	// ------------------------------------------------------------------

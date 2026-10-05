@@ -1599,3 +1599,14 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 /* Triagem: passos numerados numa só coluna */
 .zia-triagem-panel .zia-info-fields { columns: auto; padding-inline-start: 20px; }
 .zia-triagem-panel .zia-info-fields li { margin: 3px 0; }
+
+/* Instruções de cada motor: o que é, quanto custa, passos com ligações e comandos para copiar */
+.zia-guide { margin: 4px 0 8px; font-size: 12.5px; }
+.zia-guide-what, .zia-guide-cost { margin: 2px 0; color: var(--zia-fg, #111729); }
+.zia-guide-cost { color: var(--zia-fg2, #3f4555); }
+.zia-guide-steps li { margin: 6px 0; }
+.zia-guide-link { overflow-wrap: anywhere; }
+.zia-guide-cmd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.zia-guide-cmd > span:first-child { font-size: 11.5px; color: var(--zia-fg2, #3f4555); min-width: 150px; }
+.zia-guide-cmd .zia-command { user-select: all; overflow-wrap: anywhere; }
+.zia-guide-foot { margin-top: 6px; gap: 8px; align-items: center; }
