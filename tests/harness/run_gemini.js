@@ -105,9 +105,9 @@ function sseResponse(events, status = 200) {
 	const r4 = await core.runGemini({ system: "s", prompt: "p", win: fallbackWin, onInfo: i => notices.push(i.notice) });
 	assert.equal(r4.text, "Com outro modelo");
 	assert.equal(r4.model, "gemini-3.7-flash-lite");
-	assert.match(r4.notice, /gemini-3\.7-flash-lite.*gemini-3\.8-flash.*sobrecarregado/);
+	assert.match(r4.notice, /gemini-3\.7-flash-lite.*gemini-3\.8-flash.*ocupado/);
 	assert.equal(calls.filter(u => u.includes("gemini-3.8-flash:")).length, 4, "quatro tentativas no modelo escolhido");
-	assert.equal(notices.filter(n => /Nova tentativa/.test(n)).length, 3, "avisa cada nova tentativa");
+	assert.equal(notices.filter(n => /A tentar de novo/.test(n)).length, 3, "avisa cada nova tentativa");
 	assert.ok(notices.some(n => /outro modelo Gemini: gemini-3\.7-flash-lite/.test(n)));
 	// Um alternativo sem quota (429) não interrompe: passa ao seguinte
 	calls = [];
@@ -212,8 +212,8 @@ function sseResponse(events, status = 200) {
 	assert.equal(h1.model, "gemini-3.5-flash-lite");
 	assert.equal(calls.filter(u => u.includes("gemini-3.7-flash:")).length, 1, "o modelo de análise só é tentado uma vez");
 	assert.equal(calls.filter(u => u.includes("gemini-3.6-flash:")).length, 1);
-	assert.match(h1.notice, /gemini-3\.7-flash estava indisponível/);
-	assert.ok(notes.some(n => /sobrecarregado ou sem quota/.test(n)));
+	assert.match(h1.notice, /gemini-3\.7-flash estava ocupado/);
+	assert.ok(notes.some(n => /está ocupado/.test(n)));
 	calls = [];
 	await core.runEngine("gemini", { system: "s", prompt: "p", heavy: true, win: heavyWin });
 	assert.equal(calls.filter(u => !u.includes("flash-lite")).length, 0, "durante 15 minutos não volta a tentar os modelos sobrecarregados");

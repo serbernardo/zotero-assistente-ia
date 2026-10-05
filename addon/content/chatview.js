@@ -1403,6 +1403,7 @@ var ZIAChatView = class {
 			this._setStatus(this.T("chat.analysing", { engine: this.core.engineLabel(engine), n: docs.length, k: kchars }), null, true);
 			this._renderMessage(botMsg);
 			// 3. Motor
+			let writing = false;
 			const res = await this.core.runEngine(engine, {
 				system: this.L.buildSystemPrompt("ui"),
 				prompt,
@@ -1414,10 +1415,16 @@ var ZIAChatView = class {
 				signal: this.abort.signal,
 				onDelta: (d, all) => {
 					botMsg.text = all;
+					// A resposta começou: o aviso de "modelo ocupado" já não vale, a pessoa vê o texto a chegar
+					if (!writing) {
+						writing = true;
+						this._setStatus(this.T("chat.writing"), null, true);
+					}
 					this._scheduleRender(botMsg);
 				},
 				onInfo: info => {
-					if (info && info.notice) this._setStatus(info.notice, "warn");
+					// Mudar de modelo não é um erro: aparece como progresso normal, sem laranja nem ×
+					if (info && info.notice && !writing) this._setStatus(info.notice, null, true);
 					const rl = this.L.formatRateLimit(info && info.rateLimit);
 					if (rl) botMsg.usageNote = rl;
 				},
