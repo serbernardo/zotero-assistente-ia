@@ -54,7 +54,7 @@ Abre-se com o ícone de janela no título do painel, com **Comparar** no painel 
 
 ## Escolher a IA (uma vez)
 
-Abre **Editar → Definições** (Windows) ou **Zotero → Settings** (macOS) → **Assistente IA**. Basta configurar **uma** opção. O botão **Testar** faz um pedido real curto e mostra se o motor está pronto.
+Abre **Editar → Definições** (Windows) ou **Zotero → Settings** (macOS) → **Assistente IA**. Basta configurar **uma** opção. Cada motor tem os passos com as ligações oficiais, os comandos com um botão **Copiar** e um botão **Copiar instruções**, para enviares os passos a um colega. O botão **Testar** faz um pedido real curto e mostra se o motor está pronto.
 
 | Opção | Conta | Custo | O que é preciso |
 |---|---|---|---|

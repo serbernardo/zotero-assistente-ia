@@ -19,10 +19,7 @@
 
 		<!-- Claude com chave da API -->
 		<html:div class="zia-engine-panel" data-engine="anthropic">
-			<html:div class="zia-prefs-note" data-zia="prefs.anthropic.note"/>
-			<html:div class="zia-prefs-row">
-				<html:a class="zia-link" data-url="https://console.anthropic.com/settings/keys" data-zia="prefs.anthropic.link"/>
-			</html:div>
+			<html:div class="zia-guide" data-guide="anthropic"/>
 			<html:div class="zia-prefs-row">
 				<html:input type="password" id="zia-anthropic-key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"/>
 				<button id="zia-anthropic-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
@@ -45,22 +42,22 @@
 
 		<!-- Claude com a subscrição (Claude Code) -->
 		<html:div class="zia-engine-panel" data-engine="claude">
-			<html:div class="zia-prefs-note" data-zia="prefs.claude.note"/>
-			<html:div class="zia-steps-title" data-zia="prefs.claude.stepsTitle"/>
-			<html:ol class="zia-steps">
-				<html:li data-zia="prefs.claude.step1"/>
-				<html:li data-zia="prefs.claude.step2"/>
-				<html:li data-zia="prefs.claude.step3"/>
-				<html:li data-zia="prefs.claude.step4"/>
-				<html:li data-zia="prefs.claude.step5"/>
-			</html:ol>
+			<html:div class="zia-guide" data-guide="claude"/>
 			<html:div class="zia-prefs-row">
-				<html:a class="zia-link" data-url="https://code.claude.com/docs/en/setup" data-zia="prefs.claude.guideLink"/>
+				<button id="zia-claude-test" class="zia-main-btn" data-zia-label="prefs.test"/>
+				<button id="zia-claude-install" data-zia-label="prefs.claude.install"/>
 			</html:div>
-			<html:div class="zia-prefs-row">
-				<button id="zia-claude-install" class="zia-main-btn" data-zia-label="prefs.claude.install"/>
-				<button id="zia-claude-test" data-zia-label="prefs.test"/>
-			</html:div>
+			<html:div class="zia-prefs-note" data-zia="guide.claude.shortcut"/>
+			<html:details class="zia-advanced">
+				<html:summary data-zia="prefs.claude.stepsTitle"/>
+				<html:ol class="zia-steps">
+					<html:li data-zia="prefs.claude.step1"/>
+					<html:li data-zia="prefs.claude.step2"/>
+					<html:li data-zia="prefs.claude.step3"/>
+					<html:li data-zia="prefs.claude.step4"/>
+					<html:li data-zia="prefs.claude.step5"/>
+				</html:ol>
+			</html:details>
 			<html:div class="zia-prefs-row">
 				<label data-zia-label="prefs.model"/>
 				<html:select id="zia-claude-model"/>
@@ -68,11 +65,6 @@
 			<html:div class="zia-prefs-note" data-zia="prefs.claude.modelNote"/>
 			<html:details class="zia-advanced">
 				<html:summary data-zia="prefs.advanced"/>
-				<html:div class="zia-prefs-note" data-zia="prefs.claude.manual"/>
-				<html:div class="zia-prefs-row">
-					<html:code id="zia-claude-command" class="zia-command"/>
-					<button id="zia-claude-copy" data-zia-label="prefs.copy"/>
-				</html:div>
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.path"/>
 					<html:input type="text" id="zia-pref-claude-path" preference="extensions.zoteroia.claude.path"/>
@@ -88,10 +80,7 @@
 
 		<!-- ChatGPT com chave da API -->
 		<html:div class="zia-engine-panel" data-engine="openai">
-			<html:div class="zia-prefs-note" data-zia="prefs.openai.note"/>
-			<html:div class="zia-prefs-row">
-				<html:a class="zia-link" data-url="https://platform.openai.com/api-keys" data-zia="prefs.openai.link"/>
-			</html:div>
+			<html:div class="zia-guide" data-guide="openai"/>
 			<html:div class="zia-prefs-row">
 				<html:input type="password" id="zia-openai-key" placeholder="sk-..." autocomplete="off" spellcheck="false"/>
 				<button id="zia-openai-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
@@ -113,7 +102,8 @@
 
 		<!-- ChatGPT com a conta (Codex) -->
 		<html:div class="zia-engine-panel" data-engine="codex">
-			<html:div class="zia-prefs-note" data-zia="prefs.codex.note"/>
+			<html:div class="zia-guide" data-guide="codex"/>
+			<html:div class="zia-prefs-note" data-zia="guide.codex.safety"/>
 			<html:div class="zia-prefs-row">
 				<button id="zia-codex-test" class="zia-main-btn" data-zia-label="prefs.test"/>
 			</html:div>

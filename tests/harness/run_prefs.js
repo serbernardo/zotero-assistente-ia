@@ -155,6 +155,37 @@ async function main() {
 	console.log(`OK definições: ${tested.size} botões, separadores e ligações respondem sem erros`);
 	console.log("   " + [...tested].join(", "));
 
+	// 1b. Instruções de cada motor: passos com ligações, comandos para copiar e "Copiar instruções"
+	for (const [tab, seg, engine, must] of [
+		["claude", null, "claude", ["irm https://claude.ai/install.ps1 | iex", "curl -fsSL https://claude.ai/install.sh | bash", "claude.ai/upgrade", "Claude account with subscription"]],
+		["codex", null, "codex", ["npm install -g @openai/codex", "codex login", "nodejs.org"]],
+		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing"]],
+		["outros", "openai", "openai", ["platform.openai.com/api-keys", "Plus ou Pro"]],
+	]) {
+		const pg = await open();
+		await pg.click(`.zia-etab[data-engine="${tab}"]`);
+		if (seg) await pg.click(`.zia-seg[data-engine="${seg}"]`);
+		const box = pg.locator(`.zia-guide[data-guide="${engine}"]`);
+		assert.ok(await box.isVisible(), "instruções visíveis: " + engine);
+		assert.match(await box.textContent(), /O que é:/);
+		assert.match(await box.textContent(), /Quanto custa:/);
+		await box.locator("button:has-text(\"Copiar instruções\")").click();
+		const text = await pg.evaluate(() => window.copied);
+		for (const m of must) assert.ok(text.includes(m), `${engine}: o texto copiado tem «${m}»`);
+		assert.match(text, /^1\. /m, "passos numerados");
+		assert.match(text, /releases\/latest/, "termina com a ligação do assistente");
+		assert.doesNotMatch(text, /AIza|sk-ant-api|sk-proj/, "nunca copia chaves");
+		if (engine !== "anthropic" && engine !== "openai") {
+			await box.locator(".zia-guide-copy").first().click();
+			assert.ok(must.includes(await pg.evaluate(() => window.copied)), "o botão Copiar copia só o comando");
+		}
+		if (engine === "claude") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_claude.png"), fullPage: true });
+		if (engine === "codex") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_codex.png"), fullPage: true });
+		if (engine === "anthropic") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_api.png"), fullPage: true });
+		await pg.close();
+	}
+	console.log("OK instruções dos motores: o que é, quanto custa, passos com ligações, comandos e Copiar instruções");
+
 	// 2. Teste rápido dos modelos Gemini: mostra quem responde e quem está sobrecarregado
 	const page = await open();
 	await page.click("#zia-gemini-probe");
