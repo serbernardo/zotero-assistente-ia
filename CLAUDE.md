@@ -214,16 +214,19 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   `mcp_tool_call` ou `web_search`. As variaveis `OPENAI_API_KEY` e
   `ANTHROPIC_API_KEY` sao retiradas do ambiente (usa-se a conta).
 - **IAEdu** (motor `iaedu`, `runIAEdu`, `createIAEduStreamParser`, `classifyIAEduError`,
-  `isIAEduEndpoint`): servico de IA para o ensino e a investigacao em Portugal. Tres valores
-  que o IAEdu mostra em "Informacao da API": endereco do agente (prefs `iaedu.endpoint`, tem
-  de ser https e do dominio iaedu.pt, senao nada e enviado), ID do canal (`iaedu.channel`) e
-  chave (cofre, cabecalho `x-api-key`). Pedido multipart (`channel_id`, `thread_id` novo em
-  cada pedido, `user_info` = "{}", `message` = instrucoes de sistema + pedido, porque nao ha
-  campo proprio). Resposta em blocos JSON separados por linhas em branco: `start`, `token`,
-  `message` (texto completo, vale mais do que os pedacos) e `done`. Sem consumo de tokens
-  na resposta. O modelo e o do agente. Testado a mao com 80 mil e 320 mil caracteres
-  (`maxChars` 300000). Separador proprio nas definicoes (`OWN_TABS`), fora de "Claude ou
-  ChatGPT (API)". Termos de uso e limites do IAEdu desconhecidos: o aviso de privacidade
+  `isIAEduEndpoint`): servico de IA para o ensino e a investigacao em Portugal. Por omissao
+  liga ao agente "Assistente IA Zotero", partilhado com a UPorto (`IAEDU_DEFAULT_ENDPOINT` e
+  `IAEDU_DEFAULT_CHANNEL` em `lib.js`, nao sao segredos: sem a chave pessoal nao responde).
+  O utilizador so cola a chave (cofre, cabecalho `x-api-key`). Quem nao e da UPorto abre "Usar
+  outro agente (opcional)" e cola o endereco (prefs `iaedu.endpoint`, tem de ser https e do
+  dominio iaedu.pt, senao nada e enviado) e o ID do canal (`iaedu.channel`). Os dois campos
+  em branco voltam ao agente por omissao (`iaeduEndpoint`, `iaeduChannel`). Pedido multipart
+  (`channel_id`, `thread_id` novo em cada pedido, `user_info` = "{}", `message` = instrucoes de
+  sistema + pedido, porque nao ha campo proprio). Resposta em blocos JSON separados por linhas
+  em branco: `start`, `token`, `message` (texto completo, vale mais do que os pedacos) e `done`.
+  Sem consumo de tokens na resposta. O modelo e o do agente. Testado a mao com 80 mil e 320 mil
+  caracteres (`maxChars` 300000). Separador proprio nas definicoes (`OWN_TABS`), fora de "Claude
+  ou ChatGPT (API)". Termos de uso e limites do IAEdu desconhecidos: o aviso de privacidade
   manda confirmar. Teste: `run_iaedu.js`.
 - **Mudar de modelo nao e um erro:** os avisos de troca do Gemini (modelo ocupado,
   nova tentativa, quota) aparecem como progresso normal (`_setStatus(texto, null, true)`,
@@ -370,7 +373,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

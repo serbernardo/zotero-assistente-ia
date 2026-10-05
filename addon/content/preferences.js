@@ -52,8 +52,6 @@ window.ZIAPrefs = {
 			{ k: "s1", url: "https://iaedu.pt" },
 			{ k: "s2" },
 			{ k: "s3" },
-			{ k: "s4" },
-			{ k: "s5" },
 		],
 	},
 
@@ -504,15 +502,20 @@ window.ZIAPrefs = {
 		return null;
 	},
 
-	/** IAEdu: guarda o endereço e o canal escritos nos campos. Devolve a chave de texto do problema, se houver. */
+	/**
+	 * IAEdu: guarda o endereço e o canal de um agente próprio (opcionais). Os dois em branco usam o agente
+	 * por omissão. Devolve a chave de texto do problema, se houver.
+	 */
 	saveIAEduFields() {
 		const core = this.core();
 		const ep = this.$("zia-iaedu-endpoint");
 		const ch = this.$("zia-iaedu-channel");
 		const endpoint = ((ep && ep.value) || "").trim();
 		const channel = ((ch && ch.value) || "").trim();
-		if (!core.lib.isIAEduEndpoint(endpoint)) return "prefs.iaedu.badEndpoint";
-		if (!/^[A-Za-z0-9_-]{8,80}$/.test(channel)) return "prefs.iaedu.badChannel";
+		if (endpoint || channel) {
+			if (!core.lib.isIAEduEndpoint(endpoint)) return "prefs.iaedu.badEndpoint";
+			if (!/^[A-Za-z0-9_-]{8,80}$/.test(channel)) return "prefs.iaedu.badChannel";
+		}
 		core.setPref("iaedu.endpoint", endpoint);
 		core.setPref("iaedu.channel", channel);
 		return null;
@@ -522,8 +525,16 @@ window.ZIAPrefs = {
 		const core = this.core();
 		const ep = this.$("zia-iaedu-endpoint");
 		const ch = this.$("zia-iaedu-channel");
-		if (ep) ep.value = core.pref("iaedu.endpoint") || "";
-		if (ch) ch.value = core.pref("iaedu.channel") || "";
+		if (ep) {
+			ep.value = core.pref("iaedu.endpoint") || "";
+			ep.setAttribute("placeholder", this.T("prefs.iaedu.blank"));
+		}
+		if (ch) {
+			ch.value = core.pref("iaedu.channel") || "";
+			ch.setAttribute("placeholder", this.T("prefs.iaedu.blank"));
+		}
+		const adv = this.$("zia-iaedu-adv");
+		if (adv && ((ep && ep.value) || (ch && ch.value))) adv.open = true;
 	},
 
 	async saveKey(name) {

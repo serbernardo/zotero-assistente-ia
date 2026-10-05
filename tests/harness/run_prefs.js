@@ -166,7 +166,7 @@ async function main() {
 		["codex", null, "codex", ["npm install -g @openai/codex", "codex login", "nodejs.org"]],
 		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $", "2 minutos"]],
 		["outros", "openai", "openai", ["platform.openai.com/api-keys", "Plus ou Pro", "5 $"]],
-		["iaedu", null, "iaedu", ["iaedu.pt", "Criar agente", "roda dentada", "Informação da API", "Endpoint da API", "ID do Canal", "Chave da API", "nunca a chave dela"]],
+		["iaedu", null, "iaedu", ["iaedu.pt", "roda dentada", "Informação da API", "Chave da API", "UPorto"]],
 	]) {
 		const pg = await open();
 		await pg.click(`.zia-etab[data-engine="${tab}"]`);
@@ -199,15 +199,23 @@ async function main() {
 	}
 	console.log("OK instruções dos motores: o que é, quanto custa, passos com ligações, comandos e Copiar instruções");
 
-	// 1c. IAEdu: só guarda com um endereço de iaedu.pt e um canal, e o teste usa os três valores
+	// 1c. IAEdu: só a chave chega (agente por omissão), os campos de outro agente são opcionais e validados
 	{
 		const pg = await open();
 		await pg.click('.zia-etab[data-engine="iaedu"]');
 		const KEY = "sk-usr-abcdefghijklmnopqrstuvwxyz0123";
-		await pg.fill("#zia-iaedu-key", KEY);
 		const state = () => pg.textContent("#zia-iaedu-keystate");
+		const DEF = await pg.evaluate(() => ({ url: ZoteroIA.lib.IAEDU_DEFAULT_ENDPOINT, channel: ZoteroIA.lib.IAEDU_DEFAULT_CHANNEL }));
+		await pg.fill("#zia-iaedu-key", KEY);
 		await pg.click("#zia-iaedu-save");
-		assert.match(await state(), /iaedu\.pt/, "sem endereço: explica o que falta");
+		await pg.waitForSelector(".zia-test-result.ok");
+		assert.match(await pg.textContent("#zia-test-result"), /gpt-5\.5/);
+		assert.deepEqual(await pg.evaluate(() => window.iaeduCall), { url: DEF.url, key: KEY, channel: DEF.channel }, "só com a chave usa o agente por omissão");
+		assert.deepEqual(await pg.evaluate(() => [window.PREFS["iaedu.endpoint"], window.PREFS["iaedu.channel"], window.PREFS["iaedu.lastTest"]]), ["", "", "ok"]);
+		await pg.screenshot({ path: path.join(OUT, "ui_definicoes_iaedu.png"), fullPage: true });
+
+		// outro agente: valida antes de enviar
+		await pg.evaluate(() => { window.iaeduCall = null; });
 		await pg.fill("#zia-iaedu-endpoint", "https://evil.example.com/agent");
 		await pg.fill("#zia-iaedu-channel", "canal-de-teste-01");
 		await pg.click("#zia-iaedu-save");
@@ -216,20 +224,26 @@ async function main() {
 		await pg.fill("#zia-iaedu-channel", "curto");
 		await pg.click("#zia-iaedu-save");
 		assert.match(await state(), /Canal/, "canal inválido recusado");
+		await pg.fill("#zia-iaedu-channel", "");
+		await pg.click("#zia-iaedu-save");
+		assert.match(await state(), /Canal/, "endereço sem canal recusado");
 		assert.equal(await pg.evaluate(() => window.iaeduCall || null), null, "nada saiu até estar tudo certo");
 		await pg.fill("#zia-iaedu-channel", "canal-de-teste-01");
 		await pg.click("#zia-iaedu-save");
-		await pg.waitForSelector(".zia-test-result.ok");
-		assert.match(await pg.textContent("#zia-test-result"), /gpt-5\.5/);
-		const sent = await pg.evaluate(() => window.iaeduCall);
-		assert.deepEqual(sent, { url: "https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream", key: KEY, channel: "canal-de-teste-01" });
-		const saved = await pg.evaluate(() => [window.PREFS["iaedu.endpoint"], window.PREFS["iaedu.channel"], window.PREFS["iaedu.lastTest"]]);
-		assert.deepEqual(saved, ["https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream", "canal-de-teste-01", "ok"]);
+		await pg.waitForFunction(() => !!window.iaeduCall);
+		assert.deepEqual(await pg.evaluate(() => window.iaeduCall), { url: "https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream", key: KEY, channel: "canal-de-teste-01" });
 		assert.ok(!(await pg.evaluate(() => window.calls)).some(u => /evil/.test(u)), "a chave nunca foi para fora");
-		await pg.screenshot({ path: path.join(OUT, "ui_definicoes_iaedu.png"), fullPage: true });
+
+		// campos em branco voltam ao agente por omissão
+		await pg.evaluate(() => { window.iaeduCall = null; });
+		await pg.fill("#zia-iaedu-endpoint", "");
+		await pg.fill("#zia-iaedu-channel", "");
+		await pg.click("#zia-iaedu-save");
+		await pg.waitForFunction(() => !!window.iaeduCall);
+		assert.equal((await pg.evaluate(() => window.iaeduCall)).url, DEF.url);
 		await pg.close();
 	}
-	console.log("OK IAEdu nas definições: valida o endereço e o canal, guarda e testa com os três valores");
+	console.log("OK IAEdu nas definições: só a chave chega, outro agente é opcional e validado, em branco volta ao agente por omissão");
 
 	// 2. Teste rápido dos modelos Gemini: mostra quem responde e quem está sobrecarregado
 	const page = await open();

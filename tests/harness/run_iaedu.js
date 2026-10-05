@@ -41,10 +41,13 @@ const json = (status, o) => new Response(JSON.stringify(o), { status });
 	// ---------- pronto só com chave, endereço do iaedu.pt e canal ----------
 	assert.ok(!core.isEngineReady("iaedu"));
 	assert.equal(await core.setSecret("iaedu", KEY), "encrypted");
-	assert.ok(!core.isEngineReady("iaedu"), "sem endereço nem canal");
+	assert.ok(core.isEngineReady("iaedu"), "só com a chave: usa o agente por omissão");
+	assert.equal(core.iaeduEndpoint(), L.IAEDU_DEFAULT_ENDPOINT);
+	assert.equal(core.iaeduChannel(), L.IAEDU_DEFAULT_CHANNEL);
+	assert.ok(L.isIAEduEndpoint(L.IAEDU_DEFAULT_ENDPOINT));
 	core.setPref("iaedu.endpoint", ENDPOINT);
-	assert.ok(!core.isEngineReady("iaedu"), "sem canal");
 	core.setPref("iaedu.channel", CHANNEL);
+	assert.equal(core.iaeduEndpoint(), ENDPOINT, "um agente próprio vale mais do que o de omissão");
 	assert.ok(core.isEngineReady("iaedu"));
 	assert.ok(core.readyEngines().includes("iaedu"));
 	assert.equal(core.engineLabel("iaedu"), "IAEdu");
@@ -56,7 +59,7 @@ const json = (status, o) => new Response(JSON.stringify(o), { status });
 	assert.ok(!L.isIAEduEndpoint("https://xiaedu.pt/x"));
 	assert.ok(!L.isIAEduEndpoint("https://user@api.iaedu.pt/x"));
 	assert.ok(!L.isIAEduEndpoint(""));
-	console.log("OK IAEdu: só fica pronto com chave, canal e endereço https de iaedu.pt");
+	console.log("OK IAEdu: só com a chave usa o agente por omissão, um agente próprio vale mais, só https de iaedu.pt");
 
 	// ---------- pedido e resposta ----------
 	const calls = [];
@@ -119,11 +122,17 @@ const json = (status, o) => new Response(JSON.stringify(o), { status });
 	core.setPref("iaedu.endpoint", "https://evil.example.com/agent");
 	await assert.rejects(core.runIAEdu({ system: "s", prompt: "p", win: mkWin(() => stream(OK)) }), e => e.kind === "notconfigured" && /iaedu\.pt/.test(e.message));
 	core.setPref("iaedu.endpoint", ENDPOINT);
-	core.setPref("iaedu.channel", "");
+	core.setPref("iaedu.channel", "curto");
 	await assert.rejects(core.runIAEdu({ system: "s", prompt: "p", win: mkWin(() => stream(OK)) }), e => e.kind === "notconfigured");
-	assert.equal(calls.length, n, "a chave não sai para um endereço de fora ou sem canal");
+	assert.equal(calls.length, n, "a chave não sai para um endereço de fora ou com canal inválido");
+	core.setPref("iaedu.endpoint", "");
+	core.setPref("iaedu.channel", "");
+	await core.runIAEdu({ system: "s", prompt: "p", win: mkWin(() => stream(OK)) });
+	assert.equal(calls[calls.length - 1].url, L.IAEDU_DEFAULT_ENDPOINT, "em branco: agente por omissão");
+	assert.equal(calls[calls.length - 1].opts.body.get("channel_id"), L.IAEDU_DEFAULT_CHANNEL);
+	core.setPref("iaedu.endpoint", ENDPOINT);
 	core.setPref("iaedu.channel", CHANNEL);
-	console.log("OK IAEdu: endereço fora do iaedu.pt ou sem canal não envia nada");
+	console.log("OK IAEdu: endereço fora do iaedu.pt ou canal inválido não envia nada, em branco usa o agente por omissão");
 
 	// ---------- pelo caminho unificado, com teste ----------
 	const t = await core.testEngine("iaedu", mkWin(() => stream(OK)));
