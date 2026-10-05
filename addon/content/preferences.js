@@ -13,6 +13,10 @@ window.ZIAPrefs = {
 		return this.core().t(key, vars);
 	},
 
+	has(key) {
+		return this.core().lib.I18N.has(key);
+	},
+
 	$(id) {
 		return document.getElementById(id);
 	},
@@ -35,16 +39,14 @@ window.ZIAPrefs = {
 			{ k: "s4" },
 		],
 		anthropic: [
-			{ k: "s1", url: "https://console.anthropic.com/" },
-			{ k: "s2", url: "https://console.anthropic.com/settings/billing" },
-			{ k: "s3", url: "https://console.anthropic.com/settings/keys" },
-			{ k: "s4" },
+			{ k: "s1", url: "https://console.anthropic.com/settings/billing" },
+			{ k: "s2", url: "https://console.anthropic.com/settings/keys" },
+			{ k: "s3" },
 		],
 		openai: [
-			{ k: "s1", url: "https://platform.openai.com/signup" },
-			{ k: "s2", url: "https://platform.openai.com/settings/organization/billing/overview" },
-			{ k: "s3", url: "https://platform.openai.com/api-keys" },
-			{ k: "s4" },
+			{ k: "s1", url: "https://platform.openai.com/settings/organization/billing/overview" },
+			{ k: "s2", url: "https://platform.openai.com/api-keys" },
+			{ k: "s3" },
 		],
 	},
 
@@ -72,7 +74,9 @@ window.ZIAPrefs = {
 	/** Instruções de um motor em texto simples (para colar num email ou enviar a um colega). */
 	guideText(engine) {
 		const steps = this.GUIDES[engine] || [];
-		const lines = [this.T(`guide.${engine}.title`), this.T(`guide.${engine}.what`), this.T(`guide.${engine}.cost`), ""];
+		const lines = [this.T(`guide.${engine}.title`), this.T(`guide.${engine}.what`), this.T(`guide.${engine}.cost`)];
+		if (this.has(`guide.${engine}.time`)) lines.push(this.T(`guide.${engine}.time`));
+		lines.push("");
 		steps.forEach((s, i) => {
 			lines.push(`${i + 1}. ${this.T(`guide.${engine}.${s.k}`)}`);
 			if (s.url) lines.push(`   ${s.url}`);
@@ -92,6 +96,11 @@ window.ZIAPrefs = {
 			const cost = this.html("p", this.T(`guide.${engine}.cost`));
 			cost.className = "zia-guide-cost";
 			box.append(what, cost);
+			if (this.has(`guide.${engine}.time`)) {
+				const time = this.html("p", this.T(`guide.${engine}.time`));
+				time.className = "zia-guide-time";
+				box.append(time);
+			}
 			const ol = this.html("ol");
 			ol.className = "zia-steps zia-guide-steps";
 			for (const s of this.GUIDES[engine] || []) {
@@ -362,22 +371,24 @@ window.ZIAPrefs = {
 				});
 				box.appendChild(tab);
 			};
-			for (const e of main) addTab(e);
-			// "Outros": as chaves de API pagas por uso, num só separador
+			// As chaves de API (Claude ou ChatGPT) ficam em destaque, logo a seguir ao Gemini
 			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e));
+			addTab(main[0]);
 			if (rest.length) {
 				const inRest = rest.includes(shown);
 				const states = rest.map(e => this.engineState(e));
 				const st = states.includes("ok") ? "ok" : states.includes("saved") ? "saved" : states.includes("fail") ? "fail" : "todo";
 				const tab = this.html("div");
-				tab.className = "zia-etab" + (inRest ? " selected" : "");
+				tab.className = "zia-etab zia-etab-api" + (inRest ? " selected" : "");
 				tab.setAttribute("role", "tab");
 				tab.setAttribute("aria-selected", inRest ? "true" : "false");
 				tab.setAttribute("tabindex", "0");
 				tab.dataset.engine = "outros";
 				const dot = this.html("span");
 				dot.className = "zia-dot zia-dot-" + st;
-				tab.append(dot, this.html("span", this.T("prefs.tab.others")));
+				const pill = this.html("span", this.T("prefs.tab.recommended"));
+				pill.className = "zia-etab-pill";
+				tab.append(dot, this.html("span", this.T("prefs.tab.others")), pill);
 				if (rest.includes(current)) {
 					const star = this.html("span", "★");
 					star.className = "zia-etab-star";
@@ -390,6 +401,7 @@ window.ZIAPrefs = {
 				});
 				box.appendChild(tab);
 			}
+			for (const e of main.slice(1)) addTab(e);
 		}
 		// Dentro de "Outros": escolha entre Claude API e ChatGPT API
 		const sw = this.$("zia-other-switch");

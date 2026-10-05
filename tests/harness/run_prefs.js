@@ -159,8 +159,8 @@ async function main() {
 	for (const [tab, seg, engine, must] of [
 		["claude", null, "claude", ["irm https://claude.ai/install.ps1 | iex", "curl -fsSL https://claude.ai/install.sh | bash", "claude.ai/upgrade", "Claude account with subscription"]],
 		["codex", null, "codex", ["npm install -g @openai/codex", "codex login", "nodejs.org"]],
-		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing"]],
-		["outros", "openai", "openai", ["platform.openai.com/api-keys", "Plus ou Pro"]],
+		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $", "2 minutos"]],
+		["outros", "openai", "openai", ["platform.openai.com/api-keys", "Plus ou Pro", "5 $"]],
 	]) {
 		const pg = await open();
 		await pg.click(`.zia-etab[data-engine="${tab}"]`);
@@ -182,6 +182,13 @@ async function main() {
 		if (engine === "claude") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_claude.png"), fullPage: true });
 		if (engine === "codex") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_codex.png"), fullPage: true });
 		if (engine === "anthropic") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_api.png"), fullPage: true });
+		await pg.close();
+	}
+	{
+		const pg = await open();
+		const order = await pg.$$eval(".zia-etab", ts => ts.map(t => t.dataset.engine));
+		assert.deepEqual(order, ["gemini", "outros", "claude", "codex"], "chaves de API em destaque, logo a seguir ao Gemini");
+		assert.equal(await pg.textContent('.zia-etab[data-engine="outros"] .zia-etab-pill'), "Recomendado");
 		await pg.close();
 	}
 	console.log("OK instruções dos motores: o que é, quanto custa, passos com ligações, comandos e Copiar instruções");

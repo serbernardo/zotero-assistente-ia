@@ -231,6 +231,10 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   ligacoes oficiais e comandos com botao Copiar (o do Claude Code em versao Windows e
   Mac/Linux). "Copiar instrucoes" copia tudo em texto simples, com a ligacao das
   Releases no fim, para enviar a um colega. Nunca copia chaves.
+- **Chaves de API em destaque:** nas definicoes o separador "Claude ou ChatGPT (API)"
+  (data-engine `outros`) fica logo a seguir ao Gemini, com contorno dourado e a
+  etiqueta "Recomendado". Tres passos (credito, chave, colar) e o custo minimo
+  escrito: 5 $ de credito inicial, que expira ao fim de um ano.
 - **Instalar e iniciar sessao no Claude Code** (`openClaudeSetup`): depois de
   uma confirmacao, escreve um script na pasta temporaria e abre-o numa janela
   visivel (Windows: `cmd /c start` com um `.cmd`, Mac: Terminal com um
@@ -345,7 +349,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.5.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.6.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
