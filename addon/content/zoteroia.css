@@ -1616,3 +1616,5 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-etab.zia-etab-api.selected { border-bottom-color: var(--zia-bg, #fff); }
 .zia-etab-pill { margin-inline-start: 6px; padding: 0 6px; border-radius: 8px; font-size: 10px; font-weight: 700; line-height: 16px; background: var(--zia-gold, #f2c200); color: #111729; white-space: nowrap; }
 .zia-guide-time { margin: 2px 0; color: var(--zia-fg2, #3f4555); }
+
+#zia-iaedu-endpoint { flex: 1; min-width: 320px; }
