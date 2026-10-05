@@ -49,6 +49,11 @@ ${x}
 		if (/:generateContent/.test(url)) return json({ candidates: [{ content: { parts: [{ text: "OK" }] } }] });
 		if (/:streamGenerateContent/.test(url)) return new Response('data: {"candidates":[{"content":{"parts":[{"text":"OK"}]},"finishReason":"STOP"}]}\\n\\n', { status: 200 });
 		if (/anthropic\\.com\\/v1\\/models/.test(url)) return json({ data: [{ id: "claude-sonnet-5-5" }] });
+		if (/iaedu\\.pt/.test(url)) {
+			window.iaeduCall = { url: String(url), key: opts.headers["x-api-key"], channel: opts.body.get("channel_id") };
+			const b = o => JSON.stringify(o) + "\\n\\n";
+			return new Response(b({ type: "start", content: "Processing" }) + b({ type: "token", content: "OK" }) + b({ type: "message", content: { content: "OK", response_metadata: { model_name: "gpt-5.5" } } }) + b({ type: "done", content: "x" }), { status: 200 });
+		}
 		if (/openai\\.com\\/v1\\/models/.test(url)) return json({ data: [{ id: "gpt-5" }] });
 		return json({ error: { message: "não simulado" } }, 500);
 	};
@@ -161,6 +166,7 @@ async function main() {
 		["codex", null, "codex", ["npm install -g @openai/codex", "codex login", "nodejs.org"]],
 		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $", "2 minutos"]],
 		["outros", "openai", "openai", ["platform.openai.com/api-keys", "Plus ou Pro", "5 $"]],
+		["iaedu", null, "iaedu", ["iaedu.pt", "Criar agente", "roda dentada", "Informação da API", "ID do canal", "/stream"]],
 	]) {
 		const pg = await open();
 		await pg.click(`.zia-etab[data-engine="${tab}"]`);
@@ -175,7 +181,7 @@ async function main() {
 		assert.match(text, /^1\. /m, "passos numerados");
 		assert.match(text, /releases\/latest/, "termina com a ligação do assistente");
 		assert.doesNotMatch(text, /AIza|sk-ant-api|sk-proj/, "nunca copia chaves");
-		if (engine !== "anthropic" && engine !== "openai") {
+		if (engine !== "anthropic" && engine !== "openai" && engine !== "iaedu") {
 			await box.locator(".zia-guide-copy").first().click();
 			assert.ok(must.includes(await pg.evaluate(() => window.copied)), "o botão Copiar copia só o comando");
 		}
@@ -187,11 +193,43 @@ async function main() {
 	{
 		const pg = await open();
 		const order = await pg.$$eval(".zia-etab", ts => ts.map(t => t.dataset.engine));
-		assert.deepEqual(order, ["gemini", "outros", "claude", "codex"], "chaves de API em destaque, logo a seguir ao Gemini");
+		assert.deepEqual(order, ["gemini", "outros", "claude", "codex", "iaedu"], "chaves de API em destaque, logo a seguir ao Gemini");
 		assert.equal(await pg.textContent('.zia-etab[data-engine="outros"] .zia-etab-pill'), "Recomendado");
 		await pg.close();
 	}
 	console.log("OK instruções dos motores: o que é, quanto custa, passos com ligações, comandos e Copiar instruções");
+
+	// 1c. IAEdu: só guarda com um endereço de iaedu.pt e um canal, e o teste usa os três valores
+	{
+		const pg = await open();
+		await pg.click('.zia-etab[data-engine="iaedu"]');
+		const KEY = "sk-usr-abcdefghijklmnopqrstuvwxyz0123";
+		await pg.fill("#zia-iaedu-key", KEY);
+		const state = () => pg.textContent("#zia-iaedu-keystate");
+		await pg.click("#zia-iaedu-save");
+		assert.match(await state(), /iaedu\.pt/, "sem endereço: explica o que falta");
+		await pg.fill("#zia-iaedu-endpoint", "https://evil.example.com/agent");
+		await pg.fill("#zia-iaedu-channel", "canal-de-teste-01");
+		await pg.click("#zia-iaedu-save");
+		assert.match(await state(), /iaedu\.pt/, "endereço de fora recusado");
+		await pg.fill("#zia-iaedu-endpoint", "https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream");
+		await pg.fill("#zia-iaedu-channel", "curto");
+		await pg.click("#zia-iaedu-save");
+		assert.match(await state(), /canal/, "canal inválido recusado");
+		assert.equal(await pg.evaluate(() => window.iaeduCall || null), null, "nada saiu até estar tudo certo");
+		await pg.fill("#zia-iaedu-channel", "canal-de-teste-01");
+		await pg.click("#zia-iaedu-save");
+		await pg.waitForSelector(".zia-test-result.ok");
+		assert.match(await pg.textContent("#zia-test-result"), /gpt-5\.5/);
+		const sent = await pg.evaluate(() => window.iaeduCall);
+		assert.deepEqual(sent, { url: "https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream", key: KEY, channel: "canal-de-teste-01" });
+		const saved = await pg.evaluate(() => [window.PREFS["iaedu.endpoint"], window.PREFS["iaedu.channel"], window.PREFS["iaedu.lastTest"]]);
+		assert.deepEqual(saved, ["https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream", "canal-de-teste-01", "ok"]);
+		assert.ok(!(await pg.evaluate(() => window.calls)).some(u => /evil/.test(u)), "a chave nunca foi para fora");
+		await pg.screenshot({ path: path.join(OUT, "ui_definicoes_iaedu.png"), fullPage: true });
+		await pg.close();
+	}
+	console.log("OK IAEdu nas definições: valida o endereço e o canal, guarda e testa com os três valores");
 
 	// 2. Teste rápido dos modelos Gemini: mostra quem responde e quem está sobrecarregado
 	const page = await open();

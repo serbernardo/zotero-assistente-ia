@@ -1763,6 +1763,37 @@ var ZIALib = (function () {
 		return { kind: "other", message: withDetail(t("err.api.other", { provider, status: status || code || type }), msg) };
 	}
 
+	/** O endereço do IAEdu tem de ser https e de um domínio iaedu.pt (a chave só é enviada para lá). */
+	function isIAEduEndpoint(url) {
+		const m = /^https:\/\/([a-z0-9-]+(?:\.[a-z0-9-]+)*)(?::\d+)?(\/[^\s?#]*)?$/i.exec(String(url || "").trim());
+		if (!m) return false;
+		const host = m[1].toLowerCase();
+		return host === "iaedu.pt" || host.endsWith(".iaedu.pt");
+	}
+
+	/** Erros do IAEdu: o corpo vem como {"detail": "..."} (ou lista de campos em falta). */
+	function classifyIAEduError(status, bodyText) {
+		let msg = "";
+		try {
+			const j = typeof bodyText === "string" ? JSON.parse(bodyText) : bodyText;
+			const d = j && (j.detail || j.error || j.message);
+			if (typeof d === "string") msg = d;
+			else if (Array.isArray(d)) msg = d.map(x => (x && (x.msg || x.message)) || "").filter(Boolean).join("; ");
+			else if (d && typeof d === "object") msg = d.message || d.msg || "";
+		}
+		catch (e) { msg = String(bodyText || "").slice(0, 300); }
+		const provider = "IAEdu";
+		if (status === 401 || /invalid api key|api key/i.test(msg)) {
+			return { kind: "auth", message: t("err.api.auth", { label: t("key.iaedu") }) };
+		}
+		if (status === 403) return { kind: "auth", message: withDetail(t("err.api.permission"), msg) };
+		if (status === 404) return { kind: "other", message: t("err.iaedu.notFound") };
+		if (status === 413 || /too long|too large|context length/i.test(msg)) return { kind: "size", message: t("err.tooLong") };
+		if (status === 429) return { kind: "limit", message: withDetail(t("err.api.limit", { provider }), msg) };
+		if (status >= 500) return { kind: "overloaded", message: t("err.api.overloaded", { provider }) };
+		return { kind: "other", message: withDetail(t("err.api.other", { provider, status: status || "?" }), msg) };
+	}
+
 	/** Resumo do consumo de tokens de uma resposta (para mostrar ao utilizador). */
 	function formatUsage(usage, engine) {
 		if (!usage || typeof usage !== "object") return null;
@@ -2032,6 +2063,58 @@ var ZIALib = (function () {
 	}
 
 	// ------------------------------------------------------------------
+	// Leitura do fluxo do IAEdu: um objeto JSON por bloco, separados por linhas em branco.
+	// Tipos vistos: start, token (pedaço de texto), message (texto completo), done.
+	// ------------------------------------------------------------------
+
+	function createIAEduStreamParser(onDelta) {
+		let buffer = "";
+		const state = { text: "", model: null, error: null, done: false, final: null };
+		function handleLine(line) {
+			line = line.trim();
+			if (!line || line[0] !== "{") return;
+			let ev;
+			try { ev = JSON.parse(line); }
+			catch (e) { return; }
+			if (ev.type === "token" && typeof ev.content === "string" && ev.content) {
+				state.text += ev.content;
+				onDelta && onDelta(ev.content, state.text);
+			}
+			else if (ev.type === "message" && ev.content && typeof ev.content === "object") {
+				if (typeof ev.content.content === "string") state.final = ev.content.content;
+				const md = ev.content.response_metadata || {};
+				if (md.model_name || md.model) state.model = md.model_name || md.model;
+			}
+			else if (ev.type === "done") state.done = true;
+			else if (ev.type === "error") {
+				state.error = typeof ev.content === "string" ? ev.content : JSON.stringify(ev.content || ev);
+			}
+			else if (!ev.type && ev.detail) {
+				state.error = typeof ev.detail === "string" ? ev.detail : JSON.stringify(ev.detail);
+			}
+		}
+		return {
+			push(chunk) {
+				buffer += chunk;
+				let idx;
+				while ((idx = buffer.indexOf("\n")) >= 0) {
+					const line = buffer.slice(0, idx);
+					buffer = buffer.slice(idx + 1);
+					handleLine(line);
+				}
+			},
+			end() {
+				handleLine(buffer);
+				buffer = "";
+				// O texto completo da mensagem final é o que vale (os pedaços são só para mostrar a chegar)
+				if (state.final != null && state.final.trim()) state.text = state.final;
+				return state;
+			},
+			state,
+		};
+	}
+
+	// ------------------------------------------------------------------
 	// Leitura do Codex (codex exec --json, uma linha JSON por evento)
 	// ------------------------------------------------------------------
 
@@ -2099,7 +2182,7 @@ var ZIALib = (function () {
 		parseCiteGroup, citeLabel, citesToText, CITE_GROUP_RE,
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
-		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS,
+		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint,
 		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, setCiteFormatter, replaceDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();

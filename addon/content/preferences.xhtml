@@ -169,6 +169,33 @@
 			</html:details>
 		</html:div>
 
+		<!-- IAEdu -->
+		<html:div class="zia-engine-panel" data-engine="iaedu">
+			<html:div class="zia-guide" data-guide="iaedu"/>
+			<html:div class="zia-prefs-row">
+				<label data-zia-label="prefs.iaedu.endpoint"/>
+				<html:input type="text" id="zia-iaedu-endpoint" placeholder="https://api.iaedu.pt/..." autocomplete="off" spellcheck="false"/>
+			</html:div>
+			<html:div class="zia-prefs-row">
+				<label data-zia-label="prefs.iaedu.channel"/>
+				<html:input type="text" id="zia-iaedu-channel" autocomplete="off" spellcheck="false" class="zia-short"/>
+			</html:div>
+			<html:div class="zia-prefs-row">
+				<html:input type="password" id="zia-iaedu-key" placeholder="sk-..." autocomplete="off" spellcheck="false"/>
+				<button id="zia-iaedu-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
+				<button id="zia-iaedu-clear" data-zia-label="prefs.delete"/>
+			</html:div>
+			<html:div id="zia-iaedu-keystate" class="zia-prefs-note"/>
+			<html:div class="zia-prefs-note" data-zia="prefs.iaedu.note"/>
+			<html:details class="zia-advanced">
+				<html:summary data-zia="prefs.advanced"/>
+				<html:div class="zia-prefs-row">
+					<label data-zia-label="prefs.maxChars"/>
+					<html:input type="number" min="20000" step="10000" id="zia-pref-iaedu-max" preference="extensions.zoteroia.iaedu.maxChars" class="zia-num"/>
+				</html:div>
+			</html:details>
+		</html:div>
+
 		<html:div id="zia-test-result" class="zia-test-result" role="status" aria-live="polite"/>
 		<html:div class="zia-prefs-note zia-hero-foot" data-zia="prefs.defaultEngine.note"/>
 	</html:div>
