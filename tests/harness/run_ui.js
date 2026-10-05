@@ -437,6 +437,40 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Gemini muda de modelo: não é um erro ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 800 });
+		await page.evaluate(a => {
+			window.MOCK.answer = a;
+			window.MOCK.delayMs = 120;
+			window.MOCK.notice = "O gemini-3.8-flash está ocupado. A usar o modelo seguinte…";
+			window.MOCK.noticeMs = 700;
+			window.MOCK.finalNotice = "Respondeu o gemini-3.7-flash-lite, porque o gemini-3.8-flash estava ocupado";
+		}, pontos);
+		await act(page, "resumo");
+		await page.waitForSelector("text=A usar o modelo seguinte");
+		// durante a troca: progresso normal, sem laranja, sem vermelho e sem ×
+		const during = await page.evaluate(() => {
+			const s = document.querySelector(".zia-status");
+			return { cls: s.className, x: !!s.querySelector(".zia-status-x"), spinner: !!s.querySelector(".zia-spinner") };
+		});
+		assert.ok(!/zia-status-(warn|error)/.test(during.cls), "o aviso de troca de modelo não é um aviso laranja: " + during.cls);
+		assert.equal(during.x, false, "sem × (não é um problema)");
+		assert.equal(during.spinner, true, "mostra progresso");
+		// quando a resposta começa, o aviso sai e fica "A escrever a resposta"
+		await page.waitForSelector("text=A escrever a resposta");
+		assert.equal(await page.locator(".zia-status", { hasText: "ocupado" }).count(), 0, "o aviso antigo já não aparece com a resposta a chegar");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"), null, { timeout: 30000 });
+		// no fim: concluído, e a explicação discreta por baixo da resposta, sem a palavra erro
+		assert.match(await page.textContent(".zia-status"), /Concluído/);
+		assert.doesNotMatch(await page.textContent(".zia-status"), /erro|Erro/);
+		assert.match(await page.textContent(".zia-msg-meta"), /Respondeu o gemini-3\.7-flash-lite, porque o gemini-3\.8-flash estava ocupado/);
+		assert.equal(await page.locator(".zia-msg-assistant .zia-preview-error, .zia-msg-error").count(), 0);
+		await page.screenshot({ path: path.join(OUT, "ui_painel_troca_de_modelo.png") });
+		console.log("OK Gemini muda de modelo: aviso neutro, sem laranja nem ×, e a explicação fica por baixo da resposta");
+		await page.close();
+	}
+
 	// ---------- Cancelamento ----------
 	{
 		const page = await open("?mode=section", { width: 420, height: 700 });

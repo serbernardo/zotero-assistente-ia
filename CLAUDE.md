@@ -213,6 +213,13 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   processo e morto se aparecer um item `command_execution`, `file_change`,
   `mcp_tool_call` ou `web_search`. As variaveis `OPENAI_API_KEY` e
   `ANTHROPIC_API_KEY` sao retiradas do ambiente (usa-se a conta).
+- **Mudar de modelo nao e um erro:** os avisos de troca do Gemini (modelo ocupado,
+  nova tentativa, quota) aparecem como progresso normal (`_setStatus(texto, null, true)`,
+  com spinner, sem laranja e sem x) e, quando a resposta comeca a chegar, passam a
+  "A escrever a resposta…" (`chat.writing`). No fim a explicacao fica discreta por baixo
+  da resposta ("Respondeu o X, porque o Y estava ocupado"). So uma falha real usa
+  `chat.error` e o vermelho. Evitar as palavras "erro" e "sobrecarregado" nos avisos de
+  troca. Teste "Gemini muda de modelo" em `run_ui.js`.
 - **Gemini sobrecarregado (erros 500 a 504):** `runGemini` repete o pedido tres
   vezes (3 s, 8 s e 15 s) e depois tenta ate tres modelos flash estaveis da conta,
   primeiro os "lite" (`geminiFallbacks` em `lib.js`). Um alternativo sem quota
@@ -349,7 +356,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.6.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.7.7.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
