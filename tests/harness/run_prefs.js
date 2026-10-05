@@ -160,31 +160,32 @@ async function main() {
 	console.log(`OK definições: ${tested.size} botões, separadores e ligações respondem sem erros`);
 	console.log("   " + [...tested].join(", "));
 
-	// 1b. Instruções de cada motor: passos com ligações, comandos para copiar e "Copiar instruções"
+	// 1b. Instruções de cada motor: custo, passos com ligações e comandos, texto que se seleciona (sem botões de copiar)
 	for (const [tab, seg, engine, must] of [
 		["claude", null, "claude", ["irm https://claude.ai/install.ps1 | iex", "curl -fsSL https://claude.ai/install.sh | bash", "claude.ai/upgrade", "Claude account with subscription"]],
 		["codex", null, "codex", ["npm install -g @openai/codex", "codex login", "nodejs.org"]],
-		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $", "2 minutos"]],
-		["outros", "openai", "openai", ["platform.openai.com/api-keys", "Plus ou Pro", "5 $"]],
-		["iaedu", null, "iaedu", ["iaedu.pt", "roda dentada", "Informação da API", "Chave da API", "UPorto"]],
+		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $"]],
+		["outros", "openai", "openai", ["platform.openai.com/api-keys", "5 $"]],
+		["iaedu", null, "iaedu", ["iaedu.pt", "roda dentada", "Informação da API", "Chave da API"]],
 	]) {
 		const pg = await open();
 		await pg.click(`.zia-etab[data-engine="${tab}"]`);
 		if (seg) await pg.click(`.zia-seg[data-engine="${seg}"]`);
 		const box = pg.locator(`.zia-guide[data-guide="${engine}"]`);
 		assert.ok(await box.isVisible(), "instruções visíveis: " + engine);
-		assert.match(await box.textContent(), /O que é:/);
-		assert.match(await box.textContent(), /Quanto custa:/);
-		await box.locator("button:has-text(\"Copiar instruções\")").click();
-		const text = await pg.evaluate(() => window.copied);
-		for (const m of must) assert.ok(text.includes(m), `${engine}: o texto copiado tem «${m}»`);
-		assert.match(text, /^1\. /m, "passos numerados");
-		assert.match(text, /releases\/latest/, "termina com a ligação do assistente");
-		assert.doesNotMatch(text, /AIza|sk-ant-api|sk-proj/, "nunca copia chaves");
-		if (engine !== "anthropic" && engine !== "openai" && engine !== "iaedu") {
+		const text = await box.textContent();
+		assert.match(text, /Quanto custa:/);
+		assert.doesNotMatch(text, /O que é:|Copiar instruções/, "sem repetir a linha do motor e sem Copiar instruções");
+		for (const m of must) assert.ok(text.includes(m), `${engine}: as instruções têm «${m}»`);
+		const cmds = await box.locator(".zia-command").count();
+		assert.equal(await box.locator("button").count(), cmds, "só um botão Copiar por comando");
+		if (cmds) {
 			await box.locator(".zia-guide-copy").first().click();
 			assert.ok(must.includes(await pg.evaluate(() => window.copied)), "o botão Copiar copia só o comando");
 		}
+		assert.equal(await box.locator("li").first().evaluate(e => getComputedStyle(e).userSelect), "text", "o texto seleciona-se para copiar com Ctrl+C");
+		const links = await box.locator("a.zia-link").count();
+		assert.ok(links >= 1, "as ligações são clicáveis");
 		if (engine === "claude") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_claude.png"), fullPage: true });
 		if (engine === "codex") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_codex.png"), fullPage: true });
 		if (engine === "anthropic") await pg.screenshot({ path: path.join(OUT, "ui_definicoes_api.png"), fullPage: true });
@@ -197,7 +198,7 @@ async function main() {
 		assert.equal(await pg.textContent('.zia-etab[data-engine="outros"] .zia-etab-pill'), "Recomendado");
 		await pg.close();
 	}
-	console.log("OK instruções dos motores: o que é, quanto custa, passos com ligações, comandos e Copiar instruções");
+	console.log("OK instruções dos motores: custo, passos com ligações e comandos, texto selecionável, Copiar só nos comandos");
 
 	// 1c. IAEdu: só a chave chega (agente por omissão), os campos de outro agente são opcionais e validados
 	{
