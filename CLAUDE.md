@@ -247,12 +247,17 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   também pelos pedidos reais na conversa. O motor em uso nunca aparece "Por
   configurar": sem teste mostra "Falta testar". O Claude Code tambem e procurado na
   pasta da aplicacao Claude para computador.
+- **Definicoes simples:** em cada motor so ficam a vista o custo, os passos, o campo com titulo
+  ("Chave da API:") e o botao. Modelo, notas e limites ficam em "Opcoes avancadas". Sem "Copiar
+  instrucoes": o texto seleciona-se e copia-se com Ctrl+C. Os comandos (PowerShell,
+  Terminal) mantem o botao Copiar. As outras seccoes sao `details.zia-section`
+  que se minimizam (Acoes personalizadas e Privacidade comecam fechadas). "Procurar atualizacoes"
+  esta no cartao dos Creditos. Todo o texto das definicoes se pode selecionar e copiar.
 - **Instrucoes de cada motor** (`GUIDES`, `renderGuides`, `guideText` em
-  `preferences.js`, textos `guide.<motor>.*`): Claude Code, Codex, Claude API e
-  ChatGPT API tem o mesmo bloco: "O que e", "Quanto custa", passos numerados com
+  `preferences.js`, textos `guide.<motor>.*`): Claude Code, Codex, Claude API,
+  ChatGPT API e IAEdu tem o mesmo bloco: "Quanto custa" e passos numerados com
   ligacoes oficiais e comandos com botao Copiar (o do Claude Code em versao Windows e
-  Mac/Linux). "Copiar instrucoes" copia tudo em texto simples, com a ligacao das
-  Releases no fim, para enviar a um colega. Nunca copia chaves.
+  Mac/Linux).
 - **Chaves de API em destaque:** nas definicoes o separador "Claude ou ChatGPT (API)"
   (data-engine `outros`) fica logo a seguir ao Gemini, com contorno dourado e a
   etiqueta "Recomendado". Tres passos (credito, chave, colar) e o custo minimo
@@ -373,7 +378,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

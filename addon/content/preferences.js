@@ -13,10 +13,6 @@ window.ZIAPrefs = {
 		return this.core().t(key, vars);
 	},
 
-	has(key) {
-		return this.core().lib.I18N.has(key);
-	},
-
 	$(id) {
 		return document.getElementById(id);
 	},
@@ -67,28 +63,13 @@ window.ZIAPrefs = {
 		return step.cmd ? [{ label: "", cmd: step.cmd }] : [];
 	},
 
-	/** Copia texto e mostra a confirmação ao lado do botão. */
-	_copy(text, out, msgKey) {
+	/** Copia um comando e mostra a confirmação ao lado do botão. */
+	_copy(text, out) {
 		try {
 			Zotero.Utilities.Internal.copyTextToClipboard(text);
-			if (out) out.textContent = this.T(msgKey);
+			if (out) out.textContent = this.T("guide.cmdCopied");
 		}
 		catch (e) { this.core().log("Copiar: " + e); }
-	},
-
-	/** Instruções de um motor em texto simples (para colar num email ou enviar a um colega). */
-	guideText(engine) {
-		const steps = this.GUIDES[engine] || [];
-		const lines = [this.T(`guide.${engine}.title`), this.T(`guide.${engine}.what`), this.T(`guide.${engine}.cost`)];
-		if (this.has(`guide.${engine}.time`)) lines.push(this.T(`guide.${engine}.time`));
-		lines.push("");
-		steps.forEach((s, i) => {
-			lines.push(`${i + 1}. ${this.T(`guide.${engine}.${s.k}`)}`);
-			if (s.url) lines.push(`   ${s.url}`);
-			for (const c of this._guideCmds(s)) lines.push(`   ${c.label ? c.label + ": " : ""}${c.cmd}`);
-		});
-		lines.push("", this.T("guide.footer"));
-		return lines.join("\n");
 	},
 
 	/** Desenha o bloco de instruções de cada motor (refeito quando muda a língua). */
@@ -96,16 +77,10 @@ window.ZIAPrefs = {
 		for (const box of document.querySelectorAll(".zia-guide[data-guide]")) {
 			const engine = box.getAttribute("data-guide");
 			while (box.firstChild) box.removeChild(box.firstChild);
-			const what = this.html("p", this.T(`guide.${engine}.what`));
-			what.className = "zia-guide-what";
+			// Só o custo e os passos: "O que é" já está na linha do motor
 			const cost = this.html("p", this.T(`guide.${engine}.cost`));
 			cost.className = "zia-guide-cost";
-			box.append(what, cost);
-			if (this.has(`guide.${engine}.time`)) {
-				const time = this.html("p", this.T(`guide.${engine}.time`));
-				time.className = "zia-guide-time";
-				box.append(time);
-			}
+			box.append(cost);
 			const ol = this.html("ol");
 			ol.className = "zia-steps zia-guide-steps";
 			for (const s of this.GUIDES[engine] || []) {
@@ -132,23 +107,13 @@ window.ZIAPrefs = {
 					btn.className = "zia-guide-copy";
 					const done = this.html("span");
 					done.className = "zia-prefs-note";
-					btn.addEventListener("click", () => this._copy(c.cmd, done, "guide.cmdCopied"));
+					btn.addEventListener("click", () => this._copy(c.cmd, done));
 					row.append(code, btn, done);
 					li.append(row);
 				}
 				ol.append(li);
 			}
 			box.append(ol);
-			const foot = this.html("div");
-			foot.className = "zia-prefs-row zia-guide-foot";
-			const all = this.html("button", this.T("guide.copyAll"));
-			all.className = "zia-guide-copyall";
-			all.title = this.T("guide.copyAllTip");
-			const done = this.html("span");
-			done.className = "zia-prefs-note";
-			all.addEventListener("click", () => this._copy(this.guideText(engine), done, "guide.copied"));
-			foot.append(all, done);
-			box.append(foot);
 		}
 	},
 
@@ -237,7 +202,6 @@ window.ZIAPrefs = {
 		}
 		const ta = this.$("zia-custom-prompts");
 		if (ta) ta.setAttribute("placeholder", this.T("prefs.prompts.placeholder"));
-		this.setText("zia-version", this.T("prefs.update.version", { v: this.core().version || "?" }));
 		this.showBuildInfo();
 		this.renderGuides();
 		if (this._fillCiteStyle) this._fillCiteStyle();

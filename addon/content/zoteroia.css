@@ -1618,3 +1618,16 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-guide-time { margin: 2px 0; color: var(--zia-fg2, #3f4555); }
 
 #zia-iaedu-endpoint { flex: 1; min-width: 320px; }
+
+/* Definições: texto que se pode selecionar e copiar */
+#zoteroia-prefs-root :is(div, p, span, li, h2, code, a) { -moz-user-select: text; user-select: text; }
+#zoteroia-prefs-root a.zia-link { cursor: pointer; }
+
+/* Definições: secções que se minimizam ou abrem */
+.zia-section { margin: 14px 0 0; padding: 0 16px; border: 1px solid var(--zia-border, #ddd2c9); border-radius: 8px; background: var(--zia-bg, #fff); }
+.zia-section > summary { cursor: pointer; padding: 10px 0; list-style-position: inside; }
+.zia-section > summary > h2 { display: inline; margin: 0; font-size: 15px; }
+.zia-section[open] > summary { margin-bottom: 4px; }
+.zia-section[open] { padding-bottom: 14px; }
+.zia-credits-update { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--zia-border, #ddd2c9); }
+.zia-credits-update .zia-prefs-result { margin: 0; }
