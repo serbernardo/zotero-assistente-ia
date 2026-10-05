@@ -1435,7 +1435,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-check { margin: 6px 0 2px; padding: 5px 8px; border-radius: 6px; font-size: 12px; }
 .zia-check-ok { color: var(--zia-green); background: none; padding-left: 0; }
 .zia-check-warn { border: 1px solid var(--zia-orange); border-left-width: 3px; background: rgba(232, 133, 12, 0.08); color: var(--zia-fg); }
-.zia-check-title { font-weight: 700; color: var(--zia-orange); }
+.zia-check-title { font-weight: 700; color: var(--zia-link); }
 .zia-check ul { margin: 4px 0; padding-inline-start: 18px; }
 .zia-check-foot { color: var(--zia-fg2); font-size: 11.5px; }
 
