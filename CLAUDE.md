@@ -2,11 +2,11 @@
 
 Addon para o Zotero (versao 0.7) que ajuda a ler, avaliar e escrever a partir
 de artigos cientificos, com a conta de IA do proprio utilizador (gratuita ou
-paga). Cinco motores: Claude com chave da API (`anthropic`), Claude com a
+paga). Seis motores: Claude com chave da API (`anthropic`), Claude com a
 subscricao Pro/Max atraves do Claude Code em subprocesso (`claude`), ChatGPT
 com chave da API da OpenAI (`openai`), ChatGPT com a conta do utilizador,
 gratuita ou paga, atraves do Codex CLI em subprocesso (`codex`) e Gemini com
-chave da API (`gemini`). Interface em PT-PT e ingles (`content/i18n.js`,
+chave da API (`gemini`) e IAEdu (`iaedu`, agente da instituicao). Interface em PT-PT e ingles (`content/i18n.js`,
 pref `ui.lang`: auto, pt-PT, en). As respostas da IA saem sempre na lingua da app
 (`buildSystemPrompt("ui")`, ja nao ha opcao propria). Botao PT/EN no titulo do
 painel (sectionButton `zoteroia-lang`, `toggleLanguage`, `showLang` troca o icone
@@ -213,6 +213,18 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   processo e morto se aparecer um item `command_execution`, `file_change`,
   `mcp_tool_call` ou `web_search`. As variaveis `OPENAI_API_KEY` e
   `ANTHROPIC_API_KEY` sao retiradas do ambiente (usa-se a conta).
+- **IAEdu** (motor `iaedu`, `runIAEdu`, `createIAEduStreamParser`, `classifyIAEduError`,
+  `isIAEduEndpoint`): servico de IA para o ensino e a investigacao em Portugal. Tres valores
+  que o IAEdu mostra em "Informacao da API": endereco do agente (prefs `iaedu.endpoint`, tem
+  de ser https e do dominio iaedu.pt, senao nada e enviado), ID do canal (`iaedu.channel`) e
+  chave (cofre, cabecalho `x-api-key`). Pedido multipart (`channel_id`, `thread_id` novo em
+  cada pedido, `user_info` = "{}", `message` = instrucoes de sistema + pedido, porque nao ha
+  campo proprio). Resposta em blocos JSON separados por linhas em branco: `start`, `token`,
+  `message` (texto completo, vale mais do que os pedacos) e `done`. Sem consumo de tokens
+  na resposta. O modelo e o do agente. Testado a mao com 80 mil e 320 mil caracteres
+  (`maxChars` 300000). Separador proprio nas definicoes (`OWN_TABS`), fora de "Claude ou
+  ChatGPT (API)". Termos de uso e limites do IAEdu desconhecidos: o aviso de privacidade
+  manda confirmar. Teste: `run_iaedu.js`.
 - **Mudar de modelo nao e um erro:** os avisos de troca do Gemini (modelo ocupado,
   nova tentativa, quota) aparecem como progresso normal (`_setStatus(texto, null, true)`,
   com spinner, sem laranja e sem x) e, quando a resposta comeca a chegar, passam a
@@ -320,6 +332,8 @@ npm install
 - `node tests/harness/run_openai.js` — motor ChatGPT API contra um servidor
   simulado no formato oficial da OpenAI, e motor Codex com um Codex falso
   (`tests/harness/fake_codex/`, inclui um `.cmd` igual ao do npm)
+- `node tests/harness/run_iaedu.js` — motor IAEdu contra um servidor simulado no formato
+  real observado (pedido multipart, blocos JSON, erros, endereco de fora recusado)
 - `node tests/harness/run_gemini.js` — motor Gemini contra um servidor SSE
   simulado no formato oficial da Google
 - `node tests/harness/run_ui.js` — testes de interface com Playwright; no
@@ -356,7 +370,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.7.8.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

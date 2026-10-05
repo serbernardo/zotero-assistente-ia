@@ -2,7 +2,7 @@
 
 *English summary at the end.*
 
-Addon para o Zotero que ajuda a **ler, avaliar e comparar artigos científicos** com a **tua própria conta de IA**, gratuita ou paga: **Gemini**, **ChatGPT** ou **Claude**. Todas as respostas citam a página do PDF, e cada citação abre o PDF nessa página. A interface está em **português de Portugal** e em **inglês**.
+Addon para o Zotero que ajuda a **ler, avaliar e comparar artigos científicos** com a **tua própria conta de IA**, gratuita ou paga: **Gemini**, **ChatGPT**, **Claude** ou o **IAEdu** da tua instituição. Todas as respostas citam a página do PDF, e cada citação abre o PDF nessa página. A interface está em **português de Portugal** e em **inglês**.
 
 **Só os teus PDFs, nada inventado.** A IA é instruída a usar apenas o texto dos PDFs, sem conhecimento geral nem suposições, e a dizer quando algo não consta. Depois, o próprio addon **verifica cada resposta** contra o texto dos PDFs: confirma que os excertos entre aspas existem mesmo e na página citada, que as páginas citadas existem, que os números aparecem nos PDFs e que as contas estão certas. O que não bate certo aparece num aviso por baixo da resposta.
 
@@ -65,6 +65,7 @@ Abre **Editar → Definições** (Windows) ou **Zotero → Settings** (macOS) �
 | **Gemini, chave da API** | Gratuita ou paga | Quota gratuita diária | Criar uma chave em aistudio.google.com |
 | **Claude, subscrição** | Pro ou Max | Sem custos extra, conta para os limites da subscrição | Instalar o Claude Code e iniciar sessão uma vez |
 | **ChatGPT, conta ChatGPT** | Gratuita ou paga | Sem custos extra, conta para os limites da tua conta | Instalar o Codex e iniciar sessão uma vez |
+| **IAEdu** | Conta da tua instituição | Os limites do IAEdu e da tua instituição | Criar um agente e copiar o endereço, o canal e a chave |
 
 **Contas gratuitas:** as opções gratuitas são o **Gemini** e o **ChatGPT com conta gratuita (Codex)**. A conta gratuita do Claude não dá acesso ao Claude Code nem à API.
 
@@ -100,6 +101,16 @@ O assistente corre o Codex **sem ferramentas**: numa pasta temporária vazia, s�
 3. Nas definições, separador **Claude ou ChatGPT (API)**, cola a chave e carrega em **Guardar e testar**
 
 O crédito expira ao fim de um ano e não é reembolsável.
+
+### IAEdu (agente da tua instituição)
+
+1. Entra em https://iaedu.pt com a conta da tua instituição
+2. Cria um agente: em **Agentes**, **Criar agente**, com um nome à tua escolha e a visibilidade em **Privado**. Nas instruções do agente basta uma linha, por exemplo: *Responde apenas com base no texto que receberes*
+3. Na lista de modelos, carrega na roda dentada do modelo que o agente usa (por exemplo, GPT-5.5) e escolhe **Informação da API**. A roda dentada está no cartão do modelo, não no do agente
+4. Copia os três valores: o endereço (com o identificador do teu agente, a acabar em `/stream`), o ID do canal e a chave
+5. Nas definições do Assistente IA, separador **IAEdu**, cola os três valores e carrega em **Guardar e testar**
+
+O endereço tem de ser do domínio iaedu.pt. A chave só é enviada para lá. Confirma as regras de uso do IAEdu e da tua instituição antes de enviares artigos.
 
 ## Segurança e privacidade
 
@@ -141,7 +152,7 @@ Sérgio Bernardo
 
 ## English summary
 
-**AI Assistant for Zotero** helps you read, appraise and compare scientific papers with **your own AI account**, free or paid: **Gemini**, **ChatGPT** or **Claude**. Every answer cites the PDF page, and each citation opens the PDF at that page. The AI is told to use only the text of your PDFs, and the add-on then **checks every answer** against the PDFs: quotes, pages, numbers and calculations.
+**AI Assistant for Zotero** helps you read, appraise and compare scientific papers with **your own AI account**, free or paid: **Gemini**, **ChatGPT**, **Claude** or your institution's **IAEdu**. Every answer cites the PDF page, and each citation opens the PDF at that page. The AI is told to use only the text of your PDFs, and the add-on then **checks every answer** against the PDFs: quotes, pages, numbers and calculations.
 
 - **Side pane, one article:** Understand (summary, key points, plain-language summary, concepts, outline), Appraise (critical appraisal with the right checklist for the study type, methods and data, claims and evidence), Extract (reading sheet, quotable excerpts, literature review, keywords added as Zotero tags), Future research (research gaps, research questions), plus your own custom actions and free questions
 - **Compare window, many PDFs:** overview, methods, results, concepts and theories, synthesis for review, and **screening by criteria** (include, exclude or unclear for each article, with a CSV summary). Add PDFs or a whole collection

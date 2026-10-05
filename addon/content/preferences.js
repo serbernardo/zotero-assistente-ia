@@ -48,6 +48,13 @@ window.ZIAPrefs = {
 			{ k: "s2", url: "https://platform.openai.com/api-keys" },
 			{ k: "s3" },
 		],
+		iaedu: [
+			{ k: "s1", url: "https://iaedu.pt" },
+			{ k: "s2" },
+			{ k: "s3" },
+			{ k: "s4" },
+			{ k: "s5" },
+		],
 	},
 
 	/** Comandos de um passo: o de instalação do Claude Code tem uma versão para Windows e outra para Mac e Linux. */
@@ -162,7 +169,7 @@ window.ZIAPrefs = {
 			const el = this.$(id);
 			if (el) el.addEventListener("command", fn);
 		};
-		for (const name of ["anthropic", "openai", "gemini"]) {
+		for (const name of ["anthropic", "openai", "gemini", "iaedu"]) {
 			on(`zia-${name}-save`, () => this.saveKey(name));
 			on(`zia-${name}-clear`, () => this.clearKey(name));
 			// Enter no campo da chave guarda e testa
@@ -210,6 +217,7 @@ window.ZIAPrefs = {
 		this.initUILanguage();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
+		this.initIAEdu();
 		this.initCiteStyle();
 		this.initCustomPrompts();
 		this.translate();
@@ -225,7 +233,7 @@ window.ZIAPrefs = {
 			const el = this.$(id);
 			if (el) el.setAttribute("placeholder", this.T("prefs.path.placeholder"));
 		}
-		for (const name of ["anthropic", "openai", "gemini"]) {
+		for (const name of ["anthropic", "openai", "gemini", "iaedu"]) {
 			const el = this.$(`zia-${name}-key`);
 			if (el) el.setAttribute("aria-label", this.T("prefs.apiKey"));
 		}
@@ -312,7 +320,7 @@ window.ZIAPrefs = {
 		const core = this.core();
 		const last = core.pref(e + ".lastTest") || "";
 		if (core.ENGINES[e].kind === "key") {
-			if (!core.hasSecret(e)) return "todo";
+			if (!core.hasSecret(e) || (e === "iaedu" && !core.isEngineReady(e))) return "todo";
 			return last === "fail" ? "fail" : last === "ok" ? "ok" : "saved";
 		}
 		if (last === "fail" || last === "ok") return last;
@@ -372,7 +380,8 @@ window.ZIAPrefs = {
 				box.appendChild(tab);
 			};
 			// As chaves de API (Claude ou ChatGPT) ficam em destaque, logo a seguir ao Gemini
-			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e));
+			const own = core.OWN_TABS || [];
+			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e) && !own.includes(e));
 			addTab(main[0]);
 			if (rest.length) {
 				const inRest = rest.includes(shown);
@@ -402,12 +411,13 @@ window.ZIAPrefs = {
 				box.appendChild(tab);
 			}
 			for (const e of main.slice(1)) addTab(e);
+			for (const e of own) addTab(e);
 		}
 		// Dentro de "Outros": escolha entre Claude API e ChatGPT API
 		const sw = this.$("zia-other-switch");
 		if (sw) {
 			while (sw.firstChild) sw.removeChild(sw.firstChild);
-			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e));
+			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e) && !(core.OWN_TABS || []).includes(e));
 			sw.hidden = !rest.includes(shown);
 			if (!sw.hidden) {
 				sw.appendChild(this.html("span", this.T("prefs.others.intro")));
@@ -446,7 +456,7 @@ window.ZIAPrefs = {
 		}
 		const step2 = document.querySelector("[data-zia='prefs.step2']");
 		if (step2) step2.textContent = this.T("prefs.step2", { engine: this.T("prefs.engine." + shown) });
-		for (const name of ["anthropic", "openai", "gemini"]) {
+		for (const name of ["anthropic", "openai", "gemini", "iaedu"]) {
 			const st = core.secretState(name);
 			const k = st === "encrypted" ? "prefs.st.keyEncrypted" : st === "login" ? "prefs.st.keyLogin" : st === "plain" ? "prefs.st.keyPlain" : null;
 			this.setText(`zia-${name}-keystate`, k ? this.T("prefs.st.state", { s: this.T(k) }) : this.T("prefs.st.none"));
@@ -494,11 +504,40 @@ window.ZIAPrefs = {
 		return null;
 	},
 
+	/** IAEdu: guarda o endereço e o canal escritos nos campos. Devolve a chave de texto do problema, se houver. */
+	saveIAEduFields() {
+		const core = this.core();
+		const ep = this.$("zia-iaedu-endpoint");
+		const ch = this.$("zia-iaedu-channel");
+		const endpoint = ((ep && ep.value) || "").trim();
+		const channel = ((ch && ch.value) || "").trim();
+		if (!core.lib.isIAEduEndpoint(endpoint)) return "prefs.iaedu.badEndpoint";
+		if (!/^[A-Za-z0-9_-]{8,80}$/.test(channel)) return "prefs.iaedu.badChannel";
+		core.setPref("iaedu.endpoint", endpoint);
+		core.setPref("iaedu.channel", channel);
+		return null;
+	},
+
+	initIAEdu() {
+		const core = this.core();
+		const ep = this.$("zia-iaedu-endpoint");
+		const ch = this.$("zia-iaedu-channel");
+		if (ep) ep.value = core.pref("iaedu.endpoint") || "";
+		if (ch) ch.value = core.pref("iaedu.channel") || "";
+	},
+
 	async saveKey(name) {
 		const core = this.core();
 		const input = this.$(`zia-${name}-key`);
 		const key = (input.value || "").trim();
 		const state = `zia-${name}-keystate`;
+		if (name === "iaedu") {
+			const bad = this.saveIAEduFields();
+			if (bad) {
+				this.setText(state, this.T(bad), true);
+				return;
+			}
+		}
 		if (!key) {
 			// Sem chave nova: testa a que já está guardada
 			if (core.hasSecret(name)) return this.test(name);

@@ -43,12 +43,19 @@ pref("extensions.zoteroia.gemini.modelStrong", "auto");
 pref("extensions.zoteroia.gemini.defaultApplied", false);
 pref("extensions.zoteroia.gemini.maxChars", 400000);
 
+// IAEdu: chave (encriptada), endereço do agente e identificador do canal
+pref("extensions.zoteroia.iaedu.key", "");
+pref("extensions.zoteroia.iaedu.endpoint", "");
+pref("extensions.zoteroia.iaedu.channel", "");
+pref("extensions.zoteroia.iaedu.maxChars", 300000);
+
 // Resultado do último teste nas definições, por motor: "", "ok" ou "fail"
 pref("extensions.zoteroia.anthropic.lastTest", "");
 pref("extensions.zoteroia.claude.lastTest", "");
 pref("extensions.zoteroia.openai.lastTest", "");
 pref("extensions.zoteroia.codex.lastTest", "");
 pref("extensions.zoteroia.gemini.lastTest", "");
+pref("extensions.zoteroia.iaedu.lastTest", "");
 
 // Aviso de privacidade aceite, por motor
 pref("extensions.zoteroia.privacy.ack.anthropic", false);
@@ -56,6 +63,7 @@ pref("extensions.zoteroia.privacy.ack.claude", false);
 pref("extensions.zoteroia.privacy.ack.openai", false);
 pref("extensions.zoteroia.privacy.ack.codex", false);
 pref("extensions.zoteroia.privacy.ack.gemini", false);
+pref("extensions.zoteroia.privacy.ack.iaedu", false);
 // Ícone do assistente já colocado a seguir à Info (só uma vez)
 pref("extensions.zoteroia.sidenav.placed", false);
 // Estilo das citações ao copiar e nas notas: "" = formato simples, ou o id de um estilo do Zotero

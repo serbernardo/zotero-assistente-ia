@@ -26,14 +26,17 @@ var ZoteroIA = {
 		openai: { provider: "OpenAI", family: "openai", kind: "key" },
 		codex: { provider: "OpenAI", family: "openai", kind: "local" },
 		gemini: { provider: "Google", family: "gemini", kind: "key" },
+		iaedu: { provider: "IAEdu", family: "iaedu", kind: "key" },
 	},
-	ENGINE_ORDER: ["gemini", "claude", "codex", "anthropic", "openai"],
+	ENGINE_ORDER: ["gemini", "claude", "codex", "anthropic", "openai", "iaedu"],
+	// Motores com separador próprio nas definições (os outros de chave ficam em "Claude ou ChatGPT (API)")
+	OWN_TABS: ["iaedu"],
 	// Motores que aparecem sempre na lista do painel. Os outros (chaves de API) só quando
 	// estão configurados ou escolhidos.
 	MAIN_ENGINES: ["gemini", "claude", "codex"],
 
 	// Chaves de API guardadas de forma segura (nunca em texto simples nas preferências)
-	SECRETS: { anthropic: "anthropic.key", openai: "openai.key", gemini: "gemini.key" },
+	SECRETS: { anthropic: "anthropic.key", openai: "openai.key", gemini: "gemini.key", iaedu: "iaedu.key" },
 	LOGIN_ORIGIN: "chrome://zoteroia",
 
 	API_TIMEOUT_MS: 15 * 60 * 1000,
@@ -1669,6 +1672,73 @@ var ZoteroIA = {
 	},
 
 	// ------------------------------------------------------------------
+	// Motor extra: IAEdu (serviço de IA para o ensino e a investigação em Portugal)
+	// Cada agente tem o seu endereço, um canal e uma chave. O modelo é o do agente. O pedido
+	// é um formulário (multipart) e a resposta chega em blocos JSON (ver createIAEduStreamParser).
+	// A chave só é enviada para endereços https do domínio iaedu.pt.
+	// ------------------------------------------------------------------
+
+	iaeduChannel() {
+		const c = String(this.pref("iaedu.channel") || "").trim();
+		return /^[A-Za-z0-9_-]{8,80}$/.test(c) ? c : "";
+	},
+
+	async runIAEdu({ system, prompt, onDelta, signal, win }) {
+		const key = await this.getSecret("iaedu");
+		if (!key) throw this.error("auth", this.t("err.noKey", { label: this.t("key.iaedu") }));
+		const url = String(this.pref("iaedu.endpoint") || "").trim();
+		const channel = this.iaeduChannel();
+		if (!this.lib.isIAEduEndpoint(url) || !channel) throw this.error("notconfigured", this.t("err.iaedu.setup"));
+		const w = win || (Zotero.getMainWindow && Zotero.getMainWindow());
+		const form = new w.FormData();
+		form.append("channel_id", channel);
+		// Cada pedido é uma conversa nova: o assistente envia sempre o contexto todo
+		form.append("thread_id", "zia-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
+		form.append("user_info", "{}");
+		// O serviço não tem campo para instruções de sistema: vão no início da mensagem
+		form.append("message", system + "\n\n" + prompt);
+		let res, cleanup;
+		try {
+			({ res, cleanup } = await this._fetch(win, url, {
+				method: "POST",
+				headers: { "x-api-key": key },
+				body: form,
+			}, signal));
+		}
+		catch (e) {
+			if (signal && signal.aborted) throw this.error("aborted", this.t("err.aborted"));
+			throw this.error("network", this.t("err.network", { provider: "IAEdu", e }));
+		}
+		try {
+			if (!res.ok) {
+				const c = this.lib.classifyIAEduError(res.status, await res.text());
+				throw this.error(c.kind, c.message);
+			}
+			const parser = this.lib.createIAEduStreamParser((d, all) => onDelta && onDelta(d, all));
+			try {
+				await this._readStream(res, parser);
+			}
+			catch (e) {
+				if (signal && signal.aborted) throw this.error("aborted", this.t("err.aborted"));
+				throw this.error("network", this.t("err.interrupted", { provider: "IAEdu", e }));
+			}
+			const st = parser.end();
+			if (st.error) {
+				const c = this.lib.classifyIAEduError(0, { detail: st.error });
+				throw this.error(c.kind, c.message);
+			}
+			if (!st.text) throw this.error("other", this.t("err.noText", { engine: "IAEdu" }));
+			let text = st.text;
+			// Sem o bloco final "done" a resposta pode ter sido cortada
+			if (!st.done && st.final == null) text += "\n\n> " + this.t("err.cut");
+			return { text, model: st.model || "IAEdu", usage: null };
+		}
+		finally {
+			cleanup();
+		}
+	},
+
+	// ------------------------------------------------------------------
 	// Motor 5: ChatGPT com a conta do utilizador (gratuita ou paga), através do Codex
 	// O Codex é o programa oficial da OpenAI. Cada pessoa inicia sessão uma vez com
 	// "codex login". O assistente corre-o sem ferramentas: sandbox só de leitura, numa
@@ -1786,6 +1856,7 @@ var ZoteroIA = {
 	isEngineReady(engine) {
 		const e = this.ENGINES[engine];
 		if (!e) return false;
+		if (engine === "iaedu") return this.hasSecret(engine) && this.lib.isIAEduEndpoint(this.pref("iaedu.endpoint")) && !!this.iaeduChannel();
 		if (e.kind === "key") return this.hasSecret(engine);
 		return !!this.pref(engine + ".enabled") || this.pref("engine") === engine;
 	},
@@ -1817,6 +1888,7 @@ var ZoteroIA = {
 			case "claude": return this.runClaude(Object.assign({ model: this.pref("claude.model") || "sonnet" }, opts));
 			case "openai": return this.runOpenAI(Object.assign({ model: this.openaiModel() }, opts));
 			case "codex": return this.runCodex(Object.assign({ model: this.codexModel() }, opts));
+			case "iaedu": return this.runIAEdu(opts);
 		}
 		throw this.error("notconfigured", this.t("err.notConfigured"));
 	},

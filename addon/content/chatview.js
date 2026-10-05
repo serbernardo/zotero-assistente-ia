@@ -175,7 +175,7 @@ var ZIAChatView = class {
 		this._prefObservers = [];
 		const P = Zotero.Prefs;
 		if (!P || !P.registerObserver) return;
-		const keys = ["engine", "anthropic.key", "openai.key", "gemini.key", "claude.enabled", "codex.enabled", "custom.prompts", "ui.lang"];
+		const keys = ["engine", "anthropic.key", "openai.key", "gemini.key", "iaedu.key", "iaedu.endpoint", "iaedu.channel", "claude.enabled", "codex.enabled", "custom.prompts", "ui.lang"];
 		for (const k of keys) {
 			try {
 				this._prefObservers.push(P.registerObserver(this.core.PREF_BRANCH + k, () => this._onPrefsChanged(k), true));
