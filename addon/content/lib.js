@@ -1763,6 +1763,10 @@ var ZIALib = (function () {
 		return { kind: "other", message: withDetail(t("err.api.other", { provider, status: status || code || type }), msg) };
 	}
 
+	/** Agente partilhado com a UPorto. Não são segredos: sem a chave pessoal de cada utilizador não responde. */
+	const IAEDU_DEFAULT_ENDPOINT = "https://api.iaedu.pt/agent-chat//api/v1/agent/cmor5objoex9gfp01vm7p95jh/stream";
+	const IAEDU_DEFAULT_CHANNEL = "cmuvac9m41lkjii01fqbi6pjr";
+
 	/** O endereço do IAEdu tem de ser https e de um domínio iaedu.pt (a chave só é enviada para lá). */
 	function isIAEduEndpoint(url) {
 		const m = /^https:\/\/([a-z0-9-]+(?:\.[a-z0-9-]+)*)(?::\d+)?(\/[^\s?#]*)?$/i.exec(String(url || "").trim());
@@ -2182,7 +2186,7 @@ var ZIALib = (function () {
 		parseCiteGroup, citeLabel, citesToText, CITE_GROUP_RE,
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
-		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint,
+		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint, IAEDU_DEFAULT_ENDPOINT, IAEDU_DEFAULT_CHANNEL,
 		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, setCiteFormatter, replaceDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();

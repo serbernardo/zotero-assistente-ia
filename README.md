@@ -102,15 +102,13 @@ O assistente corre o Codex **sem ferramentas**: numa pasta temporária vazia, s�
 
 O crédito expira ao fim de um ano e não é reembolsável.
 
-### IAEdu (agente da tua instituição)
+### IAEdu (agente da UPorto)
 
 1. Entra em https://iaedu.pt com a conta da tua instituição
-2. Precisas de um agente. Se alguém da tua instituição te partilhou um, pede-lhe o **Endpoint da API** e o **ID do Canal** (nunca a chave dela) e salta para o passo 4. Se não, cria o teu: em **Agentes**, **Criar agente**, com um nome à tua escolha e a visibilidade em **Privado**. Nas instruções do agente basta uma linha, por exemplo: *Responde apenas com base no texto que receberes*
-3. Na lista de modelos, carrega na roda dentada do modelo que o agente usa (por exemplo, GPT-5.5) e escolhe **Informação da API**. A roda dentada está no cartão do modelo, não no do agente
-4. Copia os três valores: o **Endpoint da API** (com o identificador do teu agente, a terminar com `stream`), o **ID do Canal** e a **Chave da API**. A chave é pessoal e não se partilha
-5. Nas definições do Assistente IA, separador **IAEdu**, cola os três valores e carrega em **Guardar e testar**. Se um agente partilhado falhar com a tua chave, cria o teu
+2. Na lista de modelos, carrega na roda dentada de um modelo e escolhe **Informação da API**. Copia só a **Chave da API**. A chave é pessoal e não se partilha
+3. Nas definições do Assistente IA, separador **IAEdu**, cola a chave e carrega em **Guardar e testar**
 
-O endpoint tem de ser do domínio iaedu.pt. A chave só é enviada para lá. Confirma as regras de uso do IAEdu e da tua instituição antes de enviares artigos.
+Por omissão o assistente usa o agente Assistente IA Zotero, partilhado com a UPorto. Se não fores da UPorto, em **Usar outro agente (opcional)** cola o **Endpoint da API** e o **ID do Canal** de um agente teu. O endpoint tem de ser do domínio iaedu.pt e a chave só é enviada para lá. Confirma as regras de uso do IAEdu e da tua instituição antes de enviares artigos.
 
 ## Segurança e privacidade
 

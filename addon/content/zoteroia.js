@@ -1678,15 +1678,20 @@ var ZoteroIA = {
 	// A chave só é enviada para endereços https do domínio iaedu.pt.
 	// ------------------------------------------------------------------
 
+	// Sem valores próprios nas definições, usa o agente por omissão (partilhado com a UPorto)
 	iaeduChannel() {
-		const c = String(this.pref("iaedu.channel") || "").trim();
+		const c = String(this.pref("iaedu.channel") || "").trim() || this.lib.IAEDU_DEFAULT_CHANNEL;
 		return /^[A-Za-z0-9_-]{8,80}$/.test(c) ? c : "";
+	},
+
+	iaeduEndpoint() {
+		return String(this.pref("iaedu.endpoint") || "").trim() || this.lib.IAEDU_DEFAULT_ENDPOINT;
 	},
 
 	async runIAEdu({ system, prompt, onDelta, signal, win }) {
 		const key = await this.getSecret("iaedu");
 		if (!key) throw this.error("auth", this.t("err.noKey", { label: this.t("key.iaedu") }));
-		const url = String(this.pref("iaedu.endpoint") || "").trim();
+		const url = this.iaeduEndpoint();
 		const channel = this.iaeduChannel();
 		if (!this.lib.isIAEduEndpoint(url) || !channel) throw this.error("notconfigured", this.t("err.iaedu.setup"));
 		const w = win || (Zotero.getMainWindow && Zotero.getMainWindow());
@@ -1856,7 +1861,7 @@ var ZoteroIA = {
 	isEngineReady(engine) {
 		const e = this.ENGINES[engine];
 		if (!e) return false;
-		if (engine === "iaedu") return this.hasSecret(engine) && this.lib.isIAEduEndpoint(this.pref("iaedu.endpoint")) && !!this.iaeduChannel();
+		if (engine === "iaedu") return this.hasSecret(engine) && this.lib.isIAEduEndpoint(this.iaeduEndpoint()) && !!this.iaeduChannel();
 		if (e.kind === "key") return this.hasSecret(engine);
 		return !!this.pref(engine + ".enabled") || this.pref("engine") === engine;
 	},
