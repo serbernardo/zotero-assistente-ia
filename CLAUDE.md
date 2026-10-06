@@ -227,7 +227,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   sistema + pedido, porque nao ha campo proprio). Resposta em blocos JSON separados por linhas
   em branco: `start`, `token`, `message` (texto completo, vale mais do que os pedacos) e `done`.
   Sem consumo de tokens na resposta. O modelo e o do agente. Testado a mao com 80 mil e 320 mil
-  caracteres (`maxChars` 300000). Separador proprio nas definicoes (`OWN_TABS`), fora de "Claude
+  caracteres (`maxChars` 3000000 por omissao, a pedido). Separador proprio nas definicoes (`OWN_TABS`), fora de "Claude
   ou ChatGPT (API)". Termos de uso e limites do IAEdu desconhecidos: o aviso de privacidade
   manda confirmar. Teste: `run_iaedu.js`.
 - **Mudar de modelo nao e um erro:** os avisos de troca do Gemini (modelo ocupado,
@@ -258,8 +258,8 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   Nao usar o nome `zia-fold`, que e do painel. Respostas e Creditos comecam abertas, Privacidade
   fechada. Sem "Acoes personalizadas" nas definicoes (estao no painel, separador Personalizado).
   "Procurar atualizacoes" esta no cartao dos Creditos.
-- **Separadores dos motores:** um por motor (Gemini, Claude API, ChatGPT API, Claude Pro/Max,
-  ChatGPT conta, IAEdu), sem "Recomendado". O escolhido fica a negrito e a estrela do motor em
+- **Separadores dos motores:** um por motor (IAEdu, Gemini, Claude API, ChatGPT API, Claude Pro/Max,
+  ChatGPT conta), sem "Recomendado". O escolhido fica a negrito e a estrela do motor em
   uso e maior. Arrastar um separador muda a ordem (`tabOrder`, `moveTab`, pref
   `engines.tabOrder`).
 - **Instrucoes de cada motor** (`GUIDES`, `renderGuides`, `guideText` em
@@ -381,7 +381,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.5.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

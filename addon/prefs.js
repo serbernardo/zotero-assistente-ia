@@ -47,7 +47,7 @@ pref("extensions.zoteroia.gemini.maxChars", 400000);
 pref("extensions.zoteroia.iaedu.key", "");
 pref("extensions.zoteroia.iaedu.endpoint", "");
 pref("extensions.zoteroia.iaedu.channel", "");
-pref("extensions.zoteroia.iaedu.maxChars", 300000);
+pref("extensions.zoteroia.iaedu.maxChars", 3000000);
 
 // Resultado do último teste nas definições, por motor: "", "ok" ou "fail"
 pref("extensions.zoteroia.anthropic.lastTest", "");

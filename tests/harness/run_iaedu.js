@@ -139,7 +139,7 @@ const json = (status, o) => new Response(JSON.stringify(o), { status });
 	assert.equal(t.model, "gpt-5.5");
 	r = await core.runEngine("iaedu", { system: "s", prompt: "p", win: mkWin(() => stream(OK)) });
 	assert.equal(r.text, "Resumo [D1:p2] concluído.");
-	assert.equal(core.maxCharsFor("iaedu"), 300000);
+	assert.equal(core.maxCharsFor("iaedu"), 3000000);
 	await core.clearAllSecrets();
 	assert.ok(!core.hasSecret("iaedu"));
 	console.log("OK IAEdu: teste, execução unificada, limite de caracteres e apagar chaves");

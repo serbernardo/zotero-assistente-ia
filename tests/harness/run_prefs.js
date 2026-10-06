@@ -191,7 +191,7 @@ async function main() {
 	{
 		const pg = await open();
 		const order = await pg.$$eval(".zia-etab", ts => ts.map(t => t.dataset.engine));
-		assert.deepEqual(order, ["gemini", "anthropic", "openai", "claude", "codex", "iaedu"], "um separador por motor");
+		assert.deepEqual(order, ["iaedu", "gemini", "anthropic", "openai", "claude", "codex"], "um separador por motor, IAEdu primeiro");
 		assert.doesNotMatch(await pg.textContent("#zia-engines"), /Recomendado/);
 		const weight = e => pg.$eval(`.zia-etab[data-engine="${e}"]`, t => getComputedStyle(t).fontWeight);
 		assert.equal(await weight("gemini"), "700", "o separador escolhido fica a negrito");
@@ -200,9 +200,9 @@ async function main() {
 			assert.equal(await pg.getAttribute(`#zia-${e}-key`, "placeholder"), "Inserir API Key");
 		}
 		// arrastar o IAEdu para o início muda a ordem e fica guardada
-		await pg.dragAndDrop('.zia-etab[data-engine="iaedu"]', '.zia-etab[data-engine="gemini"]');
-		assert.deepEqual(await pg.$$eval(".zia-etab", ts => ts.map(t => t.dataset.engine)), ["iaedu", "gemini", "anthropic", "openai", "claude", "codex"]);
-		assert.equal(await pg.evaluate(() => window.PREFS["engines.tabOrder"]), "iaedu,gemini,anthropic,openai,claude,codex");
+		await pg.dragAndDrop('.zia-etab[data-engine="codex"]', '.zia-etab[data-engine="iaedu"]');
+		assert.deepEqual(await pg.$$eval(".zia-etab", ts => ts.map(t => t.dataset.engine)), ["codex", "iaedu", "gemini", "anthropic", "openai", "claude"]);
+		assert.equal(await pg.evaluate(() => window.PREFS["engines.tabOrder"]), "codex,iaedu,gemini,anthropic,openai,claude");
 		await pg.close();
 	}
 	console.log("OK separadores: um por motor, escolhido a negrito, Inserir API Key, arrastar para mudar a ordem");

@@ -700,7 +700,7 @@ var ZIALib = (function () {
 					d.keep = choosePages(d.usedPages, budget);
 					d.truncated = true;
 					const omitted = d.keep.filter(k => !k).length;
-					warnings.push(`${d.id} (${d.ref}): ${omitted} página(s) omitida(s) por limite de tamanho.`);
+					warnings.push(t("warn.pagesOmitted", { doc: `${d.id} (${d.ref})`, n: omitted }));
 				}
 			}
 			total = prepared.reduce((a, d) => {

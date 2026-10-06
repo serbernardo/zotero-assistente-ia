@@ -328,7 +328,7 @@ window.ZIAPrefs = {
 	/** Ordem dos separadores: a guardada pela pessoa, com os motores novos no fim. */
 	tabOrder() {
 		const core = this.core();
-		const all = ["gemini", "anthropic", "openai", "claude", "codex", "iaedu"].filter(e => core.ENGINES[e]);
+		const all = ["iaedu", "gemini", "anthropic", "openai", "claude", "codex"].filter(e => core.ENGINES[e]);
 		for (const e of core.ENGINE_ORDER) if (!all.includes(e)) all.push(e);
 		const saved = String(core.pref("engines.tabOrder") || "").split(",").filter(e => all.includes(e));
 		return [...new Set([...saved, ...all])];
