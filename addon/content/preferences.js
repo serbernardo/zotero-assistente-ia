@@ -242,7 +242,9 @@ window.ZIAPrefs = {
 		const box = this.$("zia-credits-coffee");
 		if (box) {
 			while (box.firstChild) box.removeChild(box.firstChild);
-			box.appendChild(this.core().coffeeButton(document));
+			const coffee = this.core().coffeeButton(document);
+			if (coffee) box.appendChild(coffee);
+			box.hidden = !coffee;
 		}
 	},
 

@@ -82,13 +82,16 @@ var ZoteroIA = {
 		return this.lib.I18N.t(key, vars);
 	},
 
-	BMC_URL: "https://www.buymeacoffee.com/serbernardo",
+	// Página de apoio (Ko-fi e MB WAY). Botão escondido até a página estar pronta: mudar para true.
+	SUPPORT_ENABLED: false,
+	SUPPORT_URL: "https://github.com/serbernardo/zotero-assistente-ia/blob/main/APOIAR.md",
 
 	/**
 	 * Botão "Buy me a coffee": desenhado aqui, sem o script do site (código de fora não corre dentro
 	 * do Zotero). Abre a página no navegador do sistema.
 	 */
 	coffeeButton(doc) {
+		if (!this.SUPPORT_ENABLED) return null;
 		const NS = "http://www.w3.org/1999/xhtml";
 		const SVG = "http://www.w3.org/2000/svg";
 		const btn = doc.createElementNS(NS, "button");
@@ -116,8 +119,8 @@ var ZoteroIA = {
 		label.textContent = this.t("support.coffee");
 		btn.append(svg, label);
 		btn.addEventListener("click", () => {
-			try { Zotero.launchURL(this.BMC_URL); }
-			catch (e) { this.log("Abrir Buy me a coffee: " + e); }
+			try { Zotero.launchURL(this.SUPPORT_URL); }
+			catch (e) { this.log("Abrir página de apoio: " + e); }
 		});
 		return btn;
 	},

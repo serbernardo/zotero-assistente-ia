@@ -213,6 +213,8 @@ async function main() {
 	// ---------- Buy me a coffee no painel e na janela ----------
 	for (const mode of ["section", "window"]) {
 		const page = await open(`?mode=${mode}`, { width: mode === "section" ? 300 : 820, height: 800 });
+		assert.equal(await page.locator(".zia-coffee").count(), 0, "escondido por omissão: " + mode);
+		await page.evaluate(() => { window.view.core.SUPPORT_ENABLED = true; window.view._rebuild(); });
 		const btn = page.locator(".zia-footer .zia-coffee");
 		assert.equal(await btn.count(), 1, "botão no rodapé: " + mode);
 		assert.equal((await btn.textContent()).trim(), "Buy me a coffee");
@@ -221,10 +223,10 @@ async function main() {
 		const right = await btn.evaluate(el => el.getBoundingClientRect().right);
 		assert.ok(right <= box + 1, "não sai do rodapé: " + mode);
 		await btn.click();
-		assert.deepEqual(await page.evaluate(() => window.opened), ["https://www.buymeacoffee.com/serbernardo"]);
+		assert.deepEqual(await page.evaluate(() => window.opened), ["https://github.com/serbernardo/zotero-assistente-ia/blob/main/APOIAR.md"]);
 		await page.close();
 	}
-	console.log("OK Buy me a coffee no painel e na janela: abre a página no navegador");
+	console.log("OK Buy me a coffee escondido por omissão; ligado, abre a página de apoio (painel e janela)");
 
 	// ---------- Sugestões com texto longo nunca ficam cortadas ----------
 	{

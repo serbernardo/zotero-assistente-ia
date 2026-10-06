@@ -233,16 +233,20 @@ async function main() {
 
 	// 1e. Buy me a coffee nos créditos
 	{
-		const pg = await open();
+		let pg = await open();
+		assert.equal(await pg.locator(".zia-coffee").count(), 0, "escondido por omissão");
+		await pg.close();
+		pg = await open();
+		await pg.evaluate(() => { ZoteroIA.SUPPORT_ENABLED = true; window.ZIAPrefs.showBuildInfo(); });
 		const btn = pg.locator(".zia-credits .zia-coffee");
 		assert.equal(await btn.count(), 1);
 		assert.ok(await btn.isVisible());
 		await btn.click();
-		assert.ok((await pg.evaluate(() => window.opened)).includes("https://www.buymeacoffee.com/serbernardo"));
+		assert.ok((await pg.evaluate(() => window.opened)).includes("https://github.com/serbernardo/zotero-assistente-ia/blob/main/APOIAR.md"));
 		await pg.screenshot({ path: path.join(OUT, "ui_definicoes_creditos.png"), fullPage: true });
 		await pg.close();
 	}
-	console.log("OK Buy me a coffee nos créditos: abre a página no navegador");
+	console.log("OK Buy me a coffee nos créditos: escondido por omissão; ligado, abre a página de apoio");
 	console.log("OK instruções dos motores: custo, passos com ligações e comandos, texto selecionável, Copiar só nos comandos");
 
 	// 1c. IAEdu: só a chave chega (agente por omissão), os campos de outro agente são opcionais e validados
