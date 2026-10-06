@@ -147,6 +147,7 @@ var ZIAChatView = class {
 		root.appendChild(this.messagesEl);
 
 		const tail = this._el("div", "zia-footer");
+		if (this.core.coffeeButton) tail.appendChild(this.core.coffeeButton(this.doc));
 		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.newConversation(), this.T("chat.new.tip"));
 		tail.appendChild(this.newBtn);
 		if (this.mode === "section") {

@@ -258,6 +258,11 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   Nao usar o nome `zia-fold`, que e do painel. Respostas e Creditos comecam abertas, Privacidade
   fechada. Sem "Acoes personalizadas" nas definicoes (estao no painel, separador Personalizado).
   "Procurar atualizacoes" esta no cartao dos Creditos.
+- **Buy me a coffee** (`coffeeButton` e `BMC_URL` em `zoteroia.js`): botao amarelo com chavena
+  desenhada em SVG, no rodape do painel e da janela (a esquerda) e no cartao dos Creditos. Abre
+  buymeacoffee.com/serbernardo no navegador. Nunca usar o script do site (codigo de fora nao
+  corre dentro do Zotero, que tem acesso total ao computador). Texto "Buy me a coffee" nas duas
+  linguas (nome do servico).
 - **Separadores dos motores:** um por motor (IAEdu, Gemini, Claude API, ChatGPT API, Claude Pro/Max,
   ChatGPT conta), sem "Recomendado". O escolhido fica a negrito e a estrela do motor em
   uso e maior. Arrastar um separador muda a ordem (`tabOrder`, `moveTab`, pref
@@ -381,7 +386,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.5.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.6.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

@@ -82,6 +82,46 @@ var ZoteroIA = {
 		return this.lib.I18N.t(key, vars);
 	},
 
+	BMC_URL: "https://www.buymeacoffee.com/serbernardo",
+
+	/**
+	 * Botão "Buy me a coffee": desenhado aqui, sem o script do site (código de fora não corre dentro
+	 * do Zotero). Abre a página no navegador do sistema.
+	 */
+	coffeeButton(doc) {
+		const NS = "http://www.w3.org/1999/xhtml";
+		const SVG = "http://www.w3.org/2000/svg";
+		const btn = doc.createElementNS(NS, "button");
+		btn.className = "zia-coffee";
+		btn.title = this.t("support.coffee.tip");
+		const svg = doc.createElementNS(SVG, "svg");
+		svg.setAttribute("viewBox", "0 0 24 24");
+		svg.setAttribute("width", "16");
+		svg.setAttribute("height", "16");
+		svg.setAttribute("aria-hidden", "true");
+		for (const [d, fill] of [
+			["M4 9h13v4a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6z", "#ffffff"],
+			["M17 10.5h1.5a2.5 2.5 0 0 1 0 5H16.5", "none"],
+			["M8.5 3.5c0 1.5 1 1.5 1 3.5M12.5 3.5c0 1.5 1 1.5 1 3.5", "none"],
+		]) {
+			const p = doc.createElementNS(SVG, "path");
+			p.setAttribute("d", d);
+			p.setAttribute("fill", fill);
+			p.setAttribute("stroke", "#000000");
+			p.setAttribute("stroke-width", "1.6");
+			p.setAttribute("stroke-linecap", "round");
+			svg.appendChild(p);
+		}
+		const label = doc.createElementNS(NS, "span");
+		label.textContent = this.t("support.coffee");
+		btn.append(svg, label);
+		btn.addEventListener("click", () => {
+			try { Zotero.launchURL(this.BMC_URL); }
+			catch (e) { this.log("Abrir Buy me a coffee: " + e); }
+		});
+		return btn;
+	},
+
 	log(msg) {
 		Zotero.debug("Assistente IA: " + msg);
 	},

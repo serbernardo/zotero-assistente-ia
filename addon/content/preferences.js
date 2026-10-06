@@ -239,6 +239,11 @@ window.ZIAPrefs = {
 	/** Versão instalada, no cartão dos créditos. */
 	showBuildInfo() {
 		this.setText("zia-credits-version", this.core().version || "?");
+		const box = this.$("zia-credits-coffee");
+		if (box) {
+			while (box.firstChild) box.removeChild(box.firstChild);
+			box.appendChild(this.core().coffeeButton(document));
+		}
 	},
 
 	setText(id, text, isError) {

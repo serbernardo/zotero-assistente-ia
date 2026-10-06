@@ -1610,3 +1610,12 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 /* Botões com texto em mais de uma linha: a altura acompanha o texto (o Zotero fixa a altura de uma linha) */
 .zia-root button, #zoteroia-prefs-root button { height: auto; max-height: none; max-width: 100%; box-sizing: border-box; }
 .zia-suggestion { min-height: 0; line-height: 1.35; overflow: visible; overflow-wrap: anywhere; }
+
+/* Buy me a coffee: amarelo da marca, letras pretas */
+.zia-coffee { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid #000; border-radius: 8px; background: #ffdd00; color: #000; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.zia-coffee:hover { background: #ffe94d; }
+.zia-coffee:focus-visible { outline: 2px solid var(--zia-accent); outline-offset: 2px; }
+.zia-coffee svg { flex: none; }
+.zia-footer { align-items: center; }
+.zia-footer > .zia-coffee { margin-inline-end: auto; }
+.zia-credits-coffee { margin-top: 8px; }

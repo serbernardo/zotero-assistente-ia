@@ -210,6 +210,22 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Buy me a coffee no painel e na janela ----------
+	for (const mode of ["section", "window"]) {
+		const page = await open(`?mode=${mode}`, { width: mode === "section" ? 300 : 820, height: 800 });
+		const btn = page.locator(".zia-footer .zia-coffee");
+		assert.equal(await btn.count(), 1, "botão no rodapé: " + mode);
+		assert.equal((await btn.textContent()).trim(), "Buy me a coffee");
+		assert.ok(await btn.isVisible());
+		const box = await page.$eval(".zia-footer", el => el.getBoundingClientRect().right);
+		const right = await btn.evaluate(el => el.getBoundingClientRect().right);
+		assert.ok(right <= box + 1, "não sai do rodapé: " + mode);
+		await btn.click();
+		assert.deepEqual(await page.evaluate(() => window.opened), ["https://www.buymeacoffee.com/serbernardo"]);
+		await page.close();
+	}
+	console.log("OK Buy me a coffee no painel e na janela: abre a página no navegador");
+
 	// ---------- Sugestões com texto longo nunca ficam cortadas ----------
 	{
 		const page = await open("?mode=section", { width: 300, height: 800 });
