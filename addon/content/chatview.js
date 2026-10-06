@@ -594,10 +594,18 @@ var ZIAChatView = class {
 		}
 	}
 
+	/** Nome da ação de uma resposta na língua atual (o gravado fica na língua em que foi pedida). */
+	_actionTitle(m) {
+		if (!m || !m.actionLabel) return null;
+		if (m.actionID === "triagem" && !m.engine) return this.T("triagem.summary.title");
+		const a = m.actionID && this._action(m.actionID);
+		return a ? a.label : m.actionLabel;
+	}
+
 	/** Título de uma conversa: a primeira ação pedida ou o início da primeira pergunta. */
 	_convTitle(msgs, full) {
 		const a = msgs.find(m => m.role === "assistant");
-		if (a && a.actionLabel) return full ? a.actionLabel : a.actionLabel.split(" · ")[0];
+		if (a && a.actionLabel) return this._actionTitle(a);
 		const q = msgs.find(m => m.role === "user");
 		if (q && q.display) return (!full && q.display.length > 28) ? q.display.slice(0, 26) + "…" : q.display;
 		return this.T("chat.new");
@@ -1782,7 +1790,7 @@ var ZIAChatView = class {
 		const head = this._el("div", "zia-msg-head");
 		m.collapsed = false;
 		el.classList.remove("zia-collapsed");
-		head.appendChild(this._el("span", "zia-action-tag", m.actionLabel || this.T("chat.question")));
+		head.appendChild(this._el("span", "zia-action-tag", this._actionTitle(m) || this.T("chat.question")));
 		// Indicações ou artigo do pedido ("Resumir · foca a metodologia", "Ficha: Silva 2021")
 		const asked = String(m.asked || "");
 		if (m.actionLabel && asked.startsWith(m.actionLabel) && asked.length > m.actionLabel.length) {

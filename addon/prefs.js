@@ -68,3 +68,5 @@ pref("extensions.zoteroia.privacy.ack.iaedu", false);
 pref("extensions.zoteroia.sidenav.placed", false);
 // Estilo das citações ao copiar e nas notas: "" = formato simples, ou o id de um estilo do Zotero
 pref("extensions.zoteroia.cite.style", "");
+// Ordem dos separadores dos motores nas definições (arrastar para mudar)
+pref("extensions.zoteroia.engines.tabOrder", "");

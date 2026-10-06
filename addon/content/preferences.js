@@ -81,6 +81,11 @@ window.ZIAPrefs = {
 			const cost = this.html("p", this.T(`guide.${engine}.cost`));
 			cost.className = "zia-guide-cost";
 			box.append(cost);
+			if (this.core().lib.I18N.has(`guide.${engine}.intro`)) {
+				const intro = this.html("p", this.T(`guide.${engine}.intro`));
+				intro.className = "zia-guide-intro";
+				box.append(intro);
+			}
 			const ol = this.html("ol");
 			ol.className = "zia-steps zia-guide-steps";
 			for (const s of this.GUIDES[engine] || []) {
@@ -172,6 +177,7 @@ window.ZIAPrefs = {
 				catch (e) { core.log("Abrir ligação: " + e); }
 			});
 		}
+		this.initFolds();
 		this.initClaudeModel();
 		const gsel = this.$("zia-gemini-model");
 		if (gsel) gsel.addEventListener("change", () => core.setPref("gemini.model", gsel.value));
@@ -182,9 +188,30 @@ window.ZIAPrefs = {
 		this.initModelSelect("openai");
 		this.initIAEdu();
 		this.initCiteStyle();
-		this.initCustomPrompts();
 		this.translate();
 		this.refresh();
+	},
+
+	/** Blocos que abrem e fecham (Opções avançadas e secções). Sem <details>: as listas lá dentro não abriam no Zotero. */
+	initFolds() {
+		for (const head of document.querySelectorAll(".zia-pfold-head")) {
+			const fold = head.parentNode;
+			const toggle = () => this.openFold(fold, !fold.classList.contains("open"));
+			head.addEventListener("click", toggle);
+			head.addEventListener("keydown", ev => {
+				if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); }
+			});
+			this.openFold(fold, fold.classList.contains("open"));
+		}
+	},
+
+	openFold(fold, open = true) {
+		if (!fold) return;
+		fold.classList.toggle("open", open);
+		const head = fold.querySelector(":scope > .zia-pfold-head");
+		const body = fold.querySelector(":scope > .zia-pfold-body");
+		if (head) head.setAttribute("aria-expanded", open ? "true" : "false");
+		if (body) body.hidden = !open;
 	},
 
 	/** Aplica os textos da língua da interface a todos os elementos marcados. */
@@ -198,16 +225,15 @@ window.ZIAPrefs = {
 		}
 		for (const name of ["anthropic", "openai", "gemini", "iaedu"]) {
 			const el = this.$(`zia-${name}-key`);
-			if (el) el.setAttribute("aria-label", this.T("prefs.apiKey"));
+			if (!el) continue;
+			el.setAttribute("aria-label", this.T("prefs.apiKey"));
+			el.setAttribute("placeholder", this.T("prefs.keyPlaceholder"));
 		}
-		const ta = this.$("zia-custom-prompts");
-		if (ta) ta.setAttribute("placeholder", this.T("prefs.prompts.placeholder"));
 		this.showBuildInfo();
 		this.renderGuides();
 		if (this._fillCiteStyle) this._fillCiteStyle();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
-		this.showPromptCount();
 	},
 
 	/** Versão instalada, no cartão dos créditos. */
@@ -299,6 +325,53 @@ window.ZIAPrefs = {
 		this.refresh();
 	},
 
+	/** Ordem dos separadores: a guardada pela pessoa, com os motores novos no fim. */
+	tabOrder() {
+		const core = this.core();
+		const all = ["gemini", "anthropic", "openai", "claude", "codex", "iaedu"].filter(e => core.ENGINES[e]);
+		for (const e of core.ENGINE_ORDER) if (!all.includes(e)) all.push(e);
+		const saved = String(core.pref("engines.tabOrder") || "").split(",").filter(e => all.includes(e));
+		return [...new Set([...saved, ...all])];
+	},
+
+	/** Arrastar um separador para outro lugar muda a ordem (fica guardada). */
+	makeDraggable(tab, engine) {
+		tab.setAttribute("draggable", "true");
+		tab.addEventListener("dragstart", ev => {
+			this._dragging = engine;
+			ev.dataTransfer.effectAllowed = "move";
+			ev.dataTransfer.setData("text/plain", engine);
+			tab.classList.add("dragging");
+		});
+		tab.addEventListener("dragend", () => {
+			this._dragging = null;
+			tab.classList.remove("dragging");
+			for (const t of document.querySelectorAll(".zia-etab.drop-target")) t.classList.remove("drop-target");
+		});
+		tab.addEventListener("dragover", ev => {
+			if (!this._dragging || this._dragging === engine) return;
+			ev.preventDefault();
+			ev.dataTransfer.dropEffect = "move";
+			tab.classList.add("drop-target");
+		});
+		tab.addEventListener("dragleave", () => tab.classList.remove("drop-target"));
+		tab.addEventListener("drop", ev => {
+			ev.preventDefault();
+			const from = this._dragging || ev.dataTransfer.getData("text/plain");
+			this.moveTab(from, engine);
+		});
+	},
+
+	moveTab(from, to) {
+		const order = this.tabOrder();
+		const i = order.indexOf(from), j = order.indexOf(to);
+		if (i < 0 || j < 0 || i === j) return;
+		order.splice(i, 1);
+		order.splice(j, 0, from);
+		this.core().setPref("engines.tabOrder", order.join(","));
+		this.refresh();
+	},
+
 	/** Motor usado pelo assistente. */
 	useEngine(e) {
 		this.core().setPref("engine", e);
@@ -317,7 +390,7 @@ window.ZIAPrefs = {
 			const addTab = e => {
 				const st = this.engineState(e);
 				const tab = this.html("div");
-				tab.className = "zia-etab" + (e === shown ? " selected" : "") + (main.includes(e) ? "" : " minor");
+				tab.className = "zia-etab" + (e === shown ? " selected" : "");
 				tab.setAttribute("role", "tab");
 				tab.setAttribute("aria-selected", e === shown ? "true" : "false");
 				tab.setAttribute("tabindex", "0");
@@ -339,61 +412,10 @@ window.ZIAPrefs = {
 						this.showEngine(e);
 					}
 				});
+				this.makeDraggable(tab, e);
 				box.appendChild(tab);
 			};
-			// As chaves de API (Claude ou ChatGPT) ficam em destaque, logo a seguir ao Gemini
-			const own = core.OWN_TABS || [];
-			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e) && !own.includes(e));
-			addTab(main[0]);
-			if (rest.length) {
-				const inRest = rest.includes(shown);
-				const states = rest.map(e => this.engineState(e));
-				const st = states.includes("ok") ? "ok" : states.includes("saved") ? "saved" : states.includes("fail") ? "fail" : "todo";
-				const tab = this.html("div");
-				tab.className = "zia-etab zia-etab-api" + (inRest ? " selected" : "");
-				tab.setAttribute("role", "tab");
-				tab.setAttribute("aria-selected", inRest ? "true" : "false");
-				tab.setAttribute("tabindex", "0");
-				tab.dataset.engine = "outros";
-				const dot = this.html("span");
-				dot.className = "zia-dot zia-dot-" + st;
-				const pill = this.html("span", this.T("prefs.tab.recommended"));
-				pill.className = "zia-etab-pill";
-				tab.append(dot, this.html("span", this.T("prefs.tab.others")), pill);
-				if (rest.includes(current)) {
-					const star = this.html("span", "★");
-					star.className = "zia-etab-star";
-					tab.appendChild(star);
-				}
-				const openOthers = () => this.showEngine(inRest ? shown : (rest.find(e => e === current) || rest.find(e => this.engineState(e) !== "todo") || rest[0]));
-				tab.addEventListener("click", openOthers);
-				tab.addEventListener("keydown", ev => {
-					if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openOthers(); }
-				});
-				box.appendChild(tab);
-			}
-			for (const e of main.slice(1)) addTab(e);
-			for (const e of own) addTab(e);
-		}
-		// Dentro de "Outros": escolha entre Claude API e ChatGPT API
-		const sw = this.$("zia-other-switch");
-		if (sw) {
-			while (sw.firstChild) sw.removeChild(sw.firstChild);
-			const rest = core.ENGINE_ORDER.filter(e => !main.includes(e) && !(core.OWN_TABS || []).includes(e));
-			sw.hidden = !rest.includes(shown);
-			if (!sw.hidden) {
-				sw.appendChild(this.html("span", this.T("prefs.others.intro")));
-				for (const e of rest) {
-					const b = this.html("button", this.T("prefs.tab." + e));
-					b.className = "zia-seg" + (e === shown ? " selected" : "");
-					b.dataset.engine = e;
-					const dot = this.html("span");
-					dot.className = "zia-dot zia-dot-" + this.engineState(e);
-					b.insertBefore(dot, b.firstChild);
-					b.addEventListener("click", () => this.showEngine(e));
-					sw.appendChild(b);
-				}
-			}
+			for (const e of this.tabOrder()) addTab(e);
 		}
 		// Resumo do separador aberto: para quem é, estado e botão para o usar
 		const sum = this.$("zia-engine-summary");
@@ -498,7 +520,7 @@ window.ZIAPrefs = {
 			ch.setAttribute("placeholder", this.T("prefs.iaedu.blank"));
 		}
 		const adv = this.$("zia-iaedu-adv");
-		if (adv && ((ep && ep.value) || (ch && ch.value))) adv.open = true;
+		if (adv && ((ep && ep.value) || (ch && ch.value))) this.openFold(adv);
 	},
 
 	async saveKey(name) {
@@ -642,7 +664,7 @@ window.ZIAPrefs = {
 			this.setText("zia-test-result", this.T(r.opened ? "prefs.claude.opened" : "prefs.claude.unsupported"));
 			if (!r.opened) {
 				const adv = document.querySelector(".zia-engine-panel[data-engine='claude'] .zia-advanced");
-				if (adv) adv.open = true;
+				this.openFold(adv);
 			}
 		}
 		catch (e) {
@@ -833,34 +855,6 @@ window.ZIAPrefs = {
 		catch (e) {
 			if (!quiet) this.setText("zia-gemini-models", e.message || String(e), true);
 		}
-	},
-
-	// ------------------------------------------------------------------
-	// Prompts do utilizador
-	// ------------------------------------------------------------------
-
-	showPromptCount() {
-		const ta = this.$("zia-custom-prompts");
-		if (!ta) return;
-		const n = this.core().lib.parseCustomPrompts(ta.value).length;
-		this.setText("zia-custom-state", n ? this.T("prefs.prompts.count", { n }) : this.T("prefs.prompts.none"));
-	},
-
-	initCustomPrompts() {
-		const core = this.core();
-		const ta = this.$("zia-custom-prompts");
-		if (!ta) return;
-		ta.value = core.pref("custom.prompts") || "";
-		const save = () => {
-			core.setPref("custom.prompts", ta.value.slice(0, 20000));
-			this.showPromptCount();
-		};
-		let timer = null;
-		ta.addEventListener("input", () => {
-			if (timer) clearTimeout(timer);
-			timer = setTimeout(save, 400);
-		});
-		ta.addEventListener("change", save);
 	},
 };
 

@@ -56,7 +56,7 @@ Abre-se com o ícone de janela no título do painel, com **Comparar** no painel 
 
 Abre **Editar → Definições** (Windows) ou **Zotero → Settings** (macOS) → **Assistente IA**. Basta configurar **uma** opção. Cada motor tem os passos com as ligações oficiais, os comandos com um botão **Copiar** e um botão **Copiar instruções**, para enviares os passos a um colega. O botão **Testar** faz um pedido real curto e mostra se o motor está pronto.
 
-**Recomendado: chave da API do Claude ou do ChatGPT.** É a forma mais rápida e fiável: não instala nada e fica pronta em cerca de 2 minutos. Tem um **custo mínimo de 5 $** (o primeiro carregamento de crédito). Depois pagas só o que usares, em regra alguns cêntimos por pedido sobre um artigo.
+**Chave da API do Claude ou do ChatGPT.** É a forma mais rápida e fiável: não instala nada e fica pronta em cerca de 2 minutos. Tem um **custo mínimo de 5 $** (o primeiro carregamento de crédito). Depois pagas só o que usares, em regra alguns cêntimos por pedido sobre um artigo.
 
 | Opção | Conta | Custo | O que é preciso |
 |---|---|---|---|
@@ -94,13 +94,11 @@ Nas definições, o botão **Instalar e iniciar sessão** abre uma janela com o 
 
 O assistente corre o Codex **sem ferramentas**: numa pasta temporária vazia, só de leitura, e interrompe o pedido se o Codex tentar executar um comando, alterar ficheiros ou pesquisar na Internet.
 
-### Claude ou ChatGPT com chave da API (recomendado, cerca de 2 minutos)
+### Claude ou ChatGPT com chave da API (cerca de 2 minutos)
 
 1. Adiciona 5 $ de crédito (cria conta se for preciso): Claude em https://console.anthropic.com/settings/billing, ChatGPT em https://platform.openai.com/settings/organization/billing/overview
 2. Cria uma chave e copia-a: Claude em https://console.anthropic.com/settings/keys, ChatGPT em https://platform.openai.com/api-keys
-3. Nas definições, separador **Claude ou ChatGPT (API)**, cola a chave e carrega em **Guardar e testar**
-
-O crédito expira ao fim de um ano e não é reembolsável.
+3. Nas definições, separador **Claude API** ou **ChatGPT API**, cola a chave e carrega em **Guardar e testar**
 
 ### IAEdu (agente da UPorto)
 

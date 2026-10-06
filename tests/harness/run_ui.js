@@ -195,6 +195,30 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Mudar de língua muda também o nome das respostas já feitas ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 800 });
+		await page.evaluate(() => { window.MOCK.answer = "O resultado principal é X [D1:p3]."; });
+		await act(page, "resumo");
+		await page.waitForSelector("text=Guardar como nota");
+		assert.equal(await page.locator(".zia-action-tag").first().textContent(), "Resumo");
+		await page.evaluate(() => { window.view.core.setPref("ui.lang", "en"); window.view._onPrefsChanged("ui.lang"); });
+		assert.equal(await page.locator(".zia-action-tag").first().textContent(), "Summary", "o título da resposta passa para inglês");
+		await page.evaluate(() => { window.view.core.setPref("ui.lang", "pt-PT"); window.view._onPrefsChanged("ui.lang"); });
+		assert.equal(await page.locator(".zia-action-tag").first().textContent(), "Resumo");
+		console.log("OK mudar de língua muda o nome das respostas já feitas (Resumo / Summary)");
+		await page.close();
+	}
+
+	// ---------- Sugestões com texto longo nunca ficam cortadas ----------
+	{
+		const page = await open("?mode=section", { width: 300, height: 800 });
+		const cut = await page.$$eval(".zia-suggestion", bs => bs.filter(b => b.scrollHeight > b.clientHeight + 1).map(b => b.textContent));
+		assert.deepEqual(cut, [], "sugestões cortadas: " + cut.join(" | "));
+		console.log("OK sugestões em painel estreito: texto inteiro, sem cortes");
+		await page.close();
+	}
+
 	// ---------- Configuração inicial ----------
 	{
 		const page = await open("?mode=section&setup=1", { width: 420, height: 800 });

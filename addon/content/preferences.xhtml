@@ -12,7 +12,6 @@
 
 		<html:div class="zia-step" data-zia="prefs.step1"/>
 		<html:div id="zia-engines" class="zia-etabs" role="tablist"/>
-		<html:div id="zia-other-switch" class="zia-other-switch"/>
 		<html:div id="zia-engine-summary" class="zia-engine-summary"/>
 
 		<html:div class="zia-step" data-zia="prefs.step2"/>
@@ -22,13 +21,14 @@
 			<html:div class="zia-guide" data-guide="anthropic"/>
 			<html:div class="zia-prefs-row">
 				<label data-zia-label="prefs.apiKey"/>
-				<html:input type="password" id="zia-anthropic-key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"/>
+				<html:input type="password" id="zia-anthropic-key" autocomplete="off" spellcheck="false"/>
 				<button id="zia-anthropic-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
 				<button id="zia-anthropic-clear" data-zia-label="prefs.delete"/>
 			</html:div>
 			<html:div id="zia-anthropic-keystate" class="zia-prefs-note"/>
-			<html:details class="zia-advanced">
-				<html:summary data-zia="prefs.advanced"/>
+			<html:div class="zia-advanced zia-pfold">
+				<html:div class="zia-pfold-head" role="button" tabindex="0" data-zia="prefs.advanced"/>
+				<html:div class="zia-pfold-body">
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.model"/>
 					<html:select id="zia-anthropic-model"/>
@@ -38,7 +38,7 @@
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-anthropic-max" preference="extensions.zoteroia.anthropic.maxChars" class="zia-num"/>
 				</html:div>
-			</html:details>
+			</html:div></html:div>
 		</html:div>
 
 		<!-- Claude com a subscrição (Claude Code) -->
@@ -48,8 +48,9 @@
 				<button id="zia-claude-test" class="zia-main-btn" data-zia-label="prefs.test"/>
 				<button id="zia-claude-install" data-zia-label="prefs.claude.install"/>
 			</html:div>
-			<html:details class="zia-advanced">
-				<html:summary data-zia="prefs.claude.stepsTitle"/>
+			<html:div class="zia-advanced zia-pfold">
+				<html:div class="zia-pfold-head" role="button" tabindex="0" data-zia="prefs.claude.stepsTitle"/>
+				<html:div class="zia-pfold-body">
 				<html:ol class="zia-steps">
 					<html:li data-zia="prefs.claude.step1"/>
 					<html:li data-zia="prefs.claude.step2"/>
@@ -57,9 +58,10 @@
 					<html:li data-zia="prefs.claude.step4"/>
 					<html:li data-zia="prefs.claude.step5"/>
 				</html:ol>
-			</html:details>
-			<html:details class="zia-advanced">
-				<html:summary data-zia="prefs.advanced"/>
+			</html:div></html:div>
+			<html:div class="zia-advanced zia-pfold">
+				<html:div class="zia-pfold-head" role="button" tabindex="0" data-zia="prefs.advanced"/>
+				<html:div class="zia-pfold-body">
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.model"/>
 					<html:select id="zia-claude-model"/>
@@ -75,7 +77,7 @@
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-claude-max" preference="extensions.zoteroia.claude.maxChars" class="zia-num"/>
 				</html:div>
-			</html:details>
+			</html:div></html:div>
 		</html:div>
 
 		<!-- ChatGPT com chave da API -->
@@ -83,13 +85,14 @@
 			<html:div class="zia-guide" data-guide="openai"/>
 			<html:div class="zia-prefs-row">
 				<label data-zia-label="prefs.apiKey"/>
-				<html:input type="password" id="zia-openai-key" placeholder="sk-..." autocomplete="off" spellcheck="false"/>
+				<html:input type="password" id="zia-openai-key" autocomplete="off" spellcheck="false"/>
 				<button id="zia-openai-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
 				<button id="zia-openai-clear" data-zia-label="prefs.delete"/>
 			</html:div>
 			<html:div id="zia-openai-keystate" class="zia-prefs-note"/>
-			<html:details class="zia-advanced">
-				<html:summary data-zia="prefs.advanced"/>
+			<html:div class="zia-advanced zia-pfold">
+				<html:div class="zia-pfold-head" role="button" tabindex="0" data-zia="prefs.advanced"/>
+				<html:div class="zia-pfold-body">
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.model"/>
 					<html:select id="zia-openai-model"/>
@@ -98,7 +101,7 @@
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-openai-max" preference="extensions.zoteroia.openai.maxChars" class="zia-num"/>
 				</html:div>
-			</html:details>
+			</html:div></html:div>
 		</html:div>
 
 		<!-- ChatGPT com a conta (Codex) -->
@@ -107,8 +110,9 @@
 			<html:div class="zia-prefs-row">
 				<button id="zia-codex-test" class="zia-main-btn" data-zia-label="prefs.test"/>
 			</html:div>
-			<html:details class="zia-advanced">
-				<html:summary data-zia="prefs.advanced"/>
+			<html:div class="zia-advanced zia-pfold">
+				<html:div class="zia-pfold-head" role="button" tabindex="0" data-zia="prefs.advanced"/>
+				<html:div class="zia-pfold-body">
 				<html:div class="zia-prefs-note" data-zia="guide.codex.safety"/>
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.model"/>
@@ -124,7 +128,7 @@
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-codex-max" preference="extensions.zoteroia.codex.maxChars" class="zia-num"/>
 				</html:div>
-			</html:details>
+			</html:div></html:div>
 		</html:div>
 
 		<!-- Gemini com chave da API -->
@@ -137,13 +141,14 @@
 			</html:ol>
 			<html:div class="zia-prefs-row">
 				<label data-zia-label="prefs.apiKey"/>
-				<html:input type="password" id="zia-gemini-key" placeholder="AIza..." autocomplete="off" spellcheck="false"/>
+				<html:input type="password" id="zia-gemini-key" autocomplete="off" spellcheck="false"/>
 				<button id="zia-gemini-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
 				<button id="zia-gemini-clear" data-zia-label="prefs.delete"/>
 			</html:div>
 			<html:div id="zia-gemini-keystate" class="zia-prefs-note"/>
-			<html:details class="zia-advanced">
-				<html:summary data-zia="prefs.advanced"/>
+			<html:div class="zia-advanced zia-pfold">
+				<html:div class="zia-pfold-head" role="button" tabindex="0" data-zia="prefs.advanced"/>
+				<html:div class="zia-pfold-body">
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.model"/>
 					<html:select id="zia-gemini-model"/>
@@ -168,7 +173,7 @@
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-gemini-max" preference="extensions.zoteroia.gemini.maxChars" class="zia-num"/>
 				</html:div>
-			</html:details>
+			</html:div></html:div>
 		</html:div>
 
 		<!-- IAEdu -->
@@ -176,13 +181,14 @@
 			<html:div class="zia-guide" data-guide="iaedu"/>
 			<html:div class="zia-prefs-row">
 				<label data-zia-label="prefs.iaedu.key"/>
-				<html:input type="password" id="zia-iaedu-key" placeholder="sk-..." autocomplete="off" spellcheck="false"/>
+				<html:input type="password" id="zia-iaedu-key" autocomplete="off" spellcheck="false"/>
 				<button id="zia-iaedu-save" class="zia-main-btn" data-zia-label="prefs.saveTest"/>
 				<button id="zia-iaedu-clear" data-zia-label="prefs.delete"/>
 			</html:div>
 			<html:div id="zia-iaedu-keystate" class="zia-prefs-note"/>
-			<html:details class="zia-advanced" id="zia-iaedu-adv">
-				<html:summary data-zia="prefs.iaedu.advanced"/>
+			<html:div class="zia-advanced zia-pfold" id="zia-iaedu-adv">
+				<html:div class="zia-pfold-head" role="button" tabindex="0" data-zia="prefs.iaedu.advanced"/>
+				<html:div class="zia-pfold-body">
 				<html:div class="zia-prefs-note" data-zia="prefs.iaedu.note"/>
 				<html:div class="zia-prefs-row">
 					<label data-zia-label="prefs.iaedu.endpoint"/>
@@ -196,14 +202,15 @@
 					<label data-zia-label="prefs.maxChars"/>
 					<html:input type="number" min="20000" step="10000" id="zia-pref-iaedu-max" preference="extensions.zoteroia.iaedu.maxChars" class="zia-num"/>
 				</html:div>
-			</html:details>
+			</html:div></html:div>
 		</html:div>
 
 		<html:div id="zia-test-result" class="zia-test-result" role="status" aria-live="polite"/>
 	</html:div>
 
-	<html:details class="zia-section" open="open" data-section="prefs.answers.title">
-		<html:summary><html:h2 data-zia="prefs.answers.title"/></html:summary>
+	<html:div class="zia-section zia-pfold open" data-section="prefs.answers.title">
+		<html:div class="zia-pfold-head" role="button" tabindex="0"><html:h2 data-zia="prefs.answers.title"/></html:div>
+		<html:div class="zia-pfold-body">
 		<html:div class="zia-prefs-row">
 			<label data-zia-label="prefs.citeStyle"/>
 			<html:select id="zia-cite-style"/>
@@ -216,27 +223,22 @@
 			<button id="zia-history-clear" data-zia-label="prefs.historyClear"/>
 			<html:span id="zia-history-result" class="zia-prefs-note"/>
 		</html:div>
-	</html:details>
+	</html:div></html:div>
 
-	<html:details class="zia-section" data-section="prefs.prompts.title">
-		<html:summary><html:h2 data-zia="prefs.prompts.title"/></html:summary>
-		<html:div class="zia-prefs-note" data-zia="prefs.prompts.note"/>
-		<html:textarea id="zia-custom-prompts" class="zia-prefs-textarea" spellcheck="false"/>
-		<html:div id="zia-custom-state" class="zia-prefs-note"/>
-	</html:details>
-
-	<html:details class="zia-section" data-section="prefs.security.title">
-		<html:summary><html:h2 data-zia="prefs.security.title"/></html:summary>
+	<html:div class="zia-section zia-pfold" data-section="prefs.security.title">
+		<html:div class="zia-pfold-head" role="button" tabindex="0"><html:h2 data-zia="prefs.security.title"/></html:div>
+		<html:div class="zia-pfold-body">
 		<html:div class="zia-prefs-note" data-zia="prefs.security.note"/>
 		<html:div class="zia-prefs-row">
 			<button id="zia-clear-all" data-zia-label="prefs.clearAll"/>
 			<button id="zia-reset-privacy" data-zia-label="prefs.resetPrivacy"/>
 		</html:div>
 		<html:div id="zia-security-result" class="zia-prefs-result"/>
-	</html:details>
+	</html:div></html:div>
 
-	<html:details class="zia-section" open="open" data-section="prefs.credits.title">
-		<html:summary><html:h2 data-zia="prefs.credits.title"/></html:summary>
+	<html:div class="zia-section zia-pfold open" data-section="prefs.credits.title">
+		<html:div class="zia-pfold-head" role="button" tabindex="0"><html:h2 data-zia="prefs.credits.title"/></html:div>
+		<html:div class="zia-pfold-body">
 		<html:div class="zia-credits">
 			<html:div class="zia-credits-app">
 				<html:div class="zia-credits-appname" data-zia="app.name"/>
@@ -252,5 +254,5 @@
 				<html:div id="zia-update-result" class="zia-prefs-result"/>
 			</html:div>
 		</html:div>
-	</html:details>
+	</html:div></html:div>
 </vbox>

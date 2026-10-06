@@ -109,7 +109,7 @@ async function main() {
 			if (b && !b.disabled) b.dispatchEvent(new Event("command", { bubbles: true }));
 		}));
 		// abre as opções avançadas, para testar também os botões lá dentro
-		await page.evaluate(() => document.querySelectorAll("details").forEach(d => { d.open = true; }));
+		await page.evaluate(() => document.querySelectorAll(".zia-pfold").forEach(f => window.ZIAPrefs.openFold(f)));
 		await page.waitForTimeout(150);
 		return page;
 	};
@@ -123,14 +123,12 @@ async function main() {
 	});
 
 	// 1. Cada separador de motor mostra a sua configuração
-	const tabs = ["gemini", "claude", "codex", "outros", "outros/openai"];
+	const tabs = ["gemini", "claude", "codex", "anthropic", "openai", "iaedu"];
 	const tested = new Set();
 	const dead = [];
 	for (const tab of tabs) {
 		const go = async page => {
-			const [t, seg] = tab.split("/");
-			await page.click(`.zia-etab[data-engine="${t}"]`);
-			if (seg) await page.click(`.zia-seg[data-engine="${seg}"]`);
+			await page.click(`.zia-etab[data-engine="${tab}"]`);
 		};
 		const p0 = await open();
 		await go(p0);
@@ -164,13 +162,12 @@ async function main() {
 	for (const [tab, seg, engine, must] of [
 		["claude", null, "claude", ["irm https://claude.ai/install.ps1 | iex", "curl -fsSL https://claude.ai/install.sh | bash", "claude.ai/upgrade", "Claude account with subscription"]],
 		["codex", null, "codex", ["npm install -g @openai/codex", "codex login", "nodejs.org"]],
-		["outros", "anthropic", "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $"]],
-		["outros", "openai", "openai", ["platform.openai.com/api-keys", "5 $"]],
+		["anthropic", null, "anthropic", ["console.anthropic.com/settings/keys", "console.anthropic.com/settings/billing", "custo mínimo de 5 $"]],
+		["openai", null, "openai", ["platform.openai.com/api-keys", "5 $"]],
 		["iaedu", null, "iaedu", ["iaedu.pt", "roda dentada", "Informação da API", "Chave da API"]],
 	]) {
 		const pg = await open();
 		await pg.click(`.zia-etab[data-engine="${tab}"]`);
-		if (seg) await pg.click(`.zia-seg[data-engine="${seg}"]`);
 		const box = pg.locator(`.zia-guide[data-guide="${engine}"]`);
 		assert.ok(await box.isVisible(), "instruções visíveis: " + engine);
 		const text = await box.textContent();
@@ -194,10 +191,45 @@ async function main() {
 	{
 		const pg = await open();
 		const order = await pg.$$eval(".zia-etab", ts => ts.map(t => t.dataset.engine));
-		assert.deepEqual(order, ["gemini", "outros", "claude", "codex", "iaedu"], "chaves de API em destaque, logo a seguir ao Gemini");
-		assert.equal(await pg.textContent('.zia-etab[data-engine="outros"] .zia-etab-pill'), "Recomendado");
+		assert.deepEqual(order, ["gemini", "anthropic", "openai", "claude", "codex", "iaedu"], "um separador por motor");
+		assert.doesNotMatch(await pg.textContent("#zia-engines"), /Recomendado/);
+		const weight = e => pg.$eval(`.zia-etab[data-engine="${e}"]`, t => getComputedStyle(t).fontWeight);
+		assert.equal(await weight("gemini"), "700", "o separador escolhido fica a negrito");
+		assert.equal(await weight("iaedu"), "400");
+		for (const e of ["anthropic", "openai", "gemini", "iaedu"]) {
+			assert.equal(await pg.getAttribute(`#zia-${e}-key`, "placeholder"), "Inserir API Key");
+		}
+		// arrastar o IAEdu para o início muda a ordem e fica guardada
+		await pg.dragAndDrop('.zia-etab[data-engine="iaedu"]', '.zia-etab[data-engine="gemini"]');
+		assert.deepEqual(await pg.$$eval(".zia-etab", ts => ts.map(t => t.dataset.engine)), ["iaedu", "gemini", "anthropic", "openai", "claude", "codex"]);
+		assert.equal(await pg.evaluate(() => window.PREFS["engines.tabOrder"]), "iaedu,gemini,anthropic,openai,claude,codex");
 		await pg.close();
 	}
+	console.log("OK separadores: um por motor, escolhido a negrito, Inserir API Key, arrastar para mudar a ordem");
+
+	// 1d. Blocos que abrem e fecham, com listas que funcionam lá dentro (antes, dentro de <details>, não abriam)
+	{
+		const pg = await browser.newPage({ viewport: { width: 820, height: 1400 } });
+		pg.on("pageerror", e => errors.push(e.message));
+		await pg.goto(URL + "?key=1");
+		await pg.waitForTimeout(150);
+		assert.ok(!(await pg.isVisible("#zia-gemini-model")), "Opções avançadas começam fechadas");
+		assert.ok(!(await pg.isVisible("#zia-clear-all")), "Privacidade começa fechada");
+		assert.ok(await pg.isVisible("#zia-cite-style"), "Respostas começa aberta");
+		assert.equal(await pg.locator("#zia-custom-prompts").count(), 0, "sem Ações personalizadas nas definições");
+		await pg.click('.zia-engine-panel[data-engine="gemini"] .zia-advanced > .zia-pfold-head');
+		assert.ok(await pg.isVisible("#zia-gemini-model"));
+		await pg.selectOption("#zia-gemini-model", "gemini-3.6-flash");
+		assert.equal(await pg.evaluate(() => window.PREFS["gemini.model"]), "gemini-3.6-flash", "a lista funciona dentro do bloco");
+		await pg.click('.zia-section[data-section="prefs.answers.title"] > .zia-pfold-head');
+		assert.ok(!(await pg.isVisible("#zia-cite-style")), "carregar no título minimiza a secção");
+		const box = await pg.$eval('.zia-section[data-section="prefs.security.title"]', el => el.getBoundingClientRect().right);
+		await pg.click('.zia-section[data-section="prefs.answers.title"] > .zia-pfold-head');
+		const sel = await pg.$eval("#zia-cite-style", el => el.getBoundingClientRect().right);
+		assert.ok(sel <= box + 1, "a lista não sai da caixa");
+		await pg.close();
+	}
+	console.log("OK blocos: abrem e fecham, listas funcionam lá dentro e não saem da caixa");
 	console.log("OK instruções dos motores: custo, passos com ligações e comandos, texto selecionável, Copiar só nos comandos");
 
 	// 1c. IAEdu: só a chave chega (agente por omissão), os campos de outro agente são opcionais e validados

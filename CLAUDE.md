@@ -188,6 +188,8 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   (`screeningSummary`, `_addScreeningSummary`), sem motor e sem "Repetir", com CSV.
   Botao "i" (`_triagemInfoEl`). Nunca pedir "raciocinio" a IA: o filtro do Sonnet 5.5
   recusa isso como extracao do pensamento interno (`reasoning_extraction`).
+- **Nome da acao na lingua atual:** o titulo de cada resposta e das conversas vem de
+  `_actionTitle` (pelo `actionID`), nao do `actionLabel` gravado, para mudar com o botao PT/EN.
 - **Sem titulo repetido:** numa acao a bolha do pedido fica escondida
   (`_hideRepeatedAsks`) e as indicacoes aparecem ao lado do nome da acao
   (`.zia-action-extra`). As perguntas livres mantem a bolha.
@@ -248,20 +250,23 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   configurar": sem teste mostra "Falta testar". O Claude Code tambem e procurado na
   pasta da aplicacao Claude para computador.
 - **Definicoes simples:** em cada motor so ficam a vista o custo, os passos, o campo com titulo
-  ("Chave da API:") e o botao. Modelo, notas e limites ficam em "Opcoes avancadas". Sem "Copiar
-  instrucoes": o texto seleciona-se e copia-se com Ctrl+C. Os comandos (PowerShell,
-  Terminal) mantem o botao Copiar. As outras seccoes sao `details.zia-section`
-  que se minimizam (Acoes personalizadas e Privacidade comecam fechadas). "Procurar atualizacoes"
-  esta no cartao dos Creditos. Todo o texto das definicoes se pode selecionar e copiar.
+  ("Chave da API:", texto de exemplo "Inserir API Key", `prefs.keyPlaceholder`) e o botao. Modelo,
+  notas e limites ficam em "Opcoes avancadas". Sem "Copiar instrucoes": o texto seleciona-se e
+  copia-se com Ctrl+C. Os comandos (PowerShell, Terminal) mantem o botao Copiar. Os blocos que
+  abrem e fecham sao divs `.zia-pfold` (`.zia-pfold-head`, `.zia-pfold-body`, `initFolds`,
+  `openFold`), nunca `<details>`: dentro de `<details>` as listas (select) nao abriam no Zotero.
+  Nao usar o nome `zia-fold`, que e do painel. Respostas e Creditos comecam abertas, Privacidade
+  fechada. Sem "Acoes personalizadas" nas definicoes (estao no painel, separador Personalizado).
+  "Procurar atualizacoes" esta no cartao dos Creditos.
+- **Separadores dos motores:** um por motor (Gemini, Claude API, ChatGPT API, Claude Pro/Max,
+  ChatGPT conta, IAEdu), sem "Recomendado". O escolhido fica a negrito e a estrela do motor em
+  uso e maior. Arrastar um separador muda a ordem (`tabOrder`, `moveTab`, pref
+  `engines.tabOrder`).
 - **Instrucoes de cada motor** (`GUIDES`, `renderGuides`, `guideText` em
   `preferences.js`, textos `guide.<motor>.*`): Claude Code, Codex, Claude API,
   ChatGPT API e IAEdu tem o mesmo bloco: "Quanto custa" e passos numerados com
   ligacoes oficiais e comandos com botao Copiar (o do Claude Code em versao Windows e
   Mac/Linux).
-- **Chaves de API em destaque:** nas definicoes o separador "Claude ou ChatGPT (API)"
-  (data-engine `outros`) fica logo a seguir ao Gemini, com contorno dourado e a
-  etiqueta "Recomendado". Tres passos (credito, chave, colar) e o custo minimo
-  escrito: 5 $ de credito inicial, que expira ao fim de um ano.
 - **Instalar e iniciar sessao no Claude Code** (`openClaudeSetup`): depois de
   uma confirmacao, escreve um script na pasta temporaria e abre-o numa janela
   visivel (Windows: `cmd /c start` com um `.cmd`, Mac: Terminal com um
@@ -277,10 +282,8 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   "painel estreito" em `run_ui.js`).
 - **Ordem dos motores:** `ENGINE_ORDER` = gemini, claude, codex, anthropic,
   openai. A lista do painel mostra sempre `MAIN_ENGINES` (gemini, claude, codex)
-  e as chaves de API so quando configuradas ou escolhidas. Nas definicoes, os
-  separadores seguem a mesma ordem (Gemini, Claude Pro/Max, ChatGPT conta,
-  Outros), "Outros" junta o Claude API e o ChatGPT API, e "Usar este motor" e
-  um botao a parte. Gemini por omissao: `GEMINI_DEFAULT` = gemini-3.5-flash-lite
+  e as chaves de API so quando configuradas ou escolhidas. Nas definicoes,
+  "Usar este motor" e um botao a parte. Gemini por omissao: `GEMINI_DEFAULT` = gemini-3.5-flash-lite
   (migracao unica com a pref `gemini.defaultApplied`).
 - **Gemini sem quota (429):** a quota gratuita conta por modelo. `parseGeminiQuota`
   le o modelo, o limite e se e por dia ou por minuto. Por minuto com espera curta:
@@ -378,7 +381,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
