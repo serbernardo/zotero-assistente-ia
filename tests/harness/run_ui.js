@@ -210,6 +210,126 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Modo Simples (licenciatura) ----------
+	{
+		const page = await open("?mode=section&uimode=simple", { width: 300, height: 900 });
+		const pressed = () => page.$$eval(".zia-mode-btn", bs => bs.map(b => b.dataset.uimode + ":" + b.getAttribute("aria-pressed")));
+		assert.deepEqual(await pressed(), ["simple:true", "advanced:false"]);
+		assert.ok(!(await page.isVisible(".zia-tabs")), "sem separadores no simples");
+		assert.ok(!(await page.isVisible(".zia-engine")), "sem lista de motores no simples");
+		const labels = await page.$$eval(".zia-simple-btn .zia-simple-label", ls => ls.map(l => l.textContent));
+		assert.deepEqual(labels, ["Resumir", "Explicar fácil", "Conceitos-chave", "Mapa mental", "Ficha de leitura", "Frases para citar", "Testar o que percebi"]);
+		const over = await page.$$eval(".zia-simple-btn", (bs) => bs.filter(b => b.scrollHeight > b.clientHeight + 1 || b.getBoundingClientRect().right > document.querySelector(".zia-root").getBoundingClientRect().right + 1).length);
+		assert.equal(over, 0, "botões grandes inteiros e dentro do painel estreito");
+		await page.screenshot({ path: path.join(OUT, "ui_painel_simples.png"), fullPage: true });
+		assert.equal(await page.getAttribute(".zia-textarea", "placeholder"), "Ou pergunta algo sobre o artigo…");
+
+		// um clique envia logo, sem passar por Enviar
+		await page.evaluate(() => { window.MOCK.answer = "O estudo conclui que X melhora Y [D1:p3]."; window.engineCalls = 0; });
+		await page.click('.zia-simple-btn[data-action="resumo"]');
+		await page.waitForSelector(".zia-check");
+		assert.equal(await page.evaluate(() => window.engineCalls), 1, "um clique, um pedido");
+		assert.match(await page.evaluate(() => window.lastPrompt), /resumo estruturado/i);
+		assert.equal((await page.textContent(".zia-check")).trim(), "✓ Confirmado no PDF", "verificação curta no simples");
+		assert.equal(await page.locator(".zia-msg-meta").count(), 0, "sem motor e modelo por baixo da resposta");
+		assert.equal(await page.locator("text=Repetir com").count(), 0, "sem Repetir com no simples");
+		assert.ok(await page.isVisible("text=Guardar como nota"), "guardar como nota continua");
+		assert.equal(await page.textContent(".zia-action-tag"), "Resumo");
+		assert.ok(await page.$eval('.zia-simple-btn[data-action="resumo"]', b => b.classList.contains("zia-done")), "visto no botão já pedido");
+
+		// voltar a carregar mostra a resposta que existe, sem novo pedido
+		await page.click('.zia-simple-btn[data-action="resumo"]');
+		await page.waitForTimeout(300);
+		assert.equal(await page.evaluate(() => window.engineCalls), 1, "não repete o pedido");
+		assert.ok(!(await page.isVisible(".zia-pending")), "nada fica escolhido à espera de Enviar");
+
+		// ação nova: perguntas de estudo
+		await page.evaluate(() => { window.MOCK.answer = "**Pergunta 1.** O que mede o estudo?\n*Resposta:* Mede X [D1:p2]."; });
+		await page.click('.zia-simple-btn[data-action="estudo"]');
+		await page.waitForFunction(() => window.engineCalls === 2);
+		await page.waitForSelector("text=Pergunta 1.");
+		assert.match(await page.evaluate(() => window.lastPrompt), /perguntas de estudo/);
+
+		// mapa mental: a lista encaixada aparece como árvore
+		await page.evaluate(() => { window.MOCK.answer = "- Estudo sobre X\n  - Problema\n    - Falta de dados sobre X [D1:p2]\n  - Método\n    - Inquérito a 120 pessoas [D1:p4]\n    - Entrevistas a 12 docentes [D1:p5]\n  - Resultados\n    - X melhora Y [D1:p7]\n"; });
+		await page.click('.zia-simple-btn[data-action="mapa"]');
+		await page.waitForFunction(() => window.engineCalls === 3);
+		await page.waitForSelector(".zia-mindmap li li li");
+		await page.waitForFunction(() => !document.querySelector(".zia-typing"));
+		assert.match(await page.evaluate(() => window.lastPrompt), /mapa mental/);
+		const map = await page.$eval(".zia-mindmap", el => ({
+			root: el.querySelector(":scope > ul > li > .zia-mm-node").textContent.trim(),
+			branches: el.querySelectorAll(":scope > ul > li > ul > li").length,
+			lines: getComputedStyle(el.querySelector("li li"), "::before").borderLeftStyle,
+			cites: el.querySelectorAll(".zia-mm-node .zia-cite").length,
+		}));
+		assert.equal(map.root, "Estudo sobre X");
+		assert.equal(map.branches, 3);
+		assert.equal(map.lines, "solid", "ramos desenhados");
+		assert.ok(map.cites >= 4, "citações clicáveis no mapa");
+		await page.locator(".zia-mindmap").screenshot({ path: path.join(OUT, "ui_mapa_mental.png") });
+		await page.evaluate(() => { window.engineCalls = 2; });
+
+		// pergunta livre continua a funcionar
+		await page.evaluate(() => { window.MOCK.answer = "A amostra tem 120 pessoas [D1:p4]."; });
+		await page.fill(".zia-textarea", "Qual é a amostra?");
+		await page.click(".zia-send");
+		await page.waitForFunction(() => window.engineCalls === 3);
+		await page.waitForSelector("text=A amostra tem 120");
+
+		// passar a Avançado mostra tudo, mantendo as respostas
+		await page.click('.zia-mode-btn[data-uimode="advanced"]');
+		assert.deepEqual(await pressed(), ["simple:false", "advanced:true"]);
+		assert.equal(await page.evaluate(() => window.view.core.pref("ui.mode")), "advanced");
+		assert.ok(await page.isVisible(".zia-tabs"));
+		assert.ok(await page.isVisible(".zia-engine"));
+		assert.ok(await page.isVisible('button[data-action="critica"], .zia-tab[data-group="avaliar"]'));
+		assert.equal(await page.locator(".zia-simple-grid").count(), 0);
+		assert.ok(await page.isVisible("text=A amostra tem 120"), "a conversa mantém-se ao mudar de modo");
+		assert.ok((await page.locator(".zia-msg-meta").count()) > 0, "no avançado volta o motor por baixo da resposta");
+		await page.click('.zia-mode-btn[data-uimode="simple"]');
+		assert.ok(await page.isVisible(".zia-simple-grid"));
+		assert.equal(await page.evaluate(() => window.view.core.pref("ui.mode")), "simple");
+		console.log("OK modo simples: 7 botões grandes (com mapa mental) que enviam logo, sem motor, separadores nem Repetir, verificação curta, troca para avançado e volta");
+		await page.close();
+	}
+	{
+		const page = await open("?mode=section&uimode=simple&ui=en", { width: 300, height: 800 });
+		const labels = await page.$$eval(".zia-simple-btn .zia-simple-label", ls => ls.map(l => l.textContent));
+		assert.deepEqual(labels, ["Summarise", "Explain simply", "Key concepts", "Mind map", "Reading sheet", "Quotes to cite", "Test my understanding"]);
+		assert.deepEqual(await page.$$eval(".zia-mode-btn", bs => bs.map(b => b.textContent)), ["Simple", "Advanced"]);
+		await page.close();
+		const win = await open("?mode=window&uimode=simple", { width: 820, height: 800 });
+		assert.equal(await win.locator(".zia-modeswitch").count(), 0, "a janela é sempre avançada");
+		assert.equal(await win.locator(".zia-simple-grid").count(), 0);
+		assert.ok(await win.isVisible(".zia-engine"));
+		await win.close();
+		console.log("OK modo simples em inglês, e a janela grande fica sempre avançada");
+	}
+	{
+		// mudar o modo nas definições a meio de uma resposta: o painel muda quando a resposta termina
+		const page = await open("?mode=section&uimode=simple", { width: 360, height: 800 });
+		await page.evaluate(() => { window.MOCK.answer = "Resposta longa sobre o estudo, com muitas palavras para demorar um pouco [D1:p3]."; window.MOCK.delayMs = 40; });
+		await page.click('.zia-simple-btn[data-action="conceitos"]');
+		await page.waitForSelector(".zia-typing");
+		assert.ok(await page.$eval('.zia-simple-btn[data-action="resumo"]', b => b.disabled), "botões parados enquanto responde");
+		await page.evaluate(() => { window.view.core.setPref("ui.mode", "advanced"); window.view._onPrefsChanged("ui.mode"); });
+		assert.ok(await page.isVisible(".zia-simple-grid"), "não mexe na interface a meio da resposta");
+		await page.waitForFunction(() => !document.querySelector(".zia-typing") && !!document.querySelector(".zia-tabs:not([hidden])"));
+		assert.ok(await page.isVisible("text=Resposta longa sobre o estudo"), "a resposta fica");
+		await page.close();
+
+		// sem motor configurado: o cartão de configuração aparece também no simples e nada é enviado
+		const p2 = await open("?mode=section&uimode=simple&setup=1", { width: 360, height: 800 });
+		await p2.waitForSelector("text=Liga o assistente a uma IA");
+		await p2.click('.zia-simple-btn[data-action="resumo"]');
+		await p2.waitForTimeout(300);
+		assert.equal(await p2.evaluate(() => window.lastEngine), undefined, "sem motor não envia nada");
+		assert.ok(await p2.isVisible(".zia-setup"));
+		await p2.close();
+		console.log("OK modo simples: mudar nas definições a meio de uma resposta, e configuração inicial sem motor");
+	}
+
 	// ---------- Buy me a coffee no painel e na janela ----------
 	for (const mode of ["section", "window"]) {
 		const page = await open(`?mode=${mode}`, { width: mode === "section" ? 300 : 820, height: 800 });
@@ -635,17 +755,18 @@ async function main() {
 		await page.close();
 	}
 
-	// ---------- Todos os botões do painel: cada um faz alguma coisa e nenhum dá erro ----------
-	{
+	// ---------- Todos os botões do painel (avançado e simples): cada um faz alguma coisa e nenhum dá erro ----------
+	for (const uimode of ["advanced", "simple"]) {
 		const snapshot = page => page.evaluate(() => JSON.stringify([
 			document.querySelector(".zia-root").innerHTML, window.opened, window.copied || null,
 			window.lastEngine || null, window.tagged || null, window.openedWindow ? 1 : 0,
 		]));
 		const prepare = async () => {
-			const page = await open("?mode=section", { width: 420, height: 900 });
+			const page = await open("?mode=section&uimode=" + uimode, { width: 420, height: 900 });
 			const before = errors.length;
 			await page.evaluate(a => { window.MOCK.answer = a + "\nETIQUETAS: chatbots; bibliotecas"; }, pontos);
-			await act(page, "pontos");
+			if (uimode === "simple") await page.click('.zia-simple-btn[data-action="resumo"]');
+			else await act(page, "pontos");
 			await page.waitForSelector("text=Guardar como nota");
 			await page.waitForFunction(() => !document.querySelector(".zia-typing"));
 			return { page, before };
@@ -654,7 +775,7 @@ async function main() {
 		const labels = await p0.evaluate(() => [...document.querySelectorAll(".zia-root button")]
 			.filter(b => b.offsetParent && !b.disabled)
 			// o separador já aberto não tem nada a fazer
-			.map(b => b.getAttribute("aria-selected") === "true" ? null : b)
+			.map(b => b.getAttribute("aria-selected") === "true" || (b.classList.contains("zia-mode-btn") && b.getAttribute("aria-pressed") === "true") ? null : b)
 			.map(b => !b ? "(separador aberto)" : (b.dataset.action ? "ação " + b.dataset.action : b.dataset.group ? "separador " + b.dataset.group : (b.title || b.textContent).trim()).slice(0, 40)));
 		await p0.close();
 		const dead = [];
@@ -676,7 +797,7 @@ async function main() {
 			await page.close();
 		}
 		assert.equal(dead.length, 0, "botões sem efeito ou com erro: " + dead.join(", "));
-		console.log(`OK todos os ${labels.length - 1} botões do painel respondem sem erros: ${labels.filter(l => l[0] !== "(").join(", ")}`);
+		console.log(`OK ${uimode}: todos os ${labels.filter(l => l[0] !== "(").length} botões do painel respondem sem erros: ${labels.filter(l => l[0] !== "(").join(", ")}`);
 	}
 
 	await browser.close();

@@ -184,6 +184,16 @@ var ZIALib = (function () {
 				+ "Se os autores não definem o conceito, escreve \"Não definido no documento\" e descreve o contexto em que o termo aparece. "
 				+ "Com vários documentos, acrescenta a coluna Documento e assinala as definições que divergem.",
 		},
+		estudo: {
+			group: "compreender",
+			minDocs: 1,
+			prompt: "Cria 8 perguntas de estudo para um aluno de licenciatura confirmar se percebeu cada documento: "
+				+ "3 de compreensão (o que o documento diz), 3 que liguem ideias ou as apliquem a um exemplo do próprio "
+				+ "documento e 2 de reflexão crítica sobre os limites do que foi feito. Para cada pergunta escreve a "
+				+ "resposta modelo em 2 a 4 frases, baseada só no documento e com a citação com a página. Usa o formato: "
+				+ "**Pergunta 1.** texto da pergunta, e na linha seguinte *Resposta:* texto da resposta. "
+				+ "Com vários documentos, usa um título ## por documento.",
+		},
 		esquema: {
 			group: "compreender",
 			minDocs: 1,
@@ -193,6 +203,16 @@ var ZIALib = (function () {
 				+ "Se o documento não for um artigo empírico ou for longo (tese, relatório, livro ou capítulo), faz antes "
 				+ "um índice dos temas principais, pela ordem do documento, com listas encaixadas: cada tema com as páginas "
 				+ "onde é tratado e uma frase sobre o que diz, com citação.",
+		},
+		mapa: {
+			group: "compreender",
+			minDocs: 1,
+			prompt: "Faz um mapa mental de cada documento, só com uma lista Markdown encaixada (\"- \" e dois espaços "
+				+ "por nível). O primeiro item é o tema central, com o título curto do documento. Por baixo dele, 4 a 7 ramos "
+				+ "principais: num estudo empírico, por exemplo Problema, Objetivo, Método, Resultados, Conclusões e Limitações, "
+				+ "e nos outros documentos os temas principais pela ordem do texto. Cada ramo tem 2 a 4 sub-ramos com no máximo "
+				+ "12 palavras, cada um com citação com a página. Não escrevas parágrafos, títulos nem texto fora da lista. "
+				+ "Com vários documentos, usa um título ## por documento, cada um com a sua lista.",
 		},
 		critica: {
 			group: "avaliar",

@@ -187,9 +187,21 @@ window.ZIAPrefs = {
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
 		this.initIAEdu();
+		this.initUIMode();
 		this.initCiteStyle();
 		this.translate();
 		this.refresh();
+	},
+
+	/** Modo do painel: Simples (licenciatura) ou Avançado. */
+	initUIMode() {
+		const sel = this.$("zia-ui-mode");
+		if (!sel) return;
+		const fill = () => this.fillSelect(sel, ["simple", "advanced"].map(v => [v, this.T("ui.mode." + v)]),
+			this.core().pref("ui.mode") || "simple");
+		fill();
+		this._fillUIMode = fill;
+		sel.addEventListener("change", () => this.core().setPref("ui.mode", sel.value));
 	},
 
 	/** Blocos que abrem e fecham (Opções avançadas e secções). Sem <details>: as listas lá dentro não abriam no Zotero. */
@@ -232,6 +244,7 @@ window.ZIAPrefs = {
 		this.showBuildInfo();
 		this.renderGuides();
 		if (this._fillCiteStyle) this._fillCiteStyle();
+		if (this._fillUIMode) this._fillUIMode();
 		this.initModelSelect("anthropic");
 		this.initModelSelect("openai");
 	},

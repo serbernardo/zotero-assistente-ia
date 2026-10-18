@@ -188,6 +188,21 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   (`screeningSummary`, `_addScreeningSummary`), sem motor e sem "Repetir", com CSV.
   Botao "i" (`_triagemInfoEl`). Nunca pedir "raciocinio" a IA: o filtro do Sonnet 5.5
   recusa isso como extracao do pensamento interno (`reasoning_extraction`).
+- **Modo Simples / Avancado** (pref `ui.mode`, "simple" por omissao, so no painel lateral: a janela
+  e sempre avancada). Interruptor no topo do painel (`.zia-modeswitch`) e lista nas definicoes
+  (Respostas, `initUIMode`). Simples (`this.simple`, `_renderSimpleActions`, `_runSimple`): 7 botoes
+  grandes com descricao (resumo, simples, conceitos, mapa, ficha, excertos, estudo) que enviam logo;
+  uma acao ja pedida mostra a resposta sem novo pedido. Sem separadores, lista de motores (usa o das
+  definicoes), "Repetir com" nem motor/modelo por baixo da resposta; verificacao curta
+  ("Confirmado no PDF") quando nao ha problemas, os avisos aparecem inteiros. Mudar de modo nas
+  definicoes a meio de uma resposta so redesenha no fim (`_rebuildLater`). Mesmas cores do resto.
+  Nos testes do painel `ui.html` usa "advanced" por omissao (`?uimode=simple` para o simples).
+- **Mapa mental** (acao `mapa`): a IA devolve so uma lista encaixada; `_mindmapNodes` poe o texto de
+  cada ramo numa caixa (`.zia-mm-node`) e o CSS `.zia-mindmap` desenha os ramos (sem bibliotecas,
+  funciona no painel estreito). Nas notas fica a lista encaixada.
+- **Perguntas de estudo** (acao `estudo`): 8 perguntas (compreensao, ligacao de ideias, reflexao
+  critica) com resposta modelo e pagina. "Pontos-chave" (`pontos`) sao as ideias principais, nao
+  as palavras-chave (essas sao a acao `etiquetas`).
 - **Nome da acao na lingua atual:** o titulo de cada resposta e das conversas vem de
   `_actionTitle` (pelo `actionID`), nao do `actionLabel` gravado, para mudar com o botao PT/EN.
 - **Sem titulo repetido:** numa acao a bolha do pedido fica escondida
@@ -387,7 +402,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.7.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.8.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

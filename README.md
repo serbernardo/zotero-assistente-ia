@@ -22,7 +22,7 @@ O ícone do assistente fica logo a seguir à Info. As ações estão organizadas
 
 | Separador | Ações |
 |---|---|
-| **Compreender** | Resumo, Pontos-chave, Explicação simples (sem jargão), Conceitos (glossário com as definições dos autores), Esquema do argumento (índice de temas com páginas em teses, relatórios e livros) |
+| **Compreender** | Resumo, Pontos-chave, Explicação simples (sem jargão), Conceitos (glossário com as definições dos autores), Esquema do argumento (índice de temas com páginas em teses, relatórios e livros), Mapa mental (árvore com o tema central e os ramos), Perguntas de estudo (com resposta modelo e página) |
 | **Avaliar** | Avaliação crítica (tipo de estudo e grelha adequada, como CONSORT, STROBE, PRISMA, COREQ ou CASP), Métodos e dados (com tabela dos resultados numéricos), Afirmações e evidência (separa dados de interpretações e mostra as afirmações com pouco suporte) |
 | **Extrair** | Ficha de leitura (14 campos, guardada como nota), Excertos citáveis (citações literais com página), Revisão de literatura, Palavras-chave (do autor e do texto, adicionadas ao item como etiquetas com um clique) |
 | **Investigar** | Lacunas de investigação, Perguntas de investigação (com desenho de estudo sugerido) |

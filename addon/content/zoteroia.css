@@ -1619,3 +1619,30 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-footer { align-items: center; }
 .zia-footer > .zia-coffee { margin-inline-end: auto; }
 .zia-credits-coffee { margin-top: 8px; }
+
+/* Modo Simples / Avançado do painel (mesmas cores do resto) */
+.zia-modeswitch { display: inline-flex; align-self: flex-end; border: 1px solid var(--zia-border); border-radius: 14px; overflow: hidden; }
+.zia-modeswitch .zia-mode-btn { border: none; border-radius: 0; margin: 0; padding: 2px 10px; font-size: 11px; font-weight: 600; background: var(--zia-bg); color: var(--zia-fg2); min-height: 0; }
+.zia-modeswitch .zia-mode-btn.on { background: var(--zia-accent); color: var(--zia-on-accent, #fff); }
+.zia-simple .zia-engine[hidden], .zia-simple .zia-pending { display: none; }
+.zia-simple-ask { flex: 1 1 100%; font-size: 12px; color: var(--zia-fg2); margin: 2px 0 6px; }
+.zia-simple-grid { flex: 1 1 100%; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+.zia-simple-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; white-space: normal; padding: 8px 10px; border: 1px solid var(--zia-border); border-radius: 10px; background: var(--zia-bg); color: var(--zia-fg); cursor: pointer; font: inherit; height: auto; min-height: 0; }
+.zia-simple-btn:hover:not(:disabled) { border-color: var(--zia-fg2); }
+.zia-simple-btn.zia-done .zia-simple-label::after { content: " ✓"; color: var(--zia-green, #2c7a3f); }
+.zia-simple-btn:disabled { opacity: 0.55; cursor: default; }
+.zia-simple-label { font-weight: 700; font-size: 13px; }
+.zia-simple-desc { font-size: 11.5px; color: var(--zia-fg2); line-height: 1.3; }
+
+/* Mapa mental: a lista encaixada vira uma árvore com ramos (funciona no painel estreito) */
+.zia-mindmap ul { list-style: none; margin: 0; padding: 0 0 0 16px; }
+.zia-mindmap > ul { padding-left: 0; }
+.zia-mindmap li { position: relative; margin: 0; padding: 3px 0 3px 16px; }
+.zia-mindmap .zia-mm-node { margin: 0; display: inline-block; padding: 2px 8px; border: 1px solid var(--zia-border); border-radius: 10px; background: var(--zia-bg); line-height: 1.35; }
+.zia-mindmap li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1.5px solid var(--zia-border); }
+.zia-mindmap li::after { content: ""; position: absolute; left: 0; top: 14px; width: 14px; border-top: 1.5px solid var(--zia-border); }
+.zia-mindmap li:last-child::before { bottom: auto; height: 14px; }
+.zia-mindmap > ul > li { padding-left: 0; }
+.zia-mindmap > ul > li::before, .zia-mindmap > ul > li::after { display: none; }
+.zia-mindmap > ul > li > .zia-mm-node { font-weight: 700; font-size: 14px; border-width: 2px; border-color: var(--zia-accent); }
+.zia-mindmap > ul > li > ul > li > .zia-mm-node { font-weight: 600; border-color: var(--zia-fg2); }

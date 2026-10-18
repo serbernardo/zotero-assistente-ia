@@ -76,6 +76,7 @@
 		"privacy.ack.claude": true, "privacy.ack.gemini": true, "ui.group": "compreender",
 		"fichas.autoSave": true, "claude.maxChars": 600000, "gemini.maxChars": 400000, "anthropic.maxChars": 400000,
 		"custom.prompts": params.get("custom") || "", "ui.lang": params.get("ui") || "auto",
+		"ui.mode": params.get("uimode") || "advanced",
 	};
 	if (params.get("setup")) { prefs.engine = ""; prefs["claude.enabled"] = false; prefs["gemini.key"] = ""; }
 	if (params.get("noack")) { prefs["privacy.ack.claude"] = false; }
@@ -110,6 +111,7 @@
 	core.openWindow = o => { window.openedWindow = o; };
 	core.runEngine = async (engine, { onDelta, onInfo, signal, system, prompt }) => {
 		window.lastEngine = engine;
+		window.engineCalls = (window.engineCalls || 0) + 1;
 		window.lastSystem = system;
 		window.lastPrompt = prompt;
 		if (MOCK.error) {

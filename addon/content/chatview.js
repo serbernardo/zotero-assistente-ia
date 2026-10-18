@@ -24,6 +24,7 @@ var ZIAChatView = class {
 		this.state = this._emptyState();
 		this.engine = core.defaultEngine();
 		this.group = core.pref("ui.group") || "compreender";
+		this.simple = this.mode === "section" && (core.pref("ui.mode") || "simple") !== "advanced";
 		this.collectionIDs = [];
 		this.busy = false;
 		this.abort = null;
@@ -69,8 +70,28 @@ var ZIAChatView = class {
 	}
 
 	_build() {
-		const root = this._el("div", `zia-root zia-mode-${this.mode}`);
+		this.simple = this.mode === "section" && (this.core.pref("ui.mode") || "simple") !== "advanced";
+		const root = this._el("div", `zia-root zia-mode-${this.mode}` + (this.simple ? " zia-simple" : ""));
 		this.root = root;
+
+		// Simples / Avançado (só no painel lateral: a janela é sempre avançada)
+		if (this.mode === "section") {
+			const sw = this._el("div", "zia-modeswitch");
+			sw.setAttribute("role", "group");
+			sw.title = this.T("ui.mode.tip");
+			for (const m of ["simple", "advanced"]) {
+				const on = (m === "simple") === this.simple;
+				const b = this._button(this.T("ui.mode." + m), "zia-mode-btn" + (on ? " on" : ""), () => {
+					if (this.busy || on) return;
+					this.core.setPref("ui.mode", m);
+					this._rebuild();
+				});
+				b.dataset.uimode = m;
+				b.setAttribute("aria-pressed", on ? "true" : "false");
+				sw.appendChild(b);
+			}
+			root.appendChild(sw);
+		}
 
 		// Barra superior: documentos, motor e definições
 		const bar = this._el("div", "zia-bar");
@@ -86,6 +107,8 @@ var ZIAChatView = class {
 		this.engineSel = this._el("select", "zia-engine");
 		this.engineSel.title = this.T("chat.engine.tip");
 		this.engineSel.addEventListener("change", () => this._setEngine(this.engineSel.value));
+		// No modo simples usa-se o motor escolhido nas definições
+		this.engineSel.hidden = this.simple;
 		tools.appendChild(this.engineSel);
 		tools.appendChild(this._button("⚙", "zia-btn-small zia-btn-icon", () => this._openPrefs(), this.T("chat.settings.tip")));
 		bar.appendChild(tools);
@@ -119,7 +142,7 @@ var ZIAChatView = class {
 		const input = this._el("div", "zia-input");
 		this.textarea = this._el("textarea", "zia-textarea");
 		this.textarea.setAttribute("rows", "2");
-		this.textarea.setAttribute("placeholder", this.T("chat.placeholder"));
+		this.textarea.setAttribute("placeholder", this.T(this.simple ? "simple.placeholder" : "chat.placeholder"));
 		this.textarea.addEventListener("keydown", ev => {
 			if (ev.key === "Escape" && this.busy) {
 				ev.preventDefault();
@@ -177,7 +200,7 @@ var ZIAChatView = class {
 		this._prefObservers = [];
 		const P = Zotero.Prefs;
 		if (!P || !P.registerObserver) return;
-		const keys = ["engine", "anthropic.key", "openai.key", "gemini.key", "iaedu.key", "iaedu.endpoint", "iaedu.channel", "claude.enabled", "codex.enabled", "custom.prompts", "ui.lang"];
+		const keys = ["engine", "anthropic.key", "openai.key", "gemini.key", "iaedu.key", "iaedu.endpoint", "iaedu.channel", "claude.enabled", "codex.enabled", "custom.prompts", "ui.lang", "ui.mode"];
 		for (const k of keys) {
 			try {
 				this._prefObservers.push(P.registerObserver(this.core.PREF_BRANCH + k, () => this._onPrefsChanged(k), true));
@@ -195,6 +218,12 @@ var ZIAChatView = class {
 			this._rebuild();
 			return;
 		}
+		if (key === "ui.mode") {
+			// Só o painel lateral tem modo simples, e só muda se o modo pedido for outro
+			const simple = this.mode === "section" && (this.core.pref("ui.mode") || "simple") !== "advanced";
+			if (simple !== this.simple) this._rebuild();
+			return;
+		}
 		if (key === "engine" && !this.busy) {
 			const e = this.core.defaultEngine();
 			if (e) this.engine = e;
@@ -207,7 +236,13 @@ var ZIAChatView = class {
 
 	/** Volta a construir a interface (por exemplo, depois de mudar a língua), mantendo a conversa. */
 	_rebuild() {
-		if (!this.root || this.busy) return;
+		if (!this.root) return;
+		// A meio de uma resposta não se mexe na interface: fica para quando a resposta terminar
+		if (this.busy) {
+			this._rebuildLater = true;
+			return;
+		}
+		this._rebuildLater = false;
 		const parent = this.root.parentNode;
 		if (parent) parent.removeChild(this.root);
 		for (const m of this.state.messages) m.el = null;
@@ -295,7 +330,7 @@ var ZIAChatView = class {
 		while (box.firstChild) box.removeChild(box.firstChild);
 		// A janela é só para comparar (as outras ações estão no painel lateral)
 		const groups = this.mode === "window" ? this.L.ACTION_GROUPS.filter(g => g.id === "comparar") : this.L.ACTION_GROUPS;
-		box.hidden = this.mode === "window";
+		box.hidden = this.mode === "window" || this.simple;
 		if (!groups.some(g => g.id === this.group)) this.group = groups[0].id;
 		// No painel lateral, comparar faz-se só na janela grande: o separador leva lá
 		const external = g => this.mode === "section" && g.id === "comparar";
@@ -322,6 +357,7 @@ var ZIAChatView = class {
 		const box = this.actionsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
 		this.actionButtons = {};
+		if (this.simple) return this._renderSimpleActions();
 		const list = this._actionsOfGroup(this.group);
 		const custom = this.group === "meus";
 		if (custom && !list.length && !this._customForm) {
@@ -800,7 +836,7 @@ var ZIAChatView = class {
 	/** Texto da caixa: singular com um PDF, plural com vários. */
 	_updatePlaceholder() {
 		const a = this.selectedAction && this._action(this.selectedAction);
-		const key = a ? "chat.placeholder.action" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
+		const key = a ? "chat.placeholder.action" : this.simple ? "simple.placeholder" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
 		this.textarea.setAttribute("placeholder", this.T(key));
 	}
 
@@ -1071,6 +1107,40 @@ var ZIAChatView = class {
 
 	clearConversation() {
 		this.newConversation();
+	}
+
+	/** Modo simples: ações mais úteis para estudar, em botões grandes. Um clique envia logo. */
+	_renderSimpleActions() {
+		const box = this.actionsEl;
+		box.appendChild(this._el("div", "zia-simple-ask", this.T("simple.ask")));
+		const grid = this._el("div", "zia-simple-grid");
+		for (const id of ["resumo", "simples", "conceitos", "mapa", "ficha", "excertos", "estudo"]) {
+			const a = this._action(id);
+			if (!a) continue;
+			const b = this._button("", "zia-simple-btn", () => this._runSimple(id));
+			b.appendChild(this._el("span", "zia-simple-label", this.T("simple." + id)));
+			b.appendChild(this._el("span", "zia-simple-desc", this.T("simple." + id + ".desc")));
+			b.dataset.action = id;
+			this.actionButtons[id] = b;
+			grid.appendChild(b);
+		}
+		box.appendChild(grid);
+		this._updateButtons();
+	}
+
+	_runSimple(id) {
+		if (this.busy) return;
+		if (this._lastAnswerFor(id)) {
+			// Já foi pedido: mostra a resposta que existe, sem gastar outro pedido
+			this.selectedAction = null;
+			this.selectAction(id);
+			this.selectedAction = null;
+			this._renderPending();
+			this._updateButtons();
+			return;
+		}
+		this.selectedAction = null;
+		this.runAction(id);
 	}
 
 	/** Escolhe uma ação (não a corre): o pedido segue com Enviar ou Enter. */
@@ -1488,6 +1558,7 @@ var ZIAChatView = class {
 			this._persist();
 			this._updateButtons();
 			this._saveSession();
+			if (this._rebuildLater) this._rebuild();
 		}
 		if (returnMessage) return botMsg;
 		return !botMsg.error;
@@ -1829,7 +1900,8 @@ var ZIAChatView = class {
 			for (const t of m.warnings) w.appendChild(this._el("div", null, t));
 			el.appendChild(w);
 		}
-		const body = this._el("div", "zia-md");
+		// O mapa mental desenha a lista encaixada como uma árvore com ramos
+		const body = this._el("div", "zia-md" + (m.actionID === "mapa" ? " zia-mindmap" : ""));
 		const ctx = {
 			docsMap: this._docsMap(),
 			onCite: c => this._openCite(c),
@@ -1843,6 +1915,7 @@ var ZIAChatView = class {
 				body.textContent = m.text;
 			}
 		}
+		if (m.actionID === "mapa" && !m.pending) this._mindmapNodes(body);
 		if (m.pending) {
 			body.appendChild(this._el("span", "zia-typing", m.text ? " ▍" : this.T("chat.preparing")));
 		}
@@ -1879,7 +1952,24 @@ var ZIAChatView = class {
 			if (m.check) el.appendChild(this._checkBox(m.check));
 			if (m.tags && m.tags.length) el.appendChild(this._tagsRow(m));
 			const meta = [m.engine ? this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "") : "", m.usageNote, m.tokensNote].filter(Boolean);
-			if (meta.length) el.appendChild(this._el("div", "zia-msg-meta", meta.join(" · ")));
+			if (meta.length && !this.simple) el.appendChild(this._el("div", "zia-msg-meta", meta.join(" · ")));
+		}
+	}
+
+	/** Mapa mental: o texto de cada ramo fica numa caixa, para a árvore se ler como um mapa. */
+	_mindmapNodes(body) {
+		for (const li of body.querySelectorAll("li")) {
+			const node = this._el("span", "zia-mm-node");
+			while (li.firstChild && !(li.firstChild.nodeType === 1 && /^(UL|OL)$/i.test(li.firstChild.nodeName))) {
+				const c = li.firstChild;
+				// um parágrafo dentro do item passa só o conteúdo
+				if (c.nodeType === 1 && /^P$/i.test(c.nodeName)) {
+					while (c.firstChild) node.appendChild(c.firstChild);
+					li.removeChild(c);
+				}
+				else node.appendChild(c);
+			}
+			li.insertBefore(node, li.firstChild);
 		}
 	}
 
@@ -1892,6 +1982,7 @@ var ZIAChatView = class {
 			return cs.length ? " (" + cs.map(x => this.L.citeLabel(x, dm)).join("; ") + ")" : "";
 		};
 		if (!c.problems) {
+			if (this.simple) return this._el("div", "zia-check zia-check-ok", this.T("check.simpleOk"));
 			if (!c.quotes && !c.numbers) return this._el("div", "zia-check zia-check-ok", this.T("check.okNoQuotes"));
 			return this._el("div", "zia-check zia-check-ok", this.T(c.calcs ? "check.okCalc" : "check.ok", { q: c.quotesOK, n: c.numbers, c: c.calcs }));
 		}
@@ -1975,7 +2066,7 @@ var ZIAChatView = class {
 			}, this.T("chat.exportCsv.tip")));
 		}
 		// O resumo da triagem é feito pela app, não por um motor: não há nada para repetir
-		if (m.request) for (const other of this._otherReadyEngines(m.engine).slice(0, 2)) {
+		if (m.request && !this.simple) for (const other of this._otherReadyEngines(m.engine).slice(0, 2)) {
 			row.appendChild(this._button(this.T("chat.retryWith", { engine: this.core.engineLabel(other) }), "zia-btn-small zia-btn-quiet", () => this._retry(m, other)));
 		}
 		return row;
