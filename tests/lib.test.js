@@ -512,3 +512,20 @@ test("ações revistas: afirmações e evidência, grelha de avaliação, docume
 	assert.match(A.ficha.prompt, /Financiamento e conflitos de interesse/);
 	assert.match(A.lacunas.prompt, /Com vários documentos, indica quantos/);
 });
+
+test("nomes das ações, referências mantidas e números PRISMA", () => {
+	L.I18N.setLang("pt-PT");
+	assert.equal(L.ACTIONS.resumo.button, "Resumir");
+	assert.equal(L.ACTIONS.resumo.label, "Resumo", "a resposta fica com o nome");
+	assert.equal(L.ACTIONS.pontos.button, "Ideias principais", "sem verbo próprio, o botão usa o nome");
+	assert.ok(!L.ACTIONS.revisao, "uma só revisão de literatura, em Comparar");
+	assert.equal(L.ACTIONS.cmp_sintese.label, "Revisão de literatura");
+	assert.ok(L.ACTIONS.relevancia.needsCriteria && L.ACTIONS.referencias.keepRefs);
+	const docs = [{ id: "D1", ref: "X", pagesReliable: true, pages: ["a", "b", "c", "texto\nReferências\nSilva, 2020", "Costa, 2019"] }];
+	assert.equal(L.fitDocuments(docs, 0).docs[0].refsFromPage, 4, "por omissão a lista é cortada");
+	const kept = L.fitDocuments(docs, 0, { keepRefs: true }).docs[0];
+	assert.equal(kept.refsFromPage, null);
+	assert.match(kept.usedPages.join("\n"), /Costa, 2019/);
+	const sum = L.screeningSummary([{ ref: "A", decision: "incluir" }, { ref: "B", decision: "excluir" }, { ref: "C", decision: "duvidoso" }, { ref: "D", decision: null }], "c");
+	assert.match(sum, /avaliados 4 · incluídos 1 · excluídos 1 · por decidir 2/);
+});

@@ -182,7 +182,7 @@ async function main() {
 	// ---------- Interface em inglês ----------
 	{
 		const page = await open("?mode=section&ui=en", { width: 420, height: 800 });
-		assert.equal(await page.textContent('button[data-action="resumo"]'), "Summary");
+		assert.equal(await page.textContent('button[data-action="resumo"]'), "Summarise", "botão com verbo");
 		assert.equal(await page.textContent('.zia-tab[data-group="compreender"]'), "Understand");
 		assert.equal(await page.textContent(".zia-send"), "Send ➤");
 		assert.match(await page.locator(".zia-suggestion").first().textContent(), /research question/);
@@ -218,7 +218,7 @@ async function main() {
 		assert.ok(!(await page.isVisible(".zia-tabs")), "sem separadores no simples");
 		assert.ok(!(await page.isVisible(".zia-engine")), "sem lista de motores no simples");
 		const labels = await page.$$eval(".zia-simple-btn .zia-simple-label", ls => ls.map(l => l.textContent));
-		assert.deepEqual(labels, ["Resumir", "Explicar fácil", "Conceitos-chave", "Mapa mental", "Ficha de leitura", "Frases para citar", "Testar o que percebi"]);
+		assert.deepEqual(labels, ["Resumir", "Explicação simples", "Conceitos-chave", "Mapa mental", "Ficha de leitura", "Testar o que percebi", "Relevância para o meu tema"]);
 		const over = await page.$$eval(".zia-simple-btn", (bs) => bs.filter(b => b.scrollHeight > b.clientHeight + 1 || b.getBoundingClientRect().right > document.querySelector(".zia-root").getBoundingClientRect().right + 1).length);
 		assert.equal(over, 0, "botões grandes inteiros e dentro do painel estreito");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_simples.png"), fullPage: true });
@@ -270,6 +270,22 @@ async function main() {
 		await page.locator(".zia-mindmap").screenshot({ path: path.join(OUT, "ui_mapa_mental.png") });
 		await page.evaluate(() => { window.engineCalls = 2; });
 
+		// relevância: precisa do tema escrito na caixa, e pode repetir-se com outro tema
+		await page.click('.zia-simple-btn[data-action="relevancia"]');
+		await page.waitForSelector("text=Escreve primeiro o teu tema");
+		assert.equal(await page.evaluate(() => window.engineCalls), 2, "sem tema, nada é enviado");
+		await page.evaluate(() => { window.MOCK.answer = "## Relevância: Alta\nO estudo trata X [D1:p2]."; });
+		await page.fill(".zia-textarea", "literacia digital no ensino superior");
+		await page.click('.zia-simple-btn[data-action="relevancia"]');
+		await page.waitForFunction(() => window.engineCalls === 3);
+		await page.waitForSelector("text=Relevância: Alta");
+		assert.match(await page.evaluate(() => window.lastPrompt), /literacia digital no ensino superior/);
+		assert.match(await page.evaluate(() => window.lastPrompt), /tema do seu trabalho/);
+		assert.equal(await page.inputValue(".zia-textarea"), "", "a caixa fica limpa");
+		assert.ok(await page.isVisible('.zia-action-tag:has-text("Relevância para o meu tema")'));
+		await page.waitForFunction(() => !document.querySelector(".zia-typing"));
+		await page.evaluate(() => { window.engineCalls = 2; });
+
 		// pergunta livre continua a funcionar
 		await page.evaluate(() => { window.MOCK.answer = "A amostra tem 120 pessoas [D1:p4]."; });
 		await page.fill(".zia-textarea", "Qual é a amostra?");
@@ -290,13 +306,13 @@ async function main() {
 		await page.click('.zia-mode-btn[data-uimode="simple"]');
 		assert.ok(await page.isVisible(".zia-simple-grid"));
 		assert.equal(await page.evaluate(() => window.view.core.pref("ui.mode")), "simple");
-		console.log("OK modo simples: 7 botões grandes (com mapa mental) que enviam logo, sem motor, separadores nem Repetir, verificação curta, troca para avançado e volta");
+		console.log("OK modo simples: 7 botões grandes (com mapa mental e relevância para o tema) que enviam logo, sem motor, separadores nem Repetir, verificação curta, troca para avançado e volta");
 		await page.close();
 	}
 	{
 		const page = await open("?mode=section&uimode=simple&ui=en", { width: 300, height: 800 });
 		const labels = await page.$$eval(".zia-simple-btn .zia-simple-label", ls => ls.map(l => l.textContent));
-		assert.deepEqual(labels, ["Summarise", "Explain simply", "Key concepts", "Mind map", "Reading sheet", "Quotes to cite", "Test my understanding"]);
+		assert.deepEqual(labels, ["Summarise", "Plain-language summary", "Key concepts", "Mind map", "Reading sheet", "Test my understanding", "Relevance to my topic"]);
 		assert.deepEqual(await page.$$eval(".zia-mode-btn", bs => bs.map(b => b.textContent)), ["Simple", "Advanced"]);
 		await page.close();
 		const win = await open("?mode=window&uimode=simple", { width: 820, height: 800 });
@@ -328,6 +344,40 @@ async function main() {
 		assert.ok(await p2.isVisible(".zia-setup"));
 		await p2.close();
 		console.log("OK modo simples: mudar nas definições a meio de uma resposta, e configuração inicial sem motor");
+	}
+
+	// ---------- Referências-chave (Investigação futura): a lista de referências não é cortada ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 800 });
+		assert.equal(await page.textContent('.zia-tab[data-group="investigar"]'), "Investigação futura");
+		await page.click('.zia-tab[data-group="investigar"]');
+		assert.ok(await page.isVisible('button[data-action="referencias"]'));
+		await page.evaluate(() => { window.MOCK.answer = "1. Silva (2020). Teoria X. Usada para definir X [D1:p2]."; });
+		await act(page, "referencias");
+		await page.waitForSelector("text=Teoria X");
+		const p = await page.evaluate(() => window.lastPrompt);
+		assert.match(p, /fontes citadas/);
+		assert.doesNotMatch(p, /Lista de referências bibliográficas omitida/, "as referências vão no pedido");
+		// relevância no avançado: a caixa diz o que escrever, sem tema não envia
+		await page.click('.zia-tab[data-group="avaliar"]');
+		await page.click('button[data-action="relevancia"]');
+		assert.match(await page.getAttribute(".zia-textarea", "placeholder"), /Escreve primeiro o teu tema/);
+		const before = await page.evaluate(() => window.lastPrompt);
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Escreve primeiro o teu tema");
+		assert.equal(await page.evaluate(() => window.lastPrompt), before, "sem tema não envia");
+		await page.evaluate(() => { window.MOCK.answer = "## Relevância: Média\nTrata X em parte [D1:p3]."; });
+		await page.fill(".zia-textarea", "ensino a distância");
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Relevância: Média");
+		assert.match(await page.evaluate(() => window.lastPrompt), /ensino a distância/);
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
+		await page.click('.zia-tab[data-group="compreender"]');
+		assert.equal(await page.textContent('button[data-action="resumo"]'), "Resumir", "botão com verbo");
+		assert.equal(await page.textContent('button[data-action="pontos"]'), "Ideias principais");
+		assert.equal(await page.locator('button[data-action="revisao"]').count(), 0, "revisão de literatura só em Comparar");
+		await page.close();
+		console.log("OK Referências-chave com a lista de referências, relevância no avançado, Investigação futura, Resumir, Ideias principais");
 	}
 
 	// ---------- Buy me a coffee no painel e na janela ----------
@@ -453,9 +503,9 @@ async function main() {
 		// cada ação tem o seu separador
 		await act(page, "pontos");
 		await page.waitForFunction(() => document.querySelectorAll(".zia-conv-tab").length === 2 && !document.querySelector(".zia-send.zia-stop"));
-		assert.equal(await page.locator(".zia-msg-assistant").count(), 1, "o separador Pontos-chave só tem a sua resposta");
+		assert.equal(await page.locator(".zia-msg-assistant").count(), 1, "o separador Ideias principais só tem a sua resposta");
 		assert.match(await page.textContent(".zia-conv-tab >> nth=0"), /Resumo/);
-		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /Pontos-chave/);
+		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /Ideias principais/);
 		await page.screenshot({ path: path.join(OUT, "ui_painel_separadores.png") });
 		// escolher uma ação já pedida abre o separador dela, sem repetir o pedido
 		const before = await page.evaluate(() => window.lastPrompt);
@@ -585,13 +635,14 @@ async function main() {
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "sem critérios, nada é enviado");
 		await page.fill(".zia-textarea", "estudos empíricos, desde 2018");
 		await page.click(".zia-send");
-		await page.waitForSelector("text=Resumo da seleção", { timeout: 30000 });
+		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
 		assert.match(await page.evaluate(() => window.lastPrompt), /estudos empíricos, desde 2018/);
 		assert.equal(await page.locator("text=TRIAGEM: INCLUIR").count(), 0, "a linha técnica não aparece");
-		const summary = page.locator(".zia-msg-assistant", { hasText: "Resumo da seleção" });
+		const summary = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
 		assert.equal(await summary.locator(".zia-table tbody tr").count(), 2, "uma linha por artigo");
 		assert.match(await summary.textContent(), /Incluir: 2 · Excluir: 0 · Duvidoso: 0/);
+		assert.match(await summary.textContent(), /diagrama PRISMA.*avaliados 2 · incluídos 2 · excluídos 0 · por decidir 0/, "números para o PRISMA");
 		assert.equal(await summary.locator("button:has-text(\"Exportar tabela (CSV)\")").count(), 1);
 		assert.equal(await summary.locator("button:has-text(\"Repetir com\")").count(), 0, "o resumo é da app, não se repete");
 		await page.screenshot({ path: path.join(OUT, "ui_janela_triagem.png") });

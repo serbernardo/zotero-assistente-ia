@@ -214,6 +214,21 @@ var ZIALib = (function () {
 				+ "12 palavras, cada um com citação com a página. Não escrevas parágrafos, títulos nem texto fora da lista. "
 				+ "Com vários documentos, usa um título ## por documento, cada um com a sua lista.",
 		},
+		relevancia: {
+			group: "avaliar",
+			minDocs: 1,
+			perDoc: true,
+			needsCriteria: true,
+			needsMsg: "chat.relevancia.needTopic",
+			prompt: "O utilizador escreveu o tema do seu trabalho nas indicações adicionais. Avalia se este documento é "
+				+ "relevante para esse tema, só com base no que o documento diz. Apresenta, por esta ordem:\n"
+				+ "## Relevância: Alta, Média ou Baixa, numa linha, seguida de 3 a 5 frases que expliquem porquê, com citações.\n"
+				+ "## O que o documento traz para o tema: 3 a 6 pontos concretos (conceitos, dados, métodos ou argumentos), "
+				+ "cada um com citação.\n"
+				+ "## O que ler primeiro: as secções e páginas mais úteis para o tema, pela ordem em que vale a pena lê-las.\n"
+				+ "## O que não cobre: aspetos do tema que o documento não trata. Se o tema for vago, diz que ficou "
+				+ "difícil avaliar e sugere como o tornar mais preciso.",
+		},
 		critica: {
 			group: "avaliar",
 			minDocs: 1,
@@ -278,15 +293,6 @@ var ZIALib = (function () {
 				+ "escreve o texto entre aspas, na língua original, seguido da citação [Dn:pX], e numa linha abaixo a sugestão "
 				+ "de uso (por exemplo, introdução, revisão de literatura ou discussão). Copia o texto exatamente como está. "
 				+ "Se não conseguires garantir a transcrição literal de um excerto, não o incluas.",
-		},
-		revisao: {
-			group: "escrever",
-			minDocs: 1,
-			fichasOK: true,
-			prompt: "Escreve um texto de revisão de literatura, em prosa académica corrida e pronta a adaptar, organizado "
-				+ "por temas (títulos ##) e não documento a documento. Relaciona os estudos entre si: onde concordam, onde "
-				+ "divergem e porquê. Cada frase com informação dos documentos leva citação. Termina com um parágrafo de "
-				+ "síntese que prepare a justificação de um novo estudo. Não uses listas no corpo do texto.",
 		},
 		etiquetas: {
 			group: "escrever",
@@ -355,8 +361,10 @@ var ZIALib = (function () {
 			fichasOK: true,
 			prompt: "Escreve uma síntese de literatura dos documentos, organizada por temas e não documento a documento, "
 				+ "em parágrafos corridos prontos a adaptar numa revisão de literatura. Cada frase com as citações "
-				+ "dos documentos em que se apoia. Mostra onde os documentos concordam e onde discordam.\n"
-				+ "No fim: ## O que estes documentos não permitem concluir.",
+				+ "dos documentos em que se apoia. Mostra onde os documentos concordam, onde divergem e porquê. "
+				+ "Não uses listas no corpo do texto.\n"
+				+ "No fim: ## O que estes documentos não permitem concluir, e um parágrafo de síntese que prepare "
+				+ "a justificação de um novo estudo.",
 		},
 		triagem: {
 			group: "comparar",
@@ -389,6 +397,17 @@ var ZIALib = (function () {
 				+ "## C. Aviso: as lacunas referem apenas os documentos analisados, não toda a literatura. "
 				+ "Sugere 3 a 5 termos de pesquisa para confirmar cada lacuna fora da biblioteca.",
 		},
+		referencias: {
+			group: "investigar",
+			minDocs: 1,
+			keepRefs: true,
+			prompt: "Indica as 5 a 10 fontes citadas por cada documento que mais vale a pena ler a seguir para aprofundar o "
+				+ "tema. Para cada fonte: a referência tal como está escrita na lista de referências do documento, o tipo "
+				+ "(teoria de base, método, estudo empírico, revisão ou dados), e porque é importante, isto é, onde e para "
+				+ "quê o documento a usa, com a citação da página do texto onde é citada. Ordena da mais para a menos "
+				+ "importante. Usa só referências que estão na lista do documento e nunca inventes nem completes "
+				+ "referências. Se o documento não tiver lista de referências, diz isso e não indiques nenhuma.",
+		},
 		perguntas: {
 			group: "investigar",
 			minDocs: 1,
@@ -409,6 +428,11 @@ var ZIALib = (function () {
 		for (const f of ["label", "title", "hint"]) {
 			Object.defineProperty(ACTIONS[id], f, { get: () => t(`action.${id}.${f}`), enumerable: true, configurable: true });
 		}
+		// Texto do botão: um verbo quando há um natural (Resumir); a resposta fica com o nome (Resumo)
+		Object.defineProperty(ACTIONS[id], "button", {
+			get: () => (I.has(`action.${id}.button`) ? t(`action.${id}.button`) : t(`action.${id}.label`)),
+			enumerable: true, configurable: true,
+		});
 	}
 	for (const g of ACTION_GROUPS) {
 		Object.defineProperty(g, "label", { get() { return t("group." + this.id); }, enumerable: true, configurable: true });
@@ -515,6 +539,8 @@ var ZIALib = (function () {
 			...rows.map(r => `| ${String(r.ref).replace(/\|/g, "/")} | ${label(r.decision)} |`),
 			"",
 			`**${label("incluir")}: ${count("incluir")} · ${label("excluir")}: ${count("excluir")} · ${label("duvidoso")}: ${count("duvidoso")}**`,
+			"",
+			t("triagem.summary.prisma", { n: rows.length, inc: count("incluir"), exc: count("excluir"), dub: rows.length - count("incluir") - count("excluir") }),
 			"",
 			t("triagem.summary.note"),
 		].join("\n");
@@ -692,13 +718,14 @@ var ZIALib = (function () {
 	 * docs: [{ id, ref, title, pages: [string], pagesReliable, kind: 'pdf'|'ficha', fichaText }]
 	 * Devolve { docs: [{...doc, keep, refsFromPage, truncated}], totalChars, warnings }
 	 */
-	function fitDocuments(docs, maxChars) {
+	function fitDocuments(docs, maxChars, { keepRefs } = {}) {
 		const warnings = [];
 		const prepared = docs.map(d => {
 			if (d.kind === "ficha") {
 				return Object.assign({}, d, { usedPages: null, keep: null, refsFromPage: null, truncated: false });
 			}
-			const s = stripReferences(d.pages || []);
+			// As Referências-chave precisam da lista de referências: nesse caso não é cortada
+			const s = keepRefs ? { pages: (d.pages || []).slice(), refsFromPage: null } : stripReferences(d.pages || []);
 			return Object.assign({}, d, {
 				usedPages: s.pages,
 				keep: s.pages.map(() => true),
@@ -1994,7 +2021,7 @@ var ZIALib = (function () {
 	const HEAVY_GROUPS = ["avaliar", "comparar", "investigar"];
 	function isHeavyTask({ actionID, docCount } = {}) {
 		const a = actionID && ACTIONS[actionID];
-		if (a) return HEAVY_GROUPS.includes(a.group) || actionID === "revisao";
+		if (a) return HEAVY_GROUPS.includes(a.group);
 		if (actionID) return false;
 		return (docCount || 0) >= 2;
 	}

@@ -22,11 +22,13 @@ O ícone do assistente fica logo a seguir à Info. As ações estão organizadas
 
 | Separador | Ações |
 |---|---|
-| **Compreender** | Resumo, Pontos-chave, Explicação simples (sem jargão), Conceitos (glossário com as definições dos autores), Esquema do argumento (índice de temas com páginas em teses, relatórios e livros), Mapa mental (árvore com o tema central e os ramos), Perguntas de estudo (com resposta modelo e página) |
-| **Avaliar** | Avaliação crítica (tipo de estudo e grelha adequada, como CONSORT, STROBE, PRISMA, COREQ ou CASP), Métodos e dados (com tabela dos resultados numéricos), Afirmações e evidência (separa dados de interpretações e mostra as afirmações com pouco suporte) |
-| **Extrair** | Ficha de leitura (14 campos, guardada como nota), Excertos citáveis (citações literais com página), Revisão de literatura, Palavras-chave (do autor e do texto, adicionadas ao item como etiquetas com um clique) |
-| **Investigar** | Lacunas de investigação, Perguntas de investigação (com desenho de estudo sugerido) |
+| **Compreender** | Resumir, Ideias principais, Explicação simples (sem jargão), Conceitos-chave (glossário com as definições dos autores), Esquema (o argumento em texto, por níveis, ou índice de temas com páginas em teses e livros), Mapa mental (gráfico com o tema central e os ramos), Testar o que percebi (perguntas com resposta modelo e página) |
+| **Avaliar** | Relevância para o meu tema (escreves o tema e a IA diz se o artigo é relevante e que partes ler primeiro), Avaliação crítica (tipo de estudo e grelha adequada, como CONSORT, STROBE, PRISMA, COREQ ou CASP), Métodos e dados (com tabela dos resultados numéricos), Afirmações e evidência (separa dados de interpretações e mostra as afirmações com pouco suporte) |
+| **Extrair** | Ficha de leitura (14 campos, guardada como nota), Excertos citáveis (citações literais com página), Palavras-chave (do autor e do texto, adicionadas ao item como etiquetas com um clique) |
+| **Investigação futura** | Lacunas de investigação, Referências-chave (as fontes citadas que vale a pena ler a seguir), Perguntas de investigação (com desenho de estudo sugerido) |
 | **Personalizado** | As tuas próprias ações, criadas, editadas e eliminadas no painel |
+
+O painel tem dois modos. O **Simples**, por omissão, mostra 7 botões grandes para estudar (Resumir, Explicação simples, Conceitos-chave, Mapa mental, Ficha de leitura, Testar o que percebi e Relevância para o meu tema). O **Avançado** mostra todas as ações acima, a escolha do motor e os detalhes da verificação. Muda-se no topo do painel ou nas definições.
 
 Também podes fazer **perguntas livres** sobre o artigo. Cada ação e cada pergunta abre o seu separador de conversa, e as conversas ficam guardadas por artigo.
 
@@ -35,8 +37,8 @@ Também podes fazer **perguntas livres** sobre o artigo. Cada ação e cada perg
 Abre-se com o ícone de janela no título do painel, com **Comparar** no painel ou com o clique direito numa coleção.
 
 - **+ PDF** e **+ Coleção**: junta artigos da biblioteca ou uma coleção inteira, sem a teres de selecionar antes
-- **Comparar**: Visão geral, Métodos, Resultados, Conceitos e teorias, Síntese para revisão
-- **Seleção por critérios**: escreves os critérios de inclusão e de exclusão e, para cada artigo, a IA verifica critério a critério, com a página, e sugere Incluir, Excluir ou Duvidoso. No fim junta um resumo que se exporta para CSV
+- **Comparar**: Visão geral, Métodos, Resultados, Conceitos e teorias, Revisão de literatura
+- **Triagem**: escreves os critérios de inclusão e de exclusão e, para cada artigo, a IA verifica critério a critério, com a página, e sugere Incluir, Excluir ou Duvidoso. No fim junta um resumo, com os números para o diagrama PRISMA, que se exporta para CSV
 - **Usar fichas**: com muitos PDFs, trabalha sobre as fichas de leitura de cada artigo em vez do texto completo. Gasta muito menos e evita misturar artigos. Liga-se sozinho a partir de 6 PDFs
 
 ### Em todas as respostas

@@ -14,23 +14,25 @@ painel (sectionButton `zoteroia-lang`, `toggleLanguage`, `showLang` troca o icon
 [Dn:pX], que fica clicavel e abre o PDF nessa pagina
 (zotero://open-pdf/library/items/<key>?page=<n>).
 
-Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`):
-Compreender (resumo, pontos, simples, conceitos, esquema: resumo e esquema adaptam-se
-a teses, revisoes e textos teoricos, o esquema passa a indice de temas com paginas),
-Nomes atuais na interface (PT/EN): Compreender/Understand, Avaliar/Appraise, Extrair/Extract
-(grupo `escrever`), Investigar/Future research, Comparar/Compare. Acoes: Resumo/Summary,
-Explicacao simples/Plain-language summary, Metodos e dados, Ficha de leitura, Perguntas de
-investigacao/Research questions, Selecao por criterios/Screening (acao `triagem`).
-Avaliar (critica: tipo de estudo e grelha CONSORT/STROBE/PRISMA/COREQ/CASP/JBI e
-"Apreciacao global" marcada como opiniao da IA, sem GRADE; metodos; afirmacoes e
-evidencia: acao `conclusoes`, o id fica por causa do historico, tabela Afirmacao |
-Tipo | Suporte no texto | Avaliacao e [Pouco claro] nas ambiguas), Extrair (grupo `escrever`: ficha, excertos, revisao, palavras-chave: acao `etiquetas`, extrai as
-palavras-chave do autor e os termos principais e adiciona-as como etiquetas do Zotero),
-Investigar (lacunas, perguntas), Comparar (visao geral com pontos fortes e fracos,
-metodos, resultados, conceitos, sintese, triagem; so na janela grande, no painel o separador "Comparar ↗"
-abre a janela com os PDFs da conversa) e
-Personalizado (prompts do utilizador,
-pref `custom.prompts`, uma linha "Nome: instrucao").
+Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`). Nomes atuais (PT/EN):
+- Compreender/Understand: Resumir (botao, `action.resumo.button`; a resposta chama-se Resumo)/Summarise,
+  Ideias principais (`pontos`)/Main ideas, Explicacao simples (`simples`)/Plain-language summary,
+  Conceitos-chave (`conceitos`)/Key concepts, Testar o que percebi (`estudo`)/Test my understanding,
+  Esquema (texto por niveis)/Outline, Mapa mental (grafico com ramos, `mapa`)/Mind map.
+- Avaliar/Appraise: Relevancia para o meu tema (`relevancia`, precisa do tema na caixa, `needsCriteria`
+  e `needsMsg`), Avaliacao critica (grelha CONSORT/STROBE/PRISMA/COREQ/CASP/JBI, "Apreciacao global"
+  marcada como opiniao da IA, sem GRADE), Metodos e dados, Afirmacoes e evidencia (`conclusoes`).
+- Extrair/Extract (grupo `escrever`): Ficha de leitura/Reading sheet (14 campos, um so tipo nos dois
+  modos), Excertos citaveis, Palavras-chave/Keywords (`etiquetas`, adiciona etiquetas do Zotero).
+- Investigacao futura/Future research (grupo `investigar`): Lacunas, Referencias-chave (`referencias`,
+  `keepRefs`: a lista de referencias do PDF nao e cortada), Perguntas de investigacao.
+- Comparar/Compare (so na janela): Visao geral (nao "Comparacao geral": as notas ja comecam por
+  "Comparacao:"), Metodos, Resultados, Conceitos e teorias, Revisao de literatura (`cmp_sintese`, a
+  unica revisao: a antiga `revisao` do Extrair foi retirada), Triagem (`triagem`, com os numeros para
+  o diagrama PRISMA no resumo).
+- Personalizado (prompts do utilizador, pref `custom.prompts`, uma linha "Nome: instrucao").
+Regra dos nomes: um nome por acao em todo o addon, o mesmo no Simples e no Avancado. O botao usa um
+verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com o nome (`label`).
 
 ## Estrutura do projeto
 
@@ -90,7 +92,7 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
   completos). As perguntas livres levam so as ultimas 3 trocas, ate 24 mil
   caracteres (`selectHistory`).
 - **Gemini, tarefas exigentes** (`isHeavyTask`: Avaliar, Comparar, Investigar,
-  revisao e perguntas com 2 ou mais PDFs): `runGeminiHeavy` tenta primeiro o
+  e perguntas com 2 ou mais PDFs): `runGeminiHeavy` tenta primeiro o
   modelo de analise (pref `gemini.modelStrong`: auto = os dois flash estaveis
   mais recentes, off, ou um nome), uma vez e sem esperas. Se falhar, passa logo
   ao modelo principal e evita o de analise durante 15 minutos (ou ate ao fim do
@@ -191,8 +193,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Modo Simples / Avancado** (pref `ui.mode`, "simple" por omissao, so no painel lateral: a janela
   e sempre avancada). Interruptor no topo do painel (`.zia-modeswitch`) e lista nas definicoes
   (Respostas, `initUIMode`). Simples (`this.simple`, `_renderSimpleActions`, `_runSimple`): 7 botoes
-  grandes com descricao (resumo, simples, conceitos, mapa, ficha, excertos, estudo) que enviam logo;
-  uma acao ja pedida mostra a resposta sem novo pedido. Sem separadores, lista de motores (usa o das
+  grandes com descricao (resumo, simples, conceitos, mapa, ficha, estudo, relevancia) que enviam logo;
+  uma acao ja pedida mostra a resposta sem novo pedido (menos a relevancia, que usa o tema escrito na
+  caixa e pode repetir-se). Sem "Excertos citaveis" no simples (estudantes devem parafrasear). Sem separadores, lista de motores (usa o das
   definicoes), "Repetir com" nem motor/modelo por baixo da resposta; verificacao curta
   ("Confirmado no PDF") quando nao ha problemas, os avisos aparecem inteiros. Mudar de modo nas
   definicoes a meio de uma resposta so redesenha no fim (`_rebuildLater`). Mesmas cores do resto.
@@ -200,9 +203,9 @@ pref `custom.prompts`, uma linha "Nome: instrucao").
 - **Mapa mental** (acao `mapa`): a IA devolve so uma lista encaixada; `_mindmapNodes` poe o texto de
   cada ramo numa caixa (`.zia-mm-node`) e o CSS `.zia-mindmap` desenha os ramos (sem bibliotecas,
   funciona no painel estreito). Nas notas fica a lista encaixada.
-- **Perguntas de estudo** (acao `estudo`): 8 perguntas (compreensao, ligacao de ideias, reflexao
-  critica) com resposta modelo e pagina. "Pontos-chave" (`pontos`) sao as ideias principais, nao
-  as palavras-chave (essas sao a acao `etiquetas`).
+- **Testar o que percebi** (acao `estudo`): 8 perguntas (compreensao, ligacao de ideias, reflexao
+  critica) com resposta modelo e pagina. "Ideias principais" (`pontos`) nao sao palavras-chave
+  (essas sao a acao `etiquetas`).
 - **Nome da acao na lingua atual:** o titulo de cada resposta e das conversas vem de
   `_actionTitle` (pelo `actionID`), nao do `actionLabel` gravado, para mudar com o botao PT/EN.
 - **Sem titulo repetido:** numa acao a bolha do pedido fica escondida
@@ -356,7 +359,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (36), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (37), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -402,7 +405,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.8.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.8.9.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

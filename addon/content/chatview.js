@@ -364,7 +364,7 @@ var ZIAChatView = class {
 			box.appendChild(this._el("div", "zia-meus-empty", this.T("chat.meus.empty")));
 		}
 		for (const a of list) {
-			const b = this._button(a.label, "zia-action" + (custom && this._editCustom ? " zia-editing" : ""),
+			const b = this._button(a.button || a.label, "zia-action" + (custom && this._editCustom ? " zia-editing" : ""),
 				() => (custom && this._editCustom ? this._openCustomForm(a) : this.selectAction(a.id)), a.hint);
 			b.dataset.action = a.id;
 			if (!(custom && this._editCustom)) this.actionButtons[a.id] = b;
@@ -836,7 +836,9 @@ var ZIAChatView = class {
 	/** Texto da caixa: singular com um PDF, plural com vários. */
 	_updatePlaceholder() {
 		const a = this.selectedAction && this._action(this.selectedAction);
-		const key = a ? "chat.placeholder.action" : this.simple ? "simple.placeholder" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
+		// Triagem e relevância precisam de texto escrito: a caixa diz o que escrever
+		const key = a && a.needsCriteria ? (a.needsMsg || "chat.triagem.needCriteria")
+			: a ? "chat.placeholder.action" : this.simple ? "simple.placeholder" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
 		this.textarea.setAttribute("placeholder", this.T(key));
 	}
 
@@ -1114,11 +1116,11 @@ var ZIAChatView = class {
 		const box = this.actionsEl;
 		box.appendChild(this._el("div", "zia-simple-ask", this.T("simple.ask")));
 		const grid = this._el("div", "zia-simple-grid");
-		for (const id of ["resumo", "simples", "conceitos", "mapa", "ficha", "excertos", "estudo"]) {
+		for (const id of ["resumo", "simples", "conceitos", "mapa", "ficha", "estudo", "relevancia"]) {
 			const a = this._action(id);
 			if (!a) continue;
 			const b = this._button("", "zia-simple-btn", () => this._runSimple(id));
-			b.appendChild(this._el("span", "zia-simple-label", this.T("simple." + id)));
+			b.appendChild(this._el("span", "zia-simple-label", a.button || a.label));
 			b.appendChild(this._el("span", "zia-simple-desc", this.T("simple." + id + ".desc")));
 			b.dataset.action = id;
 			this.actionButtons[id] = b;
@@ -1130,6 +1132,23 @@ var ZIAChatView = class {
 
 	_runSimple(id) {
 		if (this.busy) return;
+		const a = this._action(id);
+		// A relevância precisa do tema, escrito na caixa de texto (pode repetir-se com outro tema)
+		if (a && a.needsCriteria) {
+			const extra = this.textarea.value.trim();
+			if (!extra) {
+				this._setStatus(this.T(a.needsMsg || "chat.triagem.needCriteria"), "warn");
+				this.textarea.focus();
+				return;
+			}
+			this.selectedAction = null;
+			if (this._engineReady()) {
+				this.textarea.value = "";
+				this._autoGrow();
+			}
+			this.runAction(id, { extra });
+			return;
+		}
 		if (this._lastAnswerFor(id)) {
 			// Já foi pedido: mostra a resposta que existe, sem gastar outro pedido
 			this.selectedAction = null;
@@ -1271,7 +1290,7 @@ var ZIAChatView = class {
 			// Sem os critérios, a ação continua escolhida: basta escrevê-los e enviar outra vez
 			const chosen = this._action(id);
 			if (chosen && chosen.needsCriteria && !extra) {
-				this._setStatus(this.T("chat.triagem.needCriteria"), "warn");
+				this._setStatus(this.T(chosen.needsMsg || "chat.triagem.needCriteria"), "warn");
 				this.textarea.focus();
 				return;
 			}
@@ -1317,7 +1336,7 @@ var ZIAChatView = class {
 		}) : base;
 		// A triagem precisa dos critérios do utilizador, escritos na caixa de texto
 		if (base.needsCriteria && !(extra && extra.trim())) {
-			this._setStatus(this.T("chat.triagem.needCriteria"), "warn");
+			this._setStatus(this.T(base.needsMsg || "chat.triagem.needCriteria"), "warn");
 			this.textarea.focus();
 			return;
 		}
@@ -1472,7 +1491,7 @@ var ZIAChatView = class {
 				d.annotations = withAnn && this.core.loadAnnotations ? this.core.loadAnnotations(d) : null;
 			}
 			// 2. Ajuste de tamanho
-			const fitted = this.L.fitDocuments(docs, this.core.maxCharsFor(engine));
+			const fitted = this.L.fitDocuments(docs, this.core.maxCharsFor(engine), { keepRefs: !!(action && action.keepRefs) });
 			botMsg.warnings = fitted.warnings.slice();
 			if (fitted.warnings.length && docs.length > 1 && !docs.some(d => d.kind === "ficha")) {
 				botMsg.warnings.push(this.T("chat.fichasTip"));
