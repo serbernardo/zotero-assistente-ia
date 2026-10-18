@@ -171,6 +171,24 @@ var ZoteroIA = {
 		return null;
 	},
 
+	/**
+	 * Item dono da conversa: um PDF dentro de um registo usa o registo, se for o PDF que o registo
+	 * daria (assim registo e PDF partilham conversa, histórico e notas). Outros PDFs do mesmo registo
+	 * (por exemplo, material suplementar) ficam com a sua própria conversa.
+	 */
+	async conversationItem(item) {
+		try {
+			const parent = item && item.isAttachment && item.isAttachment() && item.parentItem;
+			if (!parent || !parent.isRegularItem || !parent.isRegularItem()) return item;
+			const r = await this.resolvePDF(parent);
+			return r && r.attachment && r.attachment.id === item.id ? parent : item;
+		}
+		catch (e) {
+			this.log("conversationItem: " + e);
+			return item;
+		}
+	},
+
 	/** Metadados leves de um documento (sem extrair texto). */
 	async describeItem(item) {
 		const r = await this.resolvePDF(item);

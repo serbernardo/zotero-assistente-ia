@@ -337,6 +337,11 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   pedido segue com "Enviar" (o mesmo botao das perguntas, no painel e na janela),
   com indicacoes opcionais. Acoes ja pedidas levam um visto e
   escolher uma acao ja feita mostra a resposta existente.
+- **Registo e PDF = uma conversa:** `conversationItem` (zoteroia.js) faz um PDF dentro de um registo
+  usar o registo (sessao, historico e notas), se for o PDF que o registo daria (`resolvePDF`).
+  Outros PDFs do mesmo registo ficam com a sua conversa. O historico guardado antes com o PDF
+  selecionado junta-se ao do registo uma vez (`showItem`). Ao recuperar, nunca abre num separador
+  sem respostas.
 - **Historico por artigo:** `saveConversation`/`loadConversation` guardam as
   mensagens (sem o texto dos PDFs) em
   `<pasta de dados do Zotero>/zoteroia/conversas/<biblioteca>_<chave>.json`.
@@ -410,7 +415,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.9.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.9.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

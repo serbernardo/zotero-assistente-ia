@@ -571,6 +571,8 @@ var ZIAChatView = class {
 
 	/** Painel lateral: mostra a conversa do item atual (guardada em memória na sessão). */
 	async showItem(item) {
+		const picked = item;
+		if (item && this.core.conversationItem) item = await this.core.conversationItem(item);
 		const key = item ? `item:${item.id}` : null;
 		if (key === this.sessionKey) return;
 		this._saveSession();
@@ -585,13 +587,28 @@ var ZIAChatView = class {
 		if (!saved && item) {
 			await this._addItems([item], { quiet: true });
 			// Conversa guardada de uma sessão anterior do Zotero
-			const old = this.core.loadConversation ? await this.core.loadConversation(this.historyKey) : null;
+			let old = this.core.loadConversation ? await this.core.loadConversation(this.historyKey) : null;
+			// Conversa guardada antes com o PDF selecionado: junta-se à do registo, uma só vez
+			if (picked && picked !== item && picked.key && this.core.loadConversation) {
+				const oldKey = `${picked.libraryID}_${picked.key}`;
+				const fromPdf = await this.core.loadConversation(oldKey);
+				if (fromPdf && fromPdf.convs && fromPdf.convs.some(c => c.length)) {
+					old = { convs: [...((old && old.convs) || []), ...fromPdf.convs], active: old ? old.active : 0 };
+					await this.core.saveConversation(this.historyKey, old);
+					await this.core.saveConversation(oldKey, { convs: [] });
+				}
+			}
 			if (old && old.convs && old.convs.some(c => c.length) && this.sessionKey === key) {
 				let convs = old.convs.map(c => c.map(m => Object.assign({}, m, { collapsed: m.role === "assistant" })));
 				// Conversas antigas (tudo junto): um separador por ação e por pergunta
 				if (convs.length === 1) convs = this._splitByAction(convs[0]);
 				this.state.convs = convs;
 				this.state.active = Math.min(Math.max(0, old.active || 0), this.state.convs.length - 1);
+				// Nunca abre num separador sem respostas quando há outro com respostas
+				if (!this.state.convs[this.state.active].some(m => m.role === "assistant")) {
+					const withAnswer = this.state.convs.map((c, i) => (c.some(m => m.role === "assistant") ? i : -1)).filter(i => i >= 0);
+					if (withAnswer.length) this.state.active = withAnswer[withAnswer.length - 1];
+				}
 				this.state.messages = this.state.convs[this.state.active];
 				const last = [...this.state.messages].reverse().find(m => m.role === "assistant");
 				if (last) last.collapsed = false;

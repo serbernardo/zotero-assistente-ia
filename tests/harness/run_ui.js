@@ -380,6 +380,24 @@ async function main() {
 		console.log("OK Referências-chave com a lista de referências, relevância no avançado, Investigação futura, Resumir, Ideias principais");
 	}
 
+	// ---------- Registo e PDF partilham a mesma conversa ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 800 });
+		await page.evaluate(() => { window.MOCK.answer = "Resumo do artigo [D1:p1]."; });
+		await act(page, "resumo");
+		await page.waitForSelector("text=Resumo do artigo");
+		const same = await page.evaluate(async () => {
+			const parent = Zotero.Items.get(1), pdf = Zotero.Items.get(2);
+			const owner = await window.view.core.conversationItem(pdf);
+			await window.view.showItem(pdf);
+			return owner === parent && window.view.sessionKey === "item:1";
+		});
+		assert.ok(same, "o PDF usa a conversa do registo");
+		assert.ok(await page.isVisible("text=Resumo do artigo"), "a resposta continua ao selecionar o PDF");
+		await page.close();
+		console.log("OK registo e PDF partilham a mesma conversa");
+	}
+
 	// ---------- Buy me a coffee no painel e na janela ----------
 	for (const mode of ["section", "window"]) {
 		const page = await open(`?mode=${mode}`, { width: mode === "section" ? 300 : 820, height: 800 });

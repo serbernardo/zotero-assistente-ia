@@ -166,8 +166,8 @@ var ZIALib = (function () {
 		pontos: {
 			group: "compreender",
 			minDocs: 1,
-			prompt: "Lista os 5 a 8 pontos principais de cada documento. "
-				+ "Cada ponto numa frase, com um excerto curto e a citação com a página.",
+			prompt: "Lista as 5 a 8 ideias principais de cada documento. Se usares um título, escreve \"Ideias principais\". "
+				+ "Cada ideia numa frase, com um excerto curto e a citação com a página.",
 		},
 		simples: {
 			group: "compreender",
