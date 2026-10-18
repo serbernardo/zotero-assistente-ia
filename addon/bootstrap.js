@@ -52,6 +52,7 @@ async function startup({ id, version, rootURI }) {
 
 	registerSection(id, rootURI);
 	placeAfterInfo(sectionID);
+	closedByDefault(sectionID);
 	registerMenus(id, rootURI);
 
 	for (const win of Zotero.getMainWindows()) {
@@ -72,6 +73,19 @@ function placeAfterInfo(paneID) {
 		order.splice(i + 1, 0, paneID);
 		Zotero.Prefs.set("sidenav.order", order.join(","));
 		ZoteroIA.setPref("sidenav.placed", true);
+	}
+	catch (e) {
+		Zotero.logError(e);
+	}
+}
+
+// O assistente começa fechado (a Info abre logo). Só uma vez: se a pessoa o abrir, o Zotero
+// guarda essa escolha em panes.<id>.open e ela fica.
+function closedByDefault(paneID) {
+	try {
+		if (!paneID || ZoteroIA.pref("pane.closedApplied")) return;
+		Zotero.Prefs.set(`panes.${paneID}.open`, false);
+		ZoteroIA.setPref("pane.closedApplied", true);
 	}
 	catch (e) {
 		Zotero.logError(e);

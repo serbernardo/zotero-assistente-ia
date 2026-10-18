@@ -68,6 +68,8 @@ pref("extensions.zoteroia.privacy.ack.gemini", false);
 pref("extensions.zoteroia.privacy.ack.iaedu", false);
 // Ícone do assistente já colocado a seguir à Info (só uma vez)
 pref("extensions.zoteroia.sidenav.placed", false);
+// O assistente começa fechado no painel do item (aplicado uma só vez)
+pref("extensions.zoteroia.pane.closedApplied", false);
 // Estilo das citações ao copiar e nas notas: "" = formato simples, ou o id de um estilo do Zotero
 pref("extensions.zoteroia.cite.style", "");
 // Ordem dos separadores dos motores nas definições (arrastar para mudar)

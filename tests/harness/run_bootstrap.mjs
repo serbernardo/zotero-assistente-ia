@@ -19,6 +19,7 @@ if (!process.env.ZOTERO_SRC) {
 const ZSRC = path.join(process.env.ZOTERO_SRC, "chrome/content/zotero/xpcom/pluginAPI");
 
 const warnings = [];
+const zprefs = {};
 const Zotero = {
 	isMac: false, isWin: true, isLinux: false,
 	debug: m => { if (!String(m).startsWith("Assistente IA:")) warnings.push("debug: " + String(m)); },
@@ -29,7 +30,7 @@ const Zotero = {
 	Notifier: { queue: () => {}, trigger: () => {} },
 	DB: { executeTransaction: async f => f() },
 	getMainWindows: () => [],
-	Prefs: { get: () => undefined, set: () => {} },
+	Prefs: { get: k => zprefs[k], set: (k, v) => { zprefs[k] = v; } },
 };
 
 // PluginAPIBase real, com o getter do Zotero substituído
@@ -95,6 +96,17 @@ assert.equal(menuIDs.length, 3, "menus: item, coleção e ferramentas");
 assert.ok(menuIDs.every(Boolean), "menus aceites pelo MenuManager real: " + menuIDs.join(", "));
 assert.ok(Zotero.ZoteroIA && Zotero.ZoteroIA.ChatView, "núcleo exposto");
 
+// O assistente começa fechado no painel do item, uma só vez (a Info abre logo)
+{
+	const key = Object.keys(zprefs).find(k => /^panes\..*zoteroia-section.*\.open$/.test(k));
+	assert.ok(key, "estado da secção guardado: " + Object.keys(zprefs).join(", "));
+	assert.equal(zprefs[key], false, "fechado por omissão");
+	assert.equal(zprefs["extensions.zoteroia.pane.closedApplied"], true);
+	zprefs[key] = true; // a pessoa abre o assistente
+	vm.runInContext("closedByDefault", scopeCtx)(key.replace(/^panes\./, "").replace(/\.open$/, ""));
+	assert.equal(zprefs[key], true, "a escolha da pessoa fica");
+}
+
 // Botão PT/EN no título do painel: troca a língua e mostra a sigla certa
 {
 	const style = {};
@@ -128,4 +140,4 @@ if (warnings.length) {
 	console.error("Avisos do Zotero:\n" + warnings.join("\n"));
 	process.exit(1);
 }
-console.log("OK bootstrap: chrome registado, 4 scripts carregados, preferências, secção e 3 menus (incluindo o das coleções) aceites pelas validações reais do Zotero, textos e ícones presentes, encerramento limpo");
+console.log("OK bootstrap: chrome registado, 4 scripts carregados, preferências, secção e 3 menus (incluindo o das coleções) aceites pelas validações reais do Zotero, assistente fechado por omissão uma só vez, textos e ícones presentes, encerramento limpo");

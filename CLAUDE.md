@@ -108,6 +108,11 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Icone a seguir a Info:** `placeAfterInfo` no `bootstrap.js` poe o paneID
   logo depois de "info" na pref do Zotero `sidenav.order`, uma so vez (pref
   `sidenav.placed`), para respeitar se a pessoa mudar a ordem depois.
+- **Assistente fechado por omissao:** `closedByDefault` no `bootstrap.js` poe a pref do Zotero
+  `panes.<paneID>.open` a false uma so vez (pref `pane.closedApplied`): a Info abre logo e o
+  assistente fica fechado ate a pessoa o abrir, e dai em diante o Zotero guarda a escolha. O icone
+  ✦ da barra lateral leva ate ao assistente mas nao o abre (o Zotero faz o mesmo com as suas
+  seccoes fechadas): abre-se no titulo.
 - **Acoes proprias:** ao escolher uma acao do Personalizado aparece "Editar" ao
   lado do pedido. O formulario tem Guardar, Cancelar e Eliminar (`_deleteCustom`).
 - **Colecao indicada:** depois de juntar uma colecao aparece a etiqueta
@@ -405,7 +410,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.8.9.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.9.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
