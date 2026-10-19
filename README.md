@@ -1,164 +1,105 @@
-# Assistente IA para Zotero
+# AI Assistant for Zotero
 
-*English summary at the end.*
+Read, appraise and compare scientific articles inside Zotero, with **your own AI account** (free or paid). Every answer cites the page of the PDF, and every citation opens the PDF at that page.
 
-Addon para o Zotero que ajuda a **ler, avaliar e comparar artigos científicos** com a **tua própria conta de IA**, gratuita ou paga: **Gemini**, **ChatGPT**, **Claude** ou o **IAEdu** da tua instituição. Todas as respostas citam a página do PDF, e cada citação abre o PDF nessa página. A interface está em **português de Portugal** e em **inglês**.
+The interface is available in **English** and **European Portuguese**.
 
-**Só os teus PDFs, nada inventado.** A IA é instruída a usar apenas o texto dos PDFs, sem conhecimento geral nem suposições, e a dizer quando algo não consta. Depois, o próprio addon **verifica cada resposta** contra o texto dos PDFs: confirma que os excertos entre aspas existem mesmo e na página citada, que as páginas citadas existem, que os números aparecem nos PDFs e que as contas estão certas. O que não bate certo aparece num aviso por baixo da resposta.
+![Side panel, simple mode](docs/screenshots/panel-simple.png)
 
-## Instalação
+## Why it is different
 
-1. Descarrega o ficheiro `.xpi` mais recente em **[Releases](https://github.com/serbernardo/zotero-assistente-ia/releases/latest)**
-2. No Zotero: **Ferramentas → Plugins**
-3. Roda dentada → **Install Plugin From File…** e escolhe o ficheiro
+- **Only your PDFs, nothing invented.** The AI is told to use only the text of your PDFs, with no general knowledge or guesses, and to say when something is not in the document.
+- **Every answer is checked.** The plugin checks each answer against the text of the PDFs: quoted passages must exist on the cited page, cited pages must exist, numbers must appear in the PDFs and calculations must be correct. Anything that does not match is shown in a warning below the answer.
+- **Your account, your data.** There is no server in between. The plugin talks directly to the AI service you choose, with your own key or account. API keys are stored encrypted (system key store), never in plain text.
 
-Precisa do Zotero 8 ou superior. Depois de instalado, o addon atualiza-se sozinho, ou com o botão **Procurar atualizações agora** nas definições.
+## Install
 
-## O que faz
+1. Download the latest `.xpi` file from **[Releases](https://github.com/serbernardo/zotero-assistente-ia/releases/latest)**.
+2. In Zotero: **Tools → Plugins**.
+3. Drag the `.xpi` onto the Plugins window, or use the gear icon → **Install Plugin From File…**
 
-### No painel lateral de cada artigo
+Requires **Zotero 8 or later**. Updates install automatically (or use **Check for updates** in the plugin settings).
 
-O ícone do assistente fica logo a seguir à Info. As ações estão organizadas em separadores:
+## Connect an AI
 
-| Separador | Ações |
+Open the plugin settings (the ⚙ button in the panel) and pick one:
+
+| Service | Cost | What you need |
+|---|---|---|
+| **Gemini** (Google) | Free tier available | A free API key from Google AI Studio |
+| **ChatGPT account** | Free or paid ChatGPT account | The official Codex command-line tool, signed in with your account |
+| **ChatGPT API** (OpenAI) | Pay per use | An OpenAI API key |
+| **IAEdu** | Free for Portuguese higher education | Your personal IAEdu key |
+
+The settings show step-by-step instructions for each one, with official links and a **Test** button.
+
+## What it does
+
+### Side panel: one article
+
+The assistant sits in the item pane, right after Info. It has two modes:
+
+- **Simple:** large buttons that run with one click (Summarise, Plain-language summary, Key concepts, Mind map, Reading sheet, Test my understanding, Relevance to my topic).
+- **Advanced:** all actions, grouped in tabs.
+
+![Side panel, advanced mode](docs/screenshots/panel-advanced.png)
+
+| Tab | Actions |
 |---|---|
-| **Compreender** | Resumir, Ideias principais, Explicação simples (sem jargão), Conceitos-chave (glossário com as definições dos autores), Esquema (o argumento em texto, por níveis, ou índice de temas com páginas em teses e livros), Mapa mental (gráfico com o tema central e os ramos), Testar o que percebi (perguntas com resposta modelo e página, exportáveis para o Anki), Explicar os meus destaques (aparece quando sublinhaste o PDF) |
-| **Avaliar** | Relevância para o meu tema (escreves o tema e a IA diz se o artigo é relevante e que partes ler primeiro), Avaliação crítica (tipo de estudo e grelha adequada, como CONSORT, STROBE, PRISMA, COREQ ou CASP), Métodos e dados (com tabela dos resultados numéricos), Afirmações e evidência (separa dados de interpretações e mostra as afirmações com pouco suporte) |
-| **Extrair** | Ficha de leitura (14 campos, guardada como nota), Excertos citáveis (citações literais com página), Palavras-chave (do autor e do texto, adicionadas ao item como etiquetas com um clique) |
-| **Investigação futura** | Lacunas de investigação, Referências-chave (as fontes citadas que vale a pena ler a seguir), Perguntas de investigação (com desenho de estudo sugerido) |
-| **Personalizado** | As tuas próprias ações, criadas, editadas e eliminadas no painel |
+| **Understand** | Summarise, Main ideas, Plain-language summary, Key concepts, Outline, Mind map, Test my understanding (exportable to Anki), Explain my highlights |
+| **Appraise** | Relevance to my topic, Critical appraisal (study type and the right checklist: CONSORT, STROBE, PRISMA, COREQ, CASP, JBI), Methods and data, Claims and evidence |
+| **Extract** | Reading sheet (14 fields, saved as a Zotero note), Quotable excerpts, Keywords (added as Zotero tags with one click) |
+| **Research** | Research gaps, Key references, Research questions |
+| **Custom** | Your own actions, created and edited in the panel |
 
-O painel tem dois modos. O **Simples**, por omissão, mostra 7 botões grandes para estudar (Resumir, Explicação simples, Conceitos-chave, Mapa mental, Ficha de leitura, Testar o que percebi e Relevância para o meu tema). O **Avançado** mostra todas as ações acima, a escolha do motor e os detalhes da verificação. Muda-se no topo do painel ou nas definições.
+You can also ask any free question about the article. Each action and each question gets its own tab, and the conversation is kept per article.
 
-Também podes fazer **perguntas livres** sobre o artigo. Cada ação e cada pergunta abre o seu separador de conversa, e as conversas ficam guardadas por artigo.
+### Interactive mind map
 
-### Na janela de comparação (vários PDFs)
+Two views: **Diagram** (branches with colours and curves, click a branch to open or close it, drag to move, zoom in and out) and **Branches** (a coloured outline). Every idea shows its page, and clicking the page opens the PDF there.
 
-Abre-se com o ícone de janela no título do painel, com **Comparar** no painel ou com o clique direito numa coleção.
+![Mind map](docs/screenshots/mind-map.png)
 
-- **+ PDF** e **+ Coleção**: junta artigos da biblioteca ou uma coleção inteira, sem a teres de selecionar antes
-- **Comparar artigos**: tabela lado a lado com um modelo (Visão geral, Métodos, Resultados, Conceitos) ou com as tuas colunas
-- **Perguntar à coleção**: escreves uma pergunta e vês a resposta de cada artigo (Sim, Em parte, Não, Não aborda), com a página, uma barra com o total e uma síntese
-- **Mapa de temas**: os artigos organizados por temas, em árvore ou em grafo, a partir do título, do resumo e das palavras-chave
-- **Revisão de literatura**: texto corrido por temas, com citações
-- **Triagem**: escreves os critérios de inclusão e de exclusão e, para cada artigo, a IA verifica critério a critério, com a página, e sugere Incluir, Excluir ou Duvidoso. No fim junta um resumo, com os números para o diagrama PRISMA, que se exporta para CSV
-- **Usar fichas**: com muitos PDFs, trabalha sobre as fichas de leitura de cada artigo em vez do texto completo. Gasta muito menos e evita misturar artigos. Liga-se sozinho a partir de 6 PDFs
+### Assistant window: several articles
 
-### Em todas as respostas
+Open it from the panel, from the right-click menu on selected items, or on a collection. Use **+ Articles** to add articles from the open folder, the whole library or any collection.
 
-- Citações clicáveis que abrem o PDF na página
-- **Copiar** e **Guardar como nota** com as citações no formato (Autor, Ano, p. X), ou no **estilo de citação do Zotero** que escolheres (APA, Chicago, ABNT e outros)
-- **Exportar tabela (CSV)** para o Excel
-- **Repetir com** outro motor configurado
-- Eliminar uma resposta, com aviso e a opção de a guardar antes como nota
+![Adding articles](docs/screenshots/window-add-articles.png)
 
-## Línguas
+| Option | What you get |
+|---|---|
+| **Compare articles** | Side-by-side table: overview, methods, results, concepts, or your own columns. Exportable to CSV |
+| **Ask the collection** | Each article's answer to one question, with evidence, page and a bar with the totals (yes, partly, no, not addressed) |
+| **Topic map** | The articles grouped by topic, as an interactive constellation. Hover to see the title, click to open the PDF, click a topic to highlight it |
+| **Literature review** | Flowing text by topic, with citations, ready to adapt |
+| **Screening** | Include, exclude or unsure for each article, based on your criteria, with the numbers for a PRISMA diagram |
 
-- **Interface:** português de Portugal ou inglês. Muda-se com o botão **PT / EN** no título do painel, ou nas definições
-- **Respostas:** sempre na língua da interface
+![Topic map](docs/screenshots/theme-map.png)
 
-## Escolher a IA (uma vez)
+### Citations and notes
 
-Abre **Editar → Definições** (Windows) ou **Zotero → Settings** (macOS) → **Assistente IA**. Basta configurar **uma** opção. Cada motor tem os passos com as ligações oficiais, os comandos com um botão **Copiar** e um botão **Copiar instruções**, para enviares os passos a um colega. O botão **Testar** faz um pedido real curto e mostra se o motor está pronto.
+- Citations follow APA in each language and can use **your Zotero citation style** (authors and year come from Zotero, never from the AI).
+- **Save as note** on any answer. Comparisons are saved as standalone notes in the collection.
+- **Copy** keeps formatted citations.
 
-**Chave da API do Claude ou do ChatGPT.** É a forma mais rápida e fiável: não instala nada e fica pronta em cerca de 2 minutos. Tem um **custo mínimo de 5 $** (o primeiro carregamento de crédito). Depois pagas só o que usares, em regra alguns cêntimos por pedido sobre um artigo.
+## Privacy
 
-| Opção | Conta | Custo | O que é preciso |
-|---|---|---|---|
-| **Claude, chave da API** ⭐ | Conta da API da Anthropic | Mínimo 5 $ de crédito, cerca de 100 pedidos | Criar uma chave em console.anthropic.com |
-| **ChatGPT, chave da API** ⭐ | Conta da API da OpenAI | Mínimo 5 $ de crédito | Criar uma chave em platform.openai.com |
-| **Gemini, chave da API** | Gratuita ou paga | Quota gratuita diária | Criar uma chave em aistudio.google.com |
-| **Claude, subscrição** | Pro ou Max | Sem custos extra, conta para os limites da subscrição | Instalar o Claude Code e iniciar sessão uma vez |
-| **ChatGPT, conta ChatGPT** | Gratuita ou paga | Sem custos extra, conta para os limites da tua conta | Instalar o Codex e iniciar sessão uma vez |
-| **IAEdu** | Conta da tua instituição | Os limites do IAEdu e da tua instituição | Criar um agente e copiar o Endpoint da API, o ID do Canal e a Chave da API |
+To answer, the plugin sends the text of the selected PDFs (and your question) to the AI service you chose. Nothing is sent anywhere else and there is no server run by this project. Before the first use of each service, the plugin shows a privacy notice. Check the terms of the service you use, especially for unpublished or confidential documents.
 
-**Contas gratuitas:** as opções gratuitas são o **Gemini** e o **ChatGPT com conta gratuita (Codex)**. A conta gratuita do Claude não dá acesso ao Claude Code nem à API.
+Conversations are stored only on your computer, in the Zotero data folder, and can be deleted in the settings.
 
-### Gemini com chave da API
+## Feedback
 
-1. Cria uma chave em https://aistudio.google.com/apikey
-2. Nas definições, cola a chave e carrega em **Guardar e testar**
-3. Por omissão usa o **Gemini 3.5 Flash-Lite**, que quase sempre responde. Em Avaliar e Investigar tenta primeiro um modelo que raciocina melhor e, se estiver sobrecarregado, passa logo ao Flash-Lite. As comparações usam sempre um modelo completo. O botão **Testar modelos agora** mostra que modelos estão a responder nesse momento
-
-**Atenção:** na quota gratuita, a Google pode usar os pedidos e as respostas para melhorar os seus produtos. Com faturação ativa, isso não acontece.
-
-### Claude com a subscrição (Claude Code)
-
-Nas definições, o botão **Instalar e iniciar sessão** abre uma janela com o comando oficial. Em alternativa:
-
-1. Instala o Claude Code: **Windows** (PowerShell) `irm https://claude.ai/install.ps1 | iex`, **macOS** `curl -fsSL https://claude.ai/install.sh | bash`
-2. Num terminal **novo**, escreve `claude` e inicia sessão com a tua conta. Depois escreve `/exit`
-3. Nas definições do Assistente IA, carrega em **Testar**
-
-### ChatGPT com a tua conta (Codex)
-
-1. Instala o Node.js (https://nodejs.org) se ainda não o tiveres
-2. Num terminal: `npm install -g @openai/codex`
-3. No mesmo terminal: `codex login` e entra com a tua conta ChatGPT
-4. Nas definições do Assistente IA, carrega em **Testar**
-
-O assistente corre o Codex **sem ferramentas**: numa pasta temporária vazia, só de leitura, e interrompe o pedido se o Codex tentar executar um comando, alterar ficheiros ou pesquisar na Internet.
-
-### Claude ou ChatGPT com chave da API (cerca de 2 minutos)
-
-1. Adiciona 5 $ de crédito (cria conta se for preciso): Claude em https://console.anthropic.com/settings/billing, ChatGPT em https://platform.openai.com/settings/organization/billing/overview
-2. Cria uma chave e copia-a: Claude em https://console.anthropic.com/settings/keys, ChatGPT em https://platform.openai.com/api-keys
-3. Nas definições, separador **Claude API** ou **ChatGPT API**, cola a chave e carrega em **Guardar e testar**
-
-### IAEdu (agente da UPorto)
-
-1. Entra em https://iaedu.pt com a conta da tua instituição
-2. Na lista de modelos, carrega na roda dentada de um modelo e escolhe **Informação da API**. Copia só a **Chave da API**. A chave é pessoal e não se partilha
-3. Nas definições do Assistente IA, separador **IAEdu**, cola a chave e carrega em **Guardar e testar**
-
-Por omissão o assistente usa o agente Assistente IA Zotero, partilhado com a UPorto. Se não fores da UPorto, em **Usar outro agente (opcional)** cola o **Endpoint da API** e o **ID do Canal** de um agente teu. O endpoint tem de ser do domínio iaedu.pt e a chave só é enviada para lá. Confirma as regras de uso do IAEdu e da tua instituição antes de enviares artigos.
-
-## Segurança e privacidade
-
-- **Chaves encriptadas:** as chaves de API ficam no cofre do sistema operativo ou, em alternativa, no gestor de credenciais do Zotero. Nunca em texto simples
-- **Cada pessoa usa a sua conta:** o addon nunca vê nem guarda palavras-passe. Nos modos Claude Code e Codex, a sessão é iniciada pela própria pessoa no programa oficial
-- **Só vai para onde escolheres:** o texto dos PDFs e as perguntas só são enviados ao motor escolhido, e só quando carregas em Enviar. O addon não tem servidor próprio e não recolhe dados
-- **Aviso antes do primeiro envio:** na primeira vez com cada motor, o assistente explica o que vai ser enviado e pede confirmação
-- **Proteção contra instruções escondidas nos PDFs:** o texto dos documentos é tratado como material para analisar, nunca como ordens
-- **Respostas sem código ativo:** o texto da IA é mostrado sem HTML. As ligações só abrem se forem http ou https
-
-Não envies documentos confidenciais, dados pessoais, dados não publicados ou PDFs cuja licença proíba o uso em serviços de IA.
-
-## Limites e cuidados
-
-- **Confirma sempre** as citações e os números antes de usar o texto. A verificação automática ajuda, mas não substitui a leitura
-- **Páginas:** as citações usam a página do ficheiro PDF (1, 2, 3…), não a numeração impressa da revista
-- **Só PDFs com texto:** PDFs digitalizados sem OCR não são suportados
-- **Título do painel e menus:** seguem a língua do Zotero. O resto da interface segue a língua do addon
-
-## Se algo falhar
-
-- **"Falta a chave" ou "chave inválida":** volta a colar a chave nas definições
-- **"Sem crédito":** adiciona crédito na conta da API (Billing)
-- **"Não encontrei o Claude Code" ou "o Codex":** nas definições, carrega em **Detetar**, ou indica o caminho do programa
-- **"Não tem sessão iniciada":** num terminal, `claude` (Claude Code) ou `codex login` (Codex)
-- **Limite atingido:** usa **Repetir com** outro motor, ou espera
-- **Outros erros:** **Ajuda → Debug Output Logging → Enable**, repete a ação e procura linhas "Assistente IA"
-
-## Para quem desenvolve
-
-- `python build.py` gera `dist/assistente-ia-<versão>.xpi`
-- Testes em `tests/` (ver `CLAUDE.md`)
-
-## Créditos
-
-Sérgio Bernardo
+Found a problem or have an idea? Open an [issue](https://github.com/serbernardo/zotero-assistente-ia/issues).
 
 ---
 
-## English summary
+## Em português
 
-**AI Assistant for Zotero** helps you read, appraise and compare scientific papers with **your own AI account**, free or paid: **Gemini**, **ChatGPT**, **Claude** or your institution's **IAEdu**. Every answer cites the PDF page, and each citation opens the PDF at that page. The AI is told to use only the text of your PDFs, and the add-on then **checks every answer** against the PDFs: quotes, pages, numbers and calculations.
+O **Assistente IA** ajuda a ler, avaliar e comparar artigos científicos no Zotero, com a tua própria conta de IA (gratuita ou paga): Gemini, ChatGPT ou IAEdu. Todas as respostas citam a página do PDF e são verificadas contra o texto dos PDFs.
 
-- **Side pane, one article:** Understand (summary, key points, plain-language summary, concepts, outline), Appraise (critical appraisal with the right checklist for the study type, methods and data, claims and evidence), Extract (reading sheet, quotable excerpts, literature review, keywords added as Zotero tags), Future research (research gaps, research questions), plus your own custom actions and free questions
-- **Compare window, many PDFs:** overview, methods, results, concepts and theories, synthesis for review, and **screening by criteria** (include, exclude or unclear for each article, with a CSV summary). Add PDFs or a whole collection
-- **Every answer:** clickable citations, copy and save as note in your Zotero citation style, CSV export, retry with another engine
-- **Languages:** European Portuguese or English (PT / EN button in the pane header). Answers follow the interface language
-- **Privacy:** API keys encrypted in the operating system key store. Documents are only sent to the engine you choose, after a one-time notice per engine. No server, no data collection
+**Instalação:** descarrega o `.xpi` mais recente em [Releases](https://github.com/serbernardo/zotero-assistente-ia/releases/latest) e, no Zotero, vai a **Ferramentas → Plugins** e arrasta o ficheiro para a janela. Precisa do Zotero 8 ou mais recente. A interface muda para português nas definições ou no botão PT/EN do painel.
 
-Install: download the latest `.xpi` from **[Releases](https://github.com/serbernardo/zotero-assistente-ia/releases/latest)**, then in Zotero **Tools → Plugins → gear → Install Plugin From File…** (Zotero 8 or later).
+**Privacidade:** para responder, o texto dos PDFs escolhidos é enviado ao serviço de IA que escolheste. Não há nenhum servidor deste projeto pelo meio. As conversas ficam só no teu computador.
+
+Autor: Sérgio Bernardo
