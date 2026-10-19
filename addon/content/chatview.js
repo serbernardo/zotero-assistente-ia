@@ -358,7 +358,8 @@ var ZIAChatView = class {
 		while (box.firstChild) box.removeChild(box.firstChild);
 		this.actionButtons = {};
 		if (this.simple) return this._renderSimpleActions();
-		const list = this._actionsOfGroup(this.group);
+		if (this.mode === "window") return this._renderWindowActions();
+		const list = this._actionsOfGroup(this.group).filter(a => !a.needsHighlights || this._hasHighlights());
 		const custom = this.group === "meus";
 		if (custom && !list.length && !this._customForm) {
 			box.appendChild(this._el("div", "zia-meus-empty", this.T("chat.meus.empty")));
@@ -855,8 +856,21 @@ var ZIAChatView = class {
 		const a = this.selectedAction && this._action(this.selectedAction);
 		// Triagem e relevância precisam de texto escrito: a caixa diz o que escrever
 		const key = a && a.needsCriteria ? (a.needsMsg || "chat.triagem.needCriteria")
-			: a ? "chat.placeholder.action" : this.simple ? "simple.placeholder" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
+			: a && a.metaOnly ? "temas.placeholder"
+				: a ? "chat.placeholder.action" : this.simple ? "simple.placeholder"
+					: this.mode === "window" ? "win.chooseFirst" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
 		this.textarea.setAttribute("placeholder", this.T(key));
+	}
+
+	/** O PDF tem destaques do utilizador? (o botão "Explicar os meus destaques" só aparece nesse caso) */
+	_hasHighlights() {
+		if (!this.core.loadAnnotations) return false;
+		try {
+			return this.state.docs.some(d => d.kind !== "ficha" && this.core.loadAnnotations(d).some(a => a.text));
+		}
+		catch (e) {
+			return false;
+		}
 	}
 
 	_renderDocs() {
@@ -886,6 +900,10 @@ var ZIAChatView = class {
 				chip.appendChild(x);
 			}
 			box.appendChild(chip);
+		}
+		if (this.actionsEl && this._lastHL !== this._hasHighlights()) {
+			this._lastHL = this._hasHighlights();
+			this._renderActions();
 		}
 	}
 
@@ -1128,14 +1146,86 @@ var ZIAChatView = class {
 		this.newConversation();
 	}
 
+	/**
+	 * Janela (vários artigos): 5 botões grandes. "Comparar artigos" junta os modelos prontos e as colunas
+	 * do utilizador. Escolhe-se primeiro e depois envia-se com o que estiver escrito na caixa.
+	 */
+	_renderWindowActions() {
+		const box = this.actionsEl;
+		const COMPARE = ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_tabela"];
+		const sel = this.selectedAction;
+		const pick = id => {
+			if (this.busy) return;
+			if (this.selectedAction !== id) this.selectAction(id);
+			this._renderActions();
+		};
+		box.appendChild(this._el("div", "zia-simple-ask", this.T("win.ask")));
+		const grid = this._el("div", "zia-simple-grid zia-win-grid");
+		const cards = [["compare", this.T("win.compare"), this.T("win.compare.desc")]]
+			.concat(["pergunta", "temas", "cmp_sintese", "triagem"].map(id => [id, this._action(id).label, this.T(`win.${id}.desc`)]));
+		for (const [id, label, desc] of cards) {
+			const on = id === "compare" ? COMPARE.includes(sel) : sel === id;
+			const b = this._button("", "zia-simple-btn" + (on ? " zia-selected" : ""),
+				() => pick(id === "compare" ? (COMPARE.includes(sel) ? sel : "comparar") : id));
+			b.appendChild(this._el("span", "zia-simple-label", label));
+			b.appendChild(this._el("span", "zia-simple-desc", desc));
+			b.setAttribute("aria-pressed", on ? "true" : "false");
+			if (id === "compare") b.dataset.card = "compare";
+			else b.dataset.action = id;
+			if (this._lastAnswerFor(id === "compare" ? "comparar" : id)) b.classList.add("zia-done");
+			grid.appendChild(b);
+		}
+		box.appendChild(grid);
+		const a = sel && this._action(sel);
+		if (!a) return this._updateButtons();
+		const detail = this._el("div", "zia-win-detail");
+		// Comparar artigos: modelos prontos ou as colunas do utilizador
+		if (COMPARE.includes(sel)) {
+			const row = this._el("div", "zia-presets");
+			for (const id of COMPARE) {
+				const p = this._button(this.T("win.preset." + id), "zia-preset" + (id === sel ? " on" : ""), () => pick(id), this._action(id).hint);
+				p.dataset.action = id;
+				p.setAttribute("aria-pressed", id === sel ? "true" : "false");
+				row.appendChild(p);
+			}
+			detail.appendChild(row);
+		}
+		if (sel === "triagem") {
+			const info = this._button("i", "zia-info-btn zia-triagem-info", () => {
+				this._triagemInfoOpen = !this._triagemInfoOpen;
+				this._renderActions();
+			}, this.T("triagem.info.tip"));
+			info.setAttribute("aria-expanded", this._triagemInfoOpen ? "true" : "false");
+			detail.appendChild(info);
+			if (this._triagemInfoOpen) detail.appendChild(this._triagemInfoEl());
+		}
+		// "Usar fichas" só onde faz diferença
+		if (a.fichasOK) {
+			const row = this._el("div", "zia-win-fichas");
+			row.appendChild(this.fichasLabel);
+			const info = this._button("i", "zia-info-btn", () => {
+				this._fichaInfoOpen = !this._fichaInfoOpen;
+				this._renderActions();
+			}, this.T("ficha.info.tip"));
+			info.setAttribute("aria-expanded", this._fichaInfoOpen ? "true" : "false");
+			row.appendChild(info);
+			detail.appendChild(row);
+			if (this._fichaInfoOpen) detail.appendChild(this._fichaInfoEl());
+			const fl = this._fichasListEl();
+			if (fl) detail.appendChild(fl);
+		}
+		if (detail.firstChild) box.appendChild(detail);
+		this._updateButtons();
+	}
+
 	/** Modo simples: ações mais úteis para estudar, em botões grandes. Um clique envia logo. */
 	_renderSimpleActions() {
 		const box = this.actionsEl;
 		box.appendChild(this._el("div", "zia-simple-ask", this.T("simple.ask")));
 		const grid = this._el("div", "zia-simple-grid");
-		for (const id of ["resumo", "simples", "conceitos", "mapa", "ficha", "estudo", "relevancia"]) {
+		for (const id of ["resumo", "simples", "destaques", "conceitos", "mapa", "ficha", "estudo", "relevancia"]) {
 			const a = this._action(id);
-			if (!a) continue;
+			if (!a || (a.needsHighlights && !this._hasHighlights())) continue;
 			const b = this._button("", "zia-simple-btn", () => this._runSimple(id));
 			b.appendChild(this._el("span", "zia-simple-label", a.button || a.label));
 			b.appendChild(this._el("span", "zia-simple-desc", this.T("simple." + id + ".desc")));
@@ -1313,9 +1403,15 @@ var ZIAChatView = class {
 			}
 			this.selectedAction = null;
 			this._renderPending();
+			if (this.mode === "window") this._renderActions();
 			this.textarea.value = "";
 			this._autoGrow();
 			await this.runAction(id, { extra });
+			return;
+		}
+		// Na janela não há pergunta livre: "Perguntar à coleção" faz esse papel
+		if (text == null && this.mode === "window") {
+			this._setStatus(this.T("win.chooseFirst"), "warn");
 			return;
 		}
 		const q = (text != null ? text : this.textarea.value).trim();
@@ -1388,6 +1484,31 @@ var ZIAChatView = class {
 			if (actionID === "triagem" && rows.length) {
 				for (const d of docs.slice(rows.length)) rows.push({ ref: d.ref || d.shortRef, decision: null });
 				this._addScreeningSummary(rows, extra, docs);
+			}
+			return;
+		}
+		if (a.metaOnly) {
+			const metaDocs = [];
+			for (const d of docs) {
+				const text = this.core.itemMetaText ? await this.core.itemMetaText(d) : (d.fullRef || d.ref);
+				metaDocs.push(Object.assign({}, d, { kind: "ficha", fichaText: text }));
+			}
+			const msg = await this._ask({
+				promptText: this.L.actionPrompt(a, metaDocs),
+				display: a.label,
+				heading: this._heading(a, docs),
+				actionID,
+				docs: metaDocs,
+				returnMessage: true,
+			});
+			if (msg && !msg.error && msg.text) {
+				const cited = new Set((msg.text.match(/\bD\d+\b/g) || []));
+				const missing = docs.filter(d => !cited.has(d.id)).map(d => d.shortRef);
+				if (missing.length) {
+					msg.warnings = (msg.warnings || []).concat(this.T("temas.missing", { list: missing.join(", ") }));
+					this._renderMessage(msg);
+					this._persist();
+				}
 			}
 			return;
 		}
@@ -1505,7 +1626,7 @@ var ZIAChatView = class {
 			const withAnn = !!this.core.pref("context.annotations");
 			for (const d of docs) {
 				if (d.kind === "ficha") continue;
-				d.annotations = withAnn && this.core.loadAnnotations ? this.core.loadAnnotations(d) : null;
+				d.annotations = (withAnn || (action && action.useAnnotations)) && this.core.loadAnnotations ? this.core.loadAnnotations(d) : null;
 			}
 			// 2. Ajuste de tamanho
 			const fitted = this.L.fitDocuments(docs, this.core.maxCharsFor(engine), { keepRefs: !!(action && action.keepRefs) });
@@ -1553,6 +1674,10 @@ var ZIAChatView = class {
 			if (actionID === "triagem") {
 				botMsg.screening = this.L.parseScreening(botMsg.text);
 				botMsg.text = this.L.removeScreeningLine(botMsg.text);
+			}
+			if (actionID === "pergunta") {
+				botMsg.stances = this.L.parseStances(botMsg.text);
+				botMsg.text = this.L.removeStanceLines(botMsg.text);
 			}
 			if (actionID === "etiquetas") {
 				botMsg.tags = this.L.parseTagLine(botMsg.text);
@@ -1937,7 +2062,9 @@ var ZIAChatView = class {
 			el.appendChild(w);
 		}
 		// O mapa mental desenha a lista encaixada como uma árvore com ramos
-		const body = this._el("div", "zia-md" + (m.actionID === "mapa" ? " zia-mindmap" : ""));
+		if (m.stances && Object.keys(m.stances).length && !m.pending) el.appendChild(this._stanceMeter(m.stances));
+		const isMap = m.actionID === "mapa" || m.actionID === "temas";
+		const body = this._el("div", "zia-md" + (isMap ? " zia-mindmap" : ""));
 		const ctx = {
 			docsMap: this._docsMap(),
 			onCite: c => this._openCite(c),
@@ -1951,11 +2078,33 @@ var ZIAChatView = class {
 				body.textContent = m.text;
 			}
 		}
-		if (m.actionID === "mapa" && !m.pending) this._mindmapNodes(body);
+		if (isMap && !m.pending) this._mindmapNodes(body);
+		// Mapa de temas: vista em árvore ou em grafo (no grafo, um artigo com dois temas aparece uma só vez)
+		let graph = null;
+		if (m.actionID === "temas" && !m.pending && m.text) {
+			const views = this._el("div", "zia-viewswitch");
+			for (const v of ["tree", "graph"]) {
+				const on = (m.view || "tree") === v;
+				const b = this._button(this.T("temas.view." + v), "zia-mode-btn" + (on ? " on" : ""), () => {
+					m.view = v;
+					this._renderMessage(m);
+				});
+				b.dataset.view = v;
+				b.setAttribute("aria-pressed", on ? "true" : "false");
+				views.appendChild(b);
+			}
+			el.appendChild(views);
+			if (m.view === "graph") graph = this._themeGraph(body);
+		}
 		if (m.pending) {
 			body.appendChild(this._el("span", "zia-typing", m.text ? " ▍" : this.T("chat.preparing")));
 		}
 		el.appendChild(body);
+		if (graph) {
+			body.classList.add("zia-graph-src");
+			el.appendChild(graph);
+		}
+		if (m.actionID === "temas" && !m.pending && m.text) el.appendChild(this._el("div", "zia-msg-note", this.T("temas.note")));
 		if (m.error) {
 			const errBox = this._el("div", "zia-error");
 			errBox.setAttribute("role", "alert");
@@ -1990,6 +2139,137 @@ var ZIAChatView = class {
 			const meta = [m.engine ? this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "") : "", m.usageNote, m.tokensNote].filter(Boolean);
 			if (meta.length && !this.simple) el.appendChild(this._el("div", "zia-msg-meta", meta.join(" · ")));
 		}
+	}
+
+	/**
+	 * Mapa de temas em grafo: a coleção ao centro, os temas à volta e os artigos por fora. Um artigo em
+	 * vários temas é um só círculo, ligado a cada um. Lê a lista já desenhada (com as citações clicáveis).
+	 */
+	_themeGraph(body) {
+		const SVG = "http://www.w3.org/2000/svg";
+		const rootLi = body.querySelector("ul > li");
+		if (!rootLi) return null;
+		const nodes = [], edges = [], docs = new Map();
+		const labelOf = li => {
+			const n = li.querySelector(":scope > .zia-mm-node");
+			return n ? n.textContent.replace(/\s+/g, " ").trim() : "";
+		};
+		let slot = 0;
+		const walk = (li, depth, parent) => {
+			const kids = li.querySelectorAll(":scope > ul > li, :scope > ol > li");
+			const cite = li.querySelector(":scope > .zia-mm-node .zia-cite");
+			if (!kids.length && depth > 0) {
+				// artigo: identificado pela citação (o mesmo artigo em dois temas é um só nó)
+				const key = cite ? cite.textContent.trim() : labelOf(li);
+				let d = docs.get(key);
+				if (!d) {
+					// nome do artigo sem o texto da citação (a citação fica na dica)
+					const node = li.querySelector(":scope > .zia-mm-node");
+					let name = labelOf(li);
+					if (node && cite) {
+						const copy = node.cloneNode(true);
+						for (const c of copy.querySelectorAll(".zia-cite")) c.remove();
+						name = copy.textContent.replace(/\s+/g, " ").replace(/[\s,;:(\[]+$/, "").trim() || key;
+					}
+					d = { kind: "doc", label: name, full: labelOf(li), cite, angles: [], depth };
+					docs.set(key, d);
+					nodes.push(d);
+				}
+				d.angles.push(slot++);
+				edges.push([parent, d]);
+				return d;
+			}
+			const n = { kind: depth === 0 ? "root" : "theme", label: labelOf(li), depth, angles: [] };
+			nodes.push(n);
+			if (parent) edges.push([parent, n]);
+			for (const k of kids) {
+				const c = walk(k, depth + 1, n);
+				n.angles.push(...(c.kind === "doc" ? [c.angles[c.angles.length - 1]] : c.angles));
+			}
+			return n;
+		};
+		walk(rootLi, 0, null);
+		const total = Math.max(slot, 1);
+		const maxDepth = Math.max(1, ...nodes.filter(n => n.kind !== "doc").map(n => n.depth));
+		const W = 640, C = W / 2, ring = d => (d / (maxDepth + 1)) * (C - 70);
+		const ang = n => (n.angles.length ? n.angles.reduce((a, b) => a + b, 0) / n.angles.length : 0) / total * 2 * Math.PI - Math.PI / 2;
+		for (const n of nodes) {
+			const r = n.kind === "root" ? 0 : n.kind === "doc" ? C - 70 : ring(n.depth);
+			n.x = C + r * Math.cos(ang(n));
+			n.y = C + r * Math.sin(ang(n));
+		}
+		const short = (t, n) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
+		// Área do desenho à medida do conteúdo, a contar com o comprimento dos nomes (nada fica cortado)
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+		for (const n of nodes) {
+			const w = short(n.label, n.kind === "doc" ? 26 : 34).length * 6.8 + 14;
+			const right = n.x >= C - 1;
+			const lx = n.kind === "root" ? n.x - w / 2 : right ? n.x : n.x - w;
+			const rx = n.kind === "root" ? n.x + w / 2 : right ? n.x + w : n.x;
+			x0 = Math.min(x0, lx, n.x - 14); x1 = Math.max(x1, rx, n.x + 14);
+			y0 = Math.min(y0, n.y - 28); y1 = Math.max(y1, n.y + 16);
+		}
+		const svg = this.doc.createElementNS(SVG, "svg");
+		const vw = Math.ceil(x1 - x0 + 16), vh = Math.ceil(y1 - y0 + 16);
+		svg.setAttribute("viewBox", `${Math.floor(x0 - 8)} ${Math.floor(y0 - 8)} ${vw} ${vh}`);
+		// tamanho natural: só encolhe se não couber
+		svg.setAttribute("width", vw);
+		svg.setAttribute("height", vh);
+		svg.setAttribute("class", "zia-graph");
+		svg.setAttribute("role", "img");
+		svg.setAttribute("aria-label", this.T("temas.view.graph"));
+		for (const [a, b] of edges) {
+			const l = this.doc.createElementNS(SVG, "line");
+			l.setAttribute("x1", a.x); l.setAttribute("y1", a.y); l.setAttribute("x2", b.x); l.setAttribute("y2", b.y);
+			l.setAttribute("class", "zia-g-edge");
+			svg.appendChild(l);
+		}
+		for (const n of nodes) {
+			const g = this.doc.createElementNS(SVG, "g");
+			g.setAttribute("class", "zia-g-" + n.kind);
+			const c = this.doc.createElementNS(SVG, "circle");
+			c.setAttribute("cx", n.x); c.setAttribute("cy", n.y);
+			c.setAttribute("r", n.kind === "root" ? 12 : n.kind === "theme" ? 8 : 6);
+			const t = this.doc.createElementNS(SVG, "text");
+			const right = n.x >= C - 1;
+			t.setAttribute("x", n.kind === "root" ? n.x : n.x + (right ? 10 : -10));
+			t.setAttribute("y", n.kind === "root" ? n.y - 18 : n.y + 4);
+			t.setAttribute("text-anchor", n.kind === "root" ? "middle" : right ? "start" : "end");
+			t.textContent = short(n.label, n.kind === "doc" ? 26 : 34);
+			const tip = this.doc.createElementNS(SVG, "title");
+			tip.textContent = n.full || n.label;
+			g.append(tip, c, t);
+			if (n.kind === "doc" && n.cite) {
+				g.setAttribute("tabindex", "0");
+				g.style.cursor = "pointer";
+				const open = () => n.cite.click();
+				g.addEventListener("click", open);
+				g.addEventListener("keydown", ev => { if (ev.key === "Enter") open(); });
+			}
+			svg.appendChild(g);
+		}
+		return svg;
+	}
+
+	/** Perguntar à coleção: barra com o total de cada resposta (Sim, Em parte, Não, Não aborda). */
+	_stanceMeter(stances) {
+		const kinds = ["sim", "parte", "nao", "naoaborda"];
+		const vals = Object.values(stances);
+		const box = this._el("div", "zia-stances");
+		const bar = this._el("div", "zia-stance-bar");
+		const legend = [];
+		for (const k of kinds) {
+			const n = vals.filter(v => v === k).length;
+			if (!n) continue;
+			const seg = this._el("span", "zia-stance-" + k);
+			seg.style.width = (100 * n / vals.length) + "%";
+			seg.title = `${this.T("pergunta.ans." + k)}: ${n}`;
+			bar.appendChild(seg);
+			legend.push(`${this.T("pergunta.ans." + k)} ${n}`);
+		}
+		box.appendChild(bar);
+		box.appendChild(this._el("div", "zia-stance-legend", legend.join(" · ")));
+		return box;
 	}
 
 	/** Mapa mental: o texto de cada ramo fica numa caixa, para a árvore se ler como um mapa. */
@@ -2100,6 +2380,23 @@ var ZIAChatView = class {
 					this._setStatus(this.T("chat.exportError", { e: e.message || e }), "error");
 				}
 			}, this.T("chat.exportCsv.tip")));
+		}
+		// Testar o que percebi: perguntas e respostas para o Anki
+		if (m.actionID === "estudo") {
+			row.appendChild(this._button(this.T("chat.anki"), "zia-btn-small", async () => {
+				const r = this.L.studyToAnki(this.L.citesToText(m.text, this._docsMap()));
+				if (!r.count) {
+					this._setStatus(this.T("chat.anki.none"), "warn");
+					return;
+				}
+				try {
+					const path = await this.core.saveCSV(this.win, r.csv, "Anki " + (m.heading || this.T("action.estudo.label")));
+					if (path) this._setStatus(this.T("chat.anki.done", { n: r.count, path }));
+				}
+				catch (e) {
+					this._setStatus(this.T("chat.exportError", { e: e.message || e }), "error");
+				}
+			}, this.T("chat.anki.tip")));
 		}
 		// O resumo da triagem é feito pela app, não por um motor: não há nada para repetir
 		if (m.request && !this.simple) for (const other of this._otherReadyEngines(m.engine).slice(0, 2)) {

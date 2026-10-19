@@ -37,8 +37,14 @@ async function main() {
 		await page.click(".zia-picker button:has-text(\"Juntar\")");
 	};
 	// Escolher uma ação e depois pedir (clicar numa ação já não envia logo)
+	// Na janela, as comparações estão dentro de "Comparar artigos" (modelos)
+	const COMPARE = ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_tabela"];
 	const act = async (page, id) => {
-		await page.click(`button[data-action="${id}"]`);
+		if (COMPARE.includes(id) && await page.locator('[data-card="compare"]').count()) {
+			await page.click('[data-card="compare"]');
+			if (id !== "comparar") await page.click(`.zia-preset[data-action="${id}"]`);
+		}
+		else await page.click(`button[data-action="${id}"]`);
 		await page.click(".zia-send");
 	};
 
@@ -47,10 +53,12 @@ async function main() {
 		const page = await open("?mode=window" + (dark ? "&dark=1" : ""), { width: 820, height: 900 });
 		await page.evaluate(a => { window.MOCK.answer = a; }, comparar);
 		assert.equal(await page.isHidden(".zia-tabs"), true, "janela: só Comparar, sem separadores");
-		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false, "comparar ativo: abre o seletor de PDFs");
+		assert.equal(await page.isDisabled('[data-card="compare"]'), false, "comparar ativo: abre o seletor de PDFs");
+		assert.deepEqual(await page.$$eval(".zia-win-grid .zia-simple-label", ls => ls.map(l => l.textContent)),
+			["Comparar artigos", "Perguntar à coleção", "Mapa de temas", "Revisão de literatura", "Triagem"], "5 botões grandes");
 		await addAll(page);
 		await page.waitForSelector(".zia-chip >> nth=1");
-		assert.equal(await page.isDisabled('button[data-action="comparar"]'), false);
+		assert.equal(await page.isDisabled('[data-card="compare"]'), false);
 		await act(page, "comparar");
 		// durante o fluxo: botão Parar e indicador de progresso
 		await page.waitForSelector(".zia-send.zia-stop");
@@ -75,15 +83,23 @@ async function main() {
 		await page.click("text=Guardar como nota");
 		await page.waitForSelector("text=Nota guardada");
 		assert.equal(await page.evaluate(() => window.lastHeading), "Comparação: visão geral · Silva et al. 2021, García e Ortega 2023", "título da nota da comparação");
-		// uma pergunta abre o seu próprio separador (a comparação fica no dela)
-		await page.evaluate(() => { window.MOCK.answer = "Resposta da pergunta [D2:p4]."; });
+		// sem pergunta livre na janela: sem escolher nada, não envia
+		const before = await page.evaluate(() => window.lastPrompt);
 		await page.fill(".zia-textarea", "E quanto à confiança dos utilizadores?");
 		await page.click(".zia-send");
-		await page.waitForSelector("text=Resposta da pergunta");
+		await page.waitForSelector("text=Escolhe primeiro o que queres fazer");
+		assert.equal(await page.evaluate(() => window.lastPrompt), before, "nada é enviado sem escolher");
+		// Perguntar à coleção: resposta de cada artigo, barra e síntese, noutro separador
+		await page.evaluate(() => { window.MOCK.answer = "## Resposta de cada artigo\n| Artigo | Resposta | Evidência |\n|---|---|---|\n| D1 | Sim | Confiança alta [D1:p2] |\n| D2 | Não aborda | Não trata [D2:p1] |\n\n## Síntese\nSó um artigo trata a confiança [D1:p2].\n\nRESPOSTA D1: SIM\nRESPOSTA D2: NAO ABORDA"; });
+		await page.click('button[data-action="pergunta"]');
+		assert.match(await page.getAttribute(".zia-textarea", "placeholder"), /Escreve a tua pergunta/);
+		await page.click(".zia-send");
+		await page.waitForSelector(".zia-stances");
+		assert.match(await page.evaluate(() => window.lastPrompt), /E quanto à confiança/);
+		assert.equal(await page.textContent(".zia-stance-legend"), "Sim 1 · Não aborda 1");
+		assert.equal(await page.locator("text=RESPOSTA D1").count(), 0, "as linhas técnicas não aparecem");
 		assert.equal(await page.locator(".zia-conv-tab").count(), 2, "comparação e pergunta em separadores diferentes");
-		assert.match(await page.textContent(".zia-conv-tab >> nth=1"), /E quanto à confiança/);
-		assert.doesNotMatch(await page.evaluate(() => window.lastPrompt), /<historico>/, "pergunta num separador novo, sem histórico");
-		console.log(`OK janela ${dark ? "(escuro)" : ""}: comparação com ${cites} citações, abrir página, copiar, nota, pergunta noutro separador`);
+		console.log(`OK janela ${dark ? "(escuro)" : ""}: 5 botões, comparação com ${cites} citações, abrir página, copiar, nota, sem pergunta livre, Perguntar à coleção com barra`);
 		await page.close();
 	}
 
@@ -138,6 +154,7 @@ async function main() {
 		await page.waitForSelector(".zia-chip");
 		assert.equal(await page.isHidden(".zia-picker"), true);
 		// "i" junto de "Usar fichas" e lista das fichas em Comparar
+		await page.click('[data-card="compare"]');
 		await page.click(".zia-info-btn:not(.zia-triagem-info)");
 		await page.waitForSelector(".zia-info-panel");
 		assert.equal(await page.locator(".zia-fichas-list").count(), 1);
@@ -317,7 +334,7 @@ async function main() {
 		await page.close();
 		const win = await open("?mode=window&uimode=simple", { width: 820, height: 800 });
 		assert.equal(await win.locator(".zia-modeswitch").count(), 0, "a janela é sempre avançada");
-		assert.equal(await win.locator(".zia-simple-grid").count(), 0);
+		assert.equal(await win.locator(".zia-simple-grid:not(.zia-win-grid)").count(), 0);
 		assert.ok(await win.isVisible(".zia-engine"));
 		await win.close();
 		console.log("OK modo simples em inglês, e a janela grande fica sempre avançada");
@@ -396,6 +413,82 @@ async function main() {
 		assert.ok(await page.isVisible("text=Resumo do artigo"), "a resposta continua ao selecionar o PDF");
 		await page.close();
 		console.log("OK registo e PDF partilham a mesma conversa");
+	}
+
+	// ---------- Explicar os meus destaques (só com destaques) e exportar para o Anki ----------
+	{
+		let page = await open("?mode=section", { width: 420, height: 800 });
+		assert.equal(await page.locator('button[data-action="destaques"]').count(), 0, "sem destaques, sem botão");
+		await page.close();
+		page = await open("?mode=section&hl=1", { width: 420, height: 900 });
+		await page.evaluate(() => { window.MOCK.answer = "\"Os assistentes reduzem o tempo de resposta\" [D1:p2]: quer dizer que respondem mais depressa."; });
+		await act(page, "destaques");
+		await page.waitForSelector("text=quer dizer que respondem");
+		const p = await page.evaluate(() => window.lastPrompt);
+		assert.match(p, /destacou excertos/);
+		assert.match(p, /Os assistentes reduzem o tempo de resposta/, "os destaques vão no pedido");
+		// Anki a partir do Testar o que percebi
+		await page.evaluate(() => { window.MOCK.answer = "**Pergunta 1.** O que mede o estudo?\n*Resposta:* Mede o tempo de resposta [D1:p2].\n\n**Pergunta 2.** Com que amostra?\n*Resposta:* 120 pessoas [D1:p4]."; });
+		await act(page, "estudo");
+		await page.waitForSelector("text=Exportar para o Anki");
+		await page.waitForFunction(() => !document.querySelector(".zia-typing"));
+		await page.click("text=Exportar para o Anki");
+		await page.waitForSelector("text=2 cartões guardados");
+		const csv = await page.evaluate(() => window.lastCSV.csv);
+		assert.match(csv, /^#separator:Comma/);
+		assert.match(csv, /"O que mede o estudo\?","Mede o tempo de resposta \(Silva et al\., 2021, p\. 2\)\."/);
+		await page.close();
+		page = await open("?mode=section&uimode=simple&hl=1", { width: 360, height: 900 });
+		assert.ok(await page.isVisible('.zia-simple-btn[data-action="destaques"]'), "no simples também aparece com destaques");
+		await page.close();
+		console.log("OK Explicar os meus destaques só com destaques (os destaques vão no pedido) e exportação para o Anki");
+	}
+
+	// ---------- Janela: tabela com as minhas colunas e Mapa de temas (árvore e grafo) ----------
+	{
+		const page = await open("?mode=window", { width: 820, height: 1000 });
+		await addAll(page);
+		await page.waitForSelector(".zia-chip >> nth=1");
+		// as minhas colunas: sem colunas não envia
+		await page.click('[data-card="compare"]');
+		assert.deepEqual(await page.$$eval(".zia-preset", ps => ps.map(p => p.textContent)), ["Visão geral", "Métodos", "Resultados", "Conceitos", "As minhas colunas"]);
+		await page.click('.zia-preset[data-action="cmp_tabela"]');
+		const before = await page.evaluate(() => window.lastPrompt);
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Escreve as colunas na caixa");
+		assert.equal(await page.evaluate(() => window.lastPrompt), before);
+		await page.evaluate(() => { window.MOCK.answer = "| Documento | País | Amostra |\n|---|---|---|\n| D1 | Portugal [D1:p1] | 120 [D1:p2] |\n| D2 | Espanha [D2:p1] | Não reportado |"; });
+		await page.fill(".zia-textarea", "País. Amostra");
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Exportar tabela (CSV)");
+		assert.match(await page.evaluate(() => window.lastPrompt), /colunas que o utilizador escreveu[\s\S]*País\. Amostra/);
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
+		// mapa de temas: só título, resumo e palavras-chave, artigo esquecido avisado
+		await page.evaluate(() => { window.MOCK.answer = "- Bibliotecas e IA\n  - Assistentes conversacionais (1)\n    - Chatbots em bibliotecas [D1]\n  - Avaliação (1)\n    - Satisfação dos utilizadores [D1]\n"; });
+		await page.click('button[data-action="temas"]');
+		assert.match(await page.getAttribute(".zia-textarea", "placeholder"), /Nada a escrever/);
+		await page.click(".zia-send");
+		await page.waitForSelector(".zia-mindmap li li li");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
+		const mp = await page.evaluate(() => window.lastPrompt);
+		assert.match(mp, /tipo="ficha"/, "envia só os metadados");
+		assert.ok(!mp.includes("<p n="), "não envia o texto dos PDFs");
+		assert.ok(await page.isVisible("text=Artigos que ficaram fora do mapa"), "avisa o artigo que ficou de fora");
+		assert.ok(await page.isVisible("text=Agrupamento sugerido pela IA"));
+		// vista em grafo: um artigo em dois temas é um só nó, e abre o PDF
+		await page.click('.zia-viewswitch [data-view="graph"]');
+		await page.waitForSelector("svg.zia-graph");
+		assert.equal(await page.locator(".zia-g-theme").count(), 2);
+		assert.equal(await page.locator(".zia-g-doc").count(), 1, "o mesmo artigo em dois temas é um só nó");
+		assert.equal(await page.locator(".zia-g-edge").count(), 4);
+		await page.screenshot({ path: path.join(OUT, "ui_janela_mapa_temas_grafo.png") });
+		await page.locator(".zia-g-doc circle").click();
+		assert.ok((await page.evaluate(() => window.opened)).some(u => /SILVAPDF/.test(u)), "clicar no artigo abre o PDF");
+		await page.screenshot({ path: path.join(OUT, "ui_janela_mapa_temas_grafo.png") });
+		await page.click('.zia-viewswitch [data-view="tree"]');
+		assert.ok(await page.isVisible(".zia-mindmap li li li"));
+		await page.close();
+		console.log("OK janela: As minhas colunas (pede colunas), Mapa de temas só com metadados, aviso de artigos de fora, árvore e grafo");
 	}
 
 	// ---------- Buy me a coffee no painel e na janela ----------
@@ -640,14 +733,14 @@ async function main() {
 		await addAll(page);
 		await page.waitForSelector(".zia-chip >> nth=1");
 		await page.evaluate(() => { window.MOCK.answer = "## Verificação dos critérios\n- Estudo empírico: Sim [D1:p1].\n\n## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR"; });
-		// botão i com o que faz e os passos
+		// botão i com o que faz e os passos (aparece ao escolher Triagem)
+		await page.click('button[data-action="triagem"]');
 		await page.click(".zia-triagem-info");
 		await page.waitForSelector(".zia-triagem-panel");
 		assert.equal(await page.locator(".zia-triagem-panel li").count(), 4, "quatro passos explicados");
 		await page.click(".zia-triagem-panel .zia-info-close");
 		assert.equal(await page.locator(".zia-triagem-panel").count(), 0);
 		// sem critérios não envia
-		await page.click('button[data-action="triagem"]');
 		await page.click(".zia-send");
 		await page.waitForSelector("text=Escreve primeiro os critérios");
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "sem critérios, nada é enviado");
@@ -735,6 +828,7 @@ async function main() {
 		await page.waitForSelector(".zia-chip-col:has-text(\"Coleção: Tese\")");
 		await page.waitForSelector("text=Coleção «Tese» selecionada");
 		await page.waitForSelector(".zia-chip >> nth=1");
+		await page.click('[data-card="compare"]');
 		await page.check(".zia-fichas-toggle input");
 		await act(page, "comparar");
 		await page.waitForFunction(() => window.calls.length === 3 && !document.querySelector(".zia-stop"), null, { timeout: 30000 });

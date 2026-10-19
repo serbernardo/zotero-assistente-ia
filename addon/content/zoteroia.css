@@ -1646,3 +1646,39 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-mindmap > ul > li::before, .zia-mindmap > ul > li::after { display: none; }
 .zia-mindmap > ul > li > .zia-mm-node { font-weight: 700; font-size: 14px; border-width: 2px; border-color: var(--zia-accent); }
 .zia-mindmap > ul > li > ul > li > .zia-mm-node { font-weight: 600; border-color: var(--zia-fg2); }
+
+/* Janela: botões grandes, modelos de comparação e detalhes da escolha */
+.zia-win-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.zia-simple-btn.zia-selected { border: 2px solid var(--zia-fg); padding: 7px 9px; }
+.zia-mode-window .zia-pending { display: none; }
+.zia-win-detail { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--zia-border); border-radius: 10px; background: var(--zia-bg); }
+.zia-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.zia-preset { border: 1px solid var(--zia-border); border-radius: 14px; padding: 2px 10px; font-size: 12px; background: var(--zia-bg); color: var(--zia-fg); cursor: pointer; }
+.zia-preset.on { background: var(--zia-accent); color: var(--zia-on-accent, #fff); border-color: var(--zia-accent); }
+.zia-win-fichas { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* Perguntar à coleção: barra das respostas */
+.zia-stances { margin: 4px 0 8px; }
+.zia-stance-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--zia-border); }
+.zia-stance-bar > span { display: block; height: 100%; }
+.zia-stance-sim { background: #2c7a3f; }
+.zia-stance-parte { background: #b07a10; }
+.zia-stance-nao { background: #b3372b; }
+.zia-stance-naoaborda { background: var(--zia-border); }
+.zia-stance-legend { font-size: 11.5px; color: var(--zia-fg2); margin-top: 3px; }
+
+/* Mapa de temas: árvore ou grafo */
+.zia-viewswitch { display: inline-flex; border: 1px solid var(--zia-border); border-radius: 14px; overflow: hidden; margin: 2px 0 6px; }
+.zia-viewswitch .zia-mode-btn { border: none; border-radius: 0; margin: 0; padding: 2px 10px; font-size: 11px; font-weight: 600; background: var(--zia-bg); color: var(--zia-fg2); min-height: 0; }
+.zia-viewswitch .zia-mode-btn.on { background: var(--zia-accent); color: var(--zia-on-accent, #fff); }
+.zia-graph-src { display: none; }
+.zia-graph { max-width: 100%; height: auto; display: block; margin: 4px auto; }
+.zia-g-edge { stroke: var(--zia-border); stroke-width: 1.5; }
+.zia-graph text { font-size: 11px; fill: var(--zia-fg); }
+.zia-g-root circle { fill: var(--zia-accent); }
+.zia-g-root text { font-weight: 700; font-size: 13px; }
+.zia-g-theme circle { fill: var(--zia-bg); stroke: var(--zia-fg2); stroke-width: 2; }
+.zia-g-theme text { font-weight: 600; }
+.zia-g-doc circle { fill: var(--zia-link, #1f5fbf); }
+.zia-g-doc:hover text, .zia-g-doc:focus text { text-decoration: underline; }
+.zia-msg-note { font-size: 11.5px; color: var(--zia-fg2); margin-top: 4px; }

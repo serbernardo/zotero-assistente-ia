@@ -38,7 +38,8 @@
 			getCreators: () => authors.map(a => ({ lastName: a })), getField: f => ({ title, date: String(year) })[f] || "",
 			getDisplayTitle: () => title, getNotes: () => [] };
 		const att = { id: nid++, key, libraryID: 1, parentItem: parent, dateModified: "x", isAttachment: () => true, isRegularItem: () => false,
-			isPDFAttachment: () => true, getField: () => "", getFilePathAsync: async () => "/pdf/" + key, _pages: pages };
+			isPDFAttachment: () => true, getField: () => "", getFilePathAsync: async () => "/pdf/" + key, _pages: pages,
+			getAnnotations: () => (new URLSearchParams(location.search).get("hl") ? [{ annotationText: "Os assistentes reduzem o tempo de resposta", annotationComment: "porquê?", annotationPosition: JSON.stringify({ pageIndex: 1 }), annotationSortIndex: "00001" }] : []) };
 		parent.getBestAttachment = async () => att;
 		parent.getAttachments = () => [att.id];
 		items.set(parent.id, parent); items.set(att.id, att);
@@ -103,7 +104,7 @@
 	core.openAtPage = async (d, p) => window.opened.push(`${d.attachmentKey}#${p}`);
 	core.copyToClipboard = t => { window.copied = t; };
 	core.saveNote = async ({ heading }) => { window.lastHeading = heading; return { id: 999, parentID: heading.startsWith("Comparação") ? null : 1 }; };
-	core.saveCSV = async () => "/tmp/tabela.csv";
+	core.saveCSV = async (w, csv, name) => { window.lastCSV = { csv, name }; return "/tmp/tabela.csv"; };
 	core.addTags = async (id, tags) => { window.tagged = { id, tags: Array.from(tags) }; return tags.length; };
 	core.selectedCollectionItems = () => ({ name: "Tese", id: 7, items: [A, B] });
 	core.listCollections = () => [{ id: 7, name: "Tese", depth: 0, selected: true }, { id: 8, name: "Capítulo 1", depth: 1 }];

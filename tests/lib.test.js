@@ -397,7 +397,7 @@ test("instruções: só a informação dos documentos, sem suposições", () => 
 		assert.match(sp, /Não inventes, não suponhas/);
 		assert.match(sp, /Uma inferência nunca acrescenta factos novos/);
 	}
-	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_sintese", "triagem"]);
+	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_tabela", "pergunta", "temas", "cmp_sintese", "triagem"]);
 });
 
 test("histórico: só as últimas trocas e com limite de tamanho", () => {
@@ -528,4 +528,14 @@ test("nomes das ações, referências mantidas e números PRISMA", () => {
 	assert.match(kept.usedPages.join("\n"), /Costa, 2019/);
 	const sum = L.screeningSummary([{ ref: "A", decision: "incluir" }, { ref: "B", decision: "excluir" }, { ref: "C", decision: "duvidoso" }, { ref: "D", decision: null }], "c");
 	assert.match(sum, /avaliados 4 · incluídos 1 · excluídos 1 · por decidir 2/);
+});
+
+test("perguntar à coleção, Anki e mapa de temas", () => {
+	assert.deepEqual(L.parseStances("x\nRESPOSTA D1: SIM\n**RESPOSTA D2: EM PARTE**\nRESPOSTA D3: NÃO\nANSWER D4: NOT ADDRESSED"),
+		{ D1: "sim", D2: "parte", D3: "nao", D4: "naoaborda" });
+	assert.equal(L.removeStanceLines("Síntese.\nRESPOSTA D1: SIM\nRESPOSTA D2: NAO"), "Síntese.");
+	const a = L.studyToAnki("## Silva\n**Pergunta 1.** O que mede?\n*Resposta:* Mede X (p. 2).\n\n**Pergunta 2.** Porquê \"Y\"?\n*Resposta:* Porque Z.");
+	assert.equal(a.count, 2);
+	assert.match(a.csv, /^#separator:Comma\n#html:false\n"O que mede\?","Mede X \(p\. 2\)\."\n"Porquê ""Y""\?","Porque Z\."\n$/);
+	assert.ok(L.ACTIONS.temas.metaOnly && L.ACTIONS.destaques.useAnnotations && L.ACTIONS.cmp_tabela.needsCriteria);
 });

@@ -26,10 +26,21 @@ Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`). Nomes 
   modos), Excertos citaveis, Palavras-chave/Keywords (`etiquetas`, adiciona etiquetas do Zotero).
 - Investigacao futura/Future research (grupo `investigar`): Lacunas, Referencias-chave (`referencias`,
   `keepRefs`: a lista de referencias do PDF nao e cortada), Perguntas de investigacao.
-- Comparar/Compare (so na janela): Visao geral (nao "Comparacao geral": as notas ja comecam por
-  "Comparacao:"), Metodos, Resultados, Conceitos e teorias, Revisao de literatura (`cmp_sintese`, a
-  unica revisao: a antiga `revisao` do Extrair foi retirada), Triagem (`triagem`, com os numeros para
-  o diagrama PRISMA no resumo).
+- Compreender tem tambem Explicar os meus destaques (`destaques`, `useAnnotations`, `needsHighlights`:
+  so aparece, no Simples e no Avancado, quando o PDF tem destaques, `_hasHighlights`).
+- Janela (varios artigos, `_renderWindowActions`): 5 botoes grandes, sem separadores e sem pergunta
+  livre (enviar sem escolher avisa `win.chooseFirst`):
+  - Comparar artigos: modelos `.zia-preset` Visao geral (`comparar`), Metodos, Resultados, Conceitos
+    (`cmp_conceitos`) e As minhas colunas (`cmp_tabela`, colunas escritas na caixa).
+  - Perguntar a colecao (`pergunta`): tabela por artigo, sintese e linhas tecnicas `RESPOSTA D1: SIM|EM
+    PARTE|NAO|NAO ABORDA` (`parseStances`, `removeStanceLines`), barra `_stanceMeter` (`msg.stances`).
+  - Mapa de temas (`temas`, `metaOnly`): envia so titulo, resumo e palavras-chave (`itemMetaText`, sem
+    resumo usa o inicio do PDF). Vistas Arvore e Grafo (`_themeGraph`, SVG radial sem bibliotecas: um
+    artigo em varios temas e um so no, clicar abre o PDF). Avisa os artigos que ficaram de fora.
+  - Revisao de literatura (`cmp_sintese`, a unica revisao).
+  - Triagem (`triagem`, com os numeros para o diagrama PRISMA no resumo).
+  Visao geral nao se chama "Comparacao geral": as notas ja comecam por "Comparacao:".
+- Testar o que percebi tem "Exportar para o Anki" (`studyToAnki`, CSV com `#separator:Comma`).
 - Personalizado (prompts do utilizador, pref `custom.prompts`, uma linha "Nome: instrucao").
 Regra dos nomes: um nome por acao em todo o addon, o mesmo no Simples e no Avancado. O botao usa um
 verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com o nome (`label`).
@@ -368,7 +379,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (37), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (38), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -414,7 +425,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-0.9.1.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-0.10.0.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos

@@ -22,7 +22,7 @@ O ícone do assistente fica logo a seguir à Info. As ações estão organizadas
 
 | Separador | Ações |
 |---|---|
-| **Compreender** | Resumir, Ideias principais, Explicação simples (sem jargão), Conceitos-chave (glossário com as definições dos autores), Esquema (o argumento em texto, por níveis, ou índice de temas com páginas em teses e livros), Mapa mental (gráfico com o tema central e os ramos), Testar o que percebi (perguntas com resposta modelo e página) |
+| **Compreender** | Resumir, Ideias principais, Explicação simples (sem jargão), Conceitos-chave (glossário com as definições dos autores), Esquema (o argumento em texto, por níveis, ou índice de temas com páginas em teses e livros), Mapa mental (gráfico com o tema central e os ramos), Testar o que percebi (perguntas com resposta modelo e página, exportáveis para o Anki), Explicar os meus destaques (aparece quando sublinhaste o PDF) |
 | **Avaliar** | Relevância para o meu tema (escreves o tema e a IA diz se o artigo é relevante e que partes ler primeiro), Avaliação crítica (tipo de estudo e grelha adequada, como CONSORT, STROBE, PRISMA, COREQ ou CASP), Métodos e dados (com tabela dos resultados numéricos), Afirmações e evidência (separa dados de interpretações e mostra as afirmações com pouco suporte) |
 | **Extrair** | Ficha de leitura (14 campos, guardada como nota), Excertos citáveis (citações literais com página), Palavras-chave (do autor e do texto, adicionadas ao item como etiquetas com um clique) |
 | **Investigação futura** | Lacunas de investigação, Referências-chave (as fontes citadas que vale a pena ler a seguir), Perguntas de investigação (com desenho de estudo sugerido) |
@@ -37,7 +37,10 @@ Também podes fazer **perguntas livres** sobre o artigo. Cada ação e cada perg
 Abre-se com o ícone de janela no título do painel, com **Comparar** no painel ou com o clique direito numa coleção.
 
 - **+ PDF** e **+ Coleção**: junta artigos da biblioteca ou uma coleção inteira, sem a teres de selecionar antes
-- **Comparar**: Visão geral, Métodos, Resultados, Conceitos e teorias, Revisão de literatura
+- **Comparar artigos**: tabela lado a lado com um modelo (Visão geral, Métodos, Resultados, Conceitos) ou com as tuas colunas
+- **Perguntar à coleção**: escreves uma pergunta e vês a resposta de cada artigo (Sim, Em parte, Não, Não aborda), com a página, uma barra com o total e uma síntese
+- **Mapa de temas**: os artigos organizados por temas, em árvore ou em grafo, a partir do título, do resumo e das palavras-chave
+- **Revisão de literatura**: texto corrido por temas, com citações
 - **Triagem**: escreves os critérios de inclusão e de exclusão e, para cada artigo, a IA verifica critério a critério, com a página, e sugere Incluir, Excluir ou Duvidoso. No fim junta um resumo, com os números para o diagrama PRISMA, que se exporta para CSV
 - **Usar fichas**: com muitos PDFs, trabalha sobre as fichas de leitura de cada artigo em vez do texto completo. Gasta muito menos e evita misturar artigos. Liga-se sozinho a partir de 6 PDFs
 

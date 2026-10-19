@@ -187,6 +187,31 @@ var ZoteroIA = {
 		}
 	},
 
+	/**
+	 * Mapa de temas: título, resumo e palavras-chave de um artigo (não envia o PDF). Sem resumo no Zotero,
+	 * usa o início do PDF.
+	 */
+	async itemMetaText(d) {
+		const it = d.parentID ? Zotero.Items.get(d.parentID) : null;
+		const field = f => { try { return (it && it.getField(f)) || ""; } catch (e) { return ""; } };
+		let tags = [];
+		try { tags = it && it.getTags ? it.getTags().map(t => t.tag) : []; } catch (e) { /* sem etiquetas */ }
+		let summary = field("abstractNote");
+		if (!summary) {
+			try {
+				if (!d.pages) await this.loadText(d);
+				summary = (d.pages || []).slice(0, 2).join(" ").replace(/\s+/g, " ").slice(0, 2500);
+			}
+			catch (e) { this.log("Mapa de temas: " + e); }
+		}
+		return [
+			d.fullRef || d.ref,
+			(field("title") || d.title) ? `${this.t("meta.title")}: ${field("title") || d.title}` : "",
+			summary ? `${this.t("meta.abstract")}: ${summary}` : "",
+			tags.length ? `${this.t("meta.keywords")}: ${tags.join("; ")}` : "",
+		].filter(Boolean).join("\n");
+	},
+
 	/** Metadados leves de um documento (sem extrair texto). */
 	async describeItem(item) {
 		const r = await this.resolvePDF(item);
@@ -538,7 +563,7 @@ var ZoteroIA = {
 		let active = Array.isArray(data) ? 0 : ((data && data.active) || 0);
 		try {
 			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
-				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check"];
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check", "stances", "warnings"];
 			const clean = msgs => msgs.filter(m => !m.pending).slice(-this.HISTORY_MAX)
 				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
 			const conversations = [];

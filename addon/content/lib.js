@@ -194,6 +194,17 @@ var ZIALib = (function () {
 				+ "**Pergunta 1.** texto da pergunta, e na linha seguinte *Resposta:* texto da resposta. "
 				+ "Com vários documentos, usa um título ## por documento.",
 		},
+		destaques: {
+			group: "compreender",
+			minDocs: 1,
+			useAnnotations: true,
+			needsHighlights: true,
+			prompt: "O utilizador destacou excertos neste documento (estão nas anotações do documento). Para cada destaque, "
+				+ "pela ordem das páginas: escreve o excerto entre aspas, tal como está, com a citação com a página, e "
+				+ "explica-o em linguagem simples em 2 a 4 frases, com o contexto que o documento dá. Se o destaque tiver "
+				+ "um comentário do utilizador, responde também a esse comentário. No máximo 15 destaques: se houver mais, "
+				+ "escolhe os mais importantes e diz no fim quantos ficaram de fora.",
+		},
 		esquema: {
 			group: "compreender",
 			minDocs: 1,
@@ -354,6 +365,45 @@ var ZIALib = (function () {
 				+ "base ou a forma de medir (escala, indicador), com citações.\n"
 				+ "2. ## Diferenças de definição: onde o mesmo termo significa coisas diferentes e isso impede "
 				+ "comparar resultados diretamente.",
+		},
+		cmp_tabela: {
+			group: "comparar",
+			minDocs: 2,
+			fichasOK: true,
+			needsCriteria: true,
+			needsMsg: "chat.tabela.needColumns",
+			prompt: "Faz uma tabela Markdown com uma linha por documento. A primeira coluna é Documento e as outras são "
+				+ "exatamente as colunas que o utilizador escreveu nas indicações adicionais, pela mesma ordem. Em cada "
+				+ "célula, o valor tal como o documento o apresenta, com a citação com a página. Se o documento não tiver "
+				+ "essa informação, escreve Não reportado e não a deduzas. Não acrescentes colunas.\n"
+				+ "Depois da tabela, 2 a 4 frases sobre os padrões e as diferenças mais visíveis, com citações.",
+		},
+		pergunta: {
+			group: "comparar",
+			minDocs: 2,
+			fichasOK: true,
+			needsCriteria: true,
+			needsMsg: "chat.pergunta.needQuestion",
+			prompt: "O utilizador escreveu uma pergunta nas indicações adicionais. Responde documento a documento, só com "
+				+ "o que cada documento diz.\n"
+				+ "## Resposta de cada artigo: tabela Markdown com as colunas Artigo, Resposta (Sim, Em parte, Não ou Não "
+				+ "aborda) e Evidência (uma frase com a citação com a página). Usa Não aborda quando o documento não trata "
+				+ "a pergunta, e não a deduzas de outros temas.\n"
+				+ "## Síntese: um parágrafo que junte as respostas, diga onde os documentos concordam e onde divergem e o "
+				+ "que limita a conclusão (por exemplo, poucos estudos ou contextos diferentes).\n"
+				+ "No fim da resposta, uma linha técnica por documento, sem traduzir, exatamente neste formato: "
+				+ "RESPOSTA D1: SIM, RESPOSTA D2: EM PARTE, RESPOSTA D3: NAO ou RESPOSTA D4: NAO ABORDA",
+		},
+		temas: {
+			group: "comparar",
+			minDocs: 2,
+			metaOnly: true,
+			prompt: "Organiza os documentos por temas, só a partir do título, do resumo e das palavras-chave de cada um. "
+				+ "Responde só com uma lista Markdown encaixada (\"- \" e dois espaços por nível). O primeiro item é o "
+				+ "tema geral da coleção. Por baixo, 3 a 8 temas, cada um com o número de documentos entre parênteses, "
+				+ "por exemplo \"Feedback formativo (5)\". Se ajudar, divide um tema em subtemas. Nas pontas, cada "
+				+ "documento com um título curto e a citação [Dn], por exemplo \"Feedback em turmas grandes [D3]\". "
+				+ "Cada documento aparece pelo menos uma vez e pode aparecer em mais de um tema. Não escrevas texto fora da lista.",
 		},
 		cmp_sintese: {
 			group: "comparar",
@@ -520,6 +570,42 @@ var ZIALib = (function () {
 		while ((m = re.exec(String(text || "")))) last = m[1].toUpperCase();
 		if (!last) return null;
 		return { INCLUIR: "incluir", INCLUDE: "incluir", EXCLUIR: "excluir", EXCLUDE: "excluir" }[last] || "duvidoso";
+	}
+
+	const STANCE_LINE_RE = /^[\s>*_-]*(?:RESPOSTA|ANSWER)\s+(D\d+)[\s*_]*:[\s*_]*(SIM|YES|EM PARTE|PARTLY|PARTIAL|NAO ABORDA|NÃO ABORDA|NOT ADDRESSED|NAO|NÃO|NO)\b.*$/gim;
+
+	/** Perguntar à coleção: lê as linhas "RESPOSTA D1: SIM" do fim da resposta. Devolve { D1: "sim" | "parte" | "nao" | "naoaborda" }. */
+	function parseStances(text) {
+		const out = {};
+		const re = new RegExp(STANCE_LINE_RE.source, "gim");
+		let m;
+		while ((m = re.exec(String(text || "")))) {
+			const v = m[2].toUpperCase();
+			out[m[1].toUpperCase()] = /^(SIM|YES)$/.test(v) ? "sim" : /PARTE|PART/.test(v) ? "parte" : /ABORDA|ADDRESSED/.test(v) ? "naoaborda" : "nao";
+		}
+		return out;
+	}
+
+	function removeStanceLines(text) {
+		return String(text || "").replace(STANCE_LINE_RE, "").replace(/\s+$/, "");
+	}
+
+	/**
+	 * Testar o que percebi para o Anki: pares pergunta e resposta num CSV que o Anki importa diretamente
+	 * (cabeçalho #separator). O texto já deve vir com as citações em texto simples.
+	 */
+	function studyToAnki(text) {
+		const clean = s => String(s || "").replace(/\*\*|__|\*/g, "").replace(/\s+/g, " ").trim();
+		const parts = String(text || "").split(/\*\*\s*(?:Pergunta|Question)\s*\d+\s*[.:]?\s*\*\*/i).slice(1);
+		const rows = [];
+		for (const p of parts) {
+			const m = /^([\s\S]*?)\*?\s*(?:Resposta|Answer)\s*:\s*\*?([\s\S]*)$/i.exec(p);
+			if (!m) continue;
+			const q = clean(m[1]), a = clean(m[2].split(/\n\s*#{1,6}\s/)[0]);
+			if (q && a) rows.push([q, a]);
+		}
+		const cell = v => `"${v.replace(/"/g, '""')}"`;
+		return { count: rows.length, csv: "#separator:Comma\n#html:false\n" + rows.map(r => r.map(cell).join(",")).join("\n") + "\n" };
 	}
 
 	/** Retira a linha técnica da triagem (a decisão aparece no resumo). */
@@ -2233,7 +2319,7 @@ var ZIALib = (function () {
 		parseCiteGroup, citeLabel, citesToText, CITE_GROUP_RE,
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
-		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint, IAEDU_DEFAULT_ENDPOINT, IAEDU_DEFAULT_CHANNEL,
+		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, parseStances, removeStanceLines, studyToAnki, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint, IAEDU_DEFAULT_ENDPOINT, IAEDU_DEFAULT_CHANNEL,
 		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, setCiteFormatter, replaceDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
