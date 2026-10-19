@@ -218,8 +218,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   (`.zia-action-extra`). As perguntas livres mantem a bolha.
 - **Respostas:** Copiar e Guardar como nota ficam por cima do texto. O titulo
   tem so a acao e o x (nunca recolhe). O motor, o modelo e o consumo ficam por
-  baixo do texto (`.zia-msg-meta`). Rodape do painel so com
-  "Nova conversa" e "Abrir em janela".
+  baixo do texto (`.zia-msg-meta`). Rodape do painel com
+  "Nova conversa" e "Abrir em janela" (e o botao de apoio, escondido por agora).
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -250,8 +250,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   sistema + pedido, porque nao ha campo proprio). Resposta em blocos JSON separados por linhas
   em branco: `start`, `token`, `message` (texto completo, vale mais do que os pedacos) e `done`.
   Sem consumo de tokens na resposta. O modelo e o do agente. Testado a mao com 80 mil e 320 mil
-  caracteres (`maxChars` 3000000 por omissao, a pedido). Separador proprio nas definicoes (`OWN_TABS`), fora de "Claude
-  ou ChatGPT (API)". Termos de uso e limites do IAEdu desconhecidos: o aviso de privacidade
+  caracteres (`maxChars` 3000000 por omissao, a pedido). Separador proprio nas definicoes. Termos de uso e limites do IAEdu desconhecidos: o aviso de privacidade
   manda confirmar. Teste: `run_iaedu.js`.
 - **Mudar de modelo nao e um erro:** os avisos de troca do Gemini (modelo ocupado,
   nova tentativa, quota) aparecem como progresso normal (`_setStatus(texto, null, true)`,
@@ -291,7 +290,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   ChatGPT conta), sem "Recomendado". O escolhido fica a negrito e a estrela do motor em
   uso e maior. Arrastar um separador muda a ordem (`tabOrder`, `moveTab`, pref
   `engines.tabOrder`).
-- **Instrucoes de cada motor** (`GUIDES`, `renderGuides`, `guideText` em
+- **Instrucoes de cada motor** (`GUIDES`, `renderGuides` em
   `preferences.js`, textos `guide.<motor>.*`): Claude Code, Codex, Claude API,
   ChatGPT API e IAEdu tem o mesmo bloco: "Quanto custa" e passos numerados com
   ligacoes oficiais e comandos com botao Copiar (o do Claude Code em versao Windows e
@@ -310,7 +309,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   linhas: o conteudo nunca obriga o painel do Zotero a alargar (teste
   "painel estreito" em `run_ui.js`).
 - **Ordem dos motores:** `ENGINE_ORDER` = gemini, claude, codex, anthropic,
-  openai. A lista do painel mostra sempre `MAIN_ENGINES` (gemini, claude, codex)
+  openai, iaedu. A lista do painel mostra sempre `MAIN_ENGINES` (gemini, claude, codex)
   e as chaves de API so quando configuradas ou escolhidas. Nas definicoes,
   "Usar este motor" e um botao a parte. Gemini por omissao: `GEMINI_DEFAULT` = gemini-3.5-flash-lite
   (migracao unica com a pref `gemini.defaultApplied`).

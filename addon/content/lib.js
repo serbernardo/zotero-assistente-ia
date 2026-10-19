@@ -264,7 +264,7 @@ var ZIALib = (function () {
 			fichasOK: true,
 			// Afirmações e evidência (o id "conclusoes" mantém-se por causa do histórico guardado)
 			prompt: "Não resumas. Analisa as afirmações principais de cada documento e o suporte que o próprio texto lhes dá.\n"
-				+ "1. Uma tabela Markdown com 8 a 15 afirmações, incluindo as conclusões dos autores, e as colunas: "
+				+ "1. Uma tabela Markdown com 8 a 15 afirmações, entre elas as conclusões dos autores, e as colunas: "
 				+ "Afirmação (uma frase, com a citação), Tipo (Dado ou resultado medido, Interpretação dos autores, "
 				+ "ou Especulação e recomendação), Suporte no texto (os dados, a análise ou a referência a outro estudo que "
 				+ "os autores apresentam, ou \"Nenhum indicado\") e Avaliação (Sim, Em parte ou Não: o suporte sustenta "

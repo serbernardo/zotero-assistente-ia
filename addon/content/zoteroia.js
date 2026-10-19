@@ -29,8 +29,6 @@ var ZoteroIA = {
 		iaedu: { provider: "IAEdu", family: "iaedu", kind: "key" },
 	},
 	ENGINE_ORDER: ["gemini", "claude", "codex", "anthropic", "openai", "iaedu"],
-	// Motores com separador próprio nas definições (os outros de chave ficam em "Claude ou ChatGPT (API)")
-	OWN_TABS: ["iaedu"],
 	// Motores que aparecem sempre na lista do painel. Os outros (chaves de API) só quando
 	// estão configurados ou escolhidos.
 	MAIN_ENGINES: ["gemini", "claude", "codex"],
