@@ -29,7 +29,8 @@ Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`). Nomes 
 - Compreender tem tambem Explicar os meus destaques (`destaques`, `useAnnotations`, `needsHighlights`:
   so aparece, no Simples e no Avancado, quando o PDF tem destaques, `_hasHighlights`).
 - Janela (varios artigos, `_renderWindowActions`): 5 botoes grandes, sem separadores e sem pergunta
-  livre (enviar sem escolher avisa `win.chooseFirst`):
+  livre: a caixa de texto e o Enviar so aparecem depois de escolher uma opcao (`_syncInput`).
+  O texto inicial mostra os 3 passos (`chat.empty.window`):
   - Comparar artigos: modelos `.zia-preset` Visao geral (`comparar`), Metodos, Resultados, Conceitos
     (`cmp_conceitos`) e As minhas colunas (`cmp_tabela`, colunas escritas na caixa).
   - Perguntar a colecao (`pergunta`): tabela por artigo, sintese e linhas tecnicas `RESPOSTA D1: SIM|EM
@@ -188,7 +189,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   O tempo fica na linha por baixo da resposta (`m.secs`), nao no estado. Com 2 ou mais motores
   prontos, "Repetir com" e uma lista (`.zia-retry-sel`). Rodape sem "Nova conversa".
 - **Painel = um artigo:** no painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
-  so na janela (com "+ PDF" e "+ Colecao" na barra de cima). O cartao "sem PDF" tem
+  so na janela (com "+ Artigos" na barra de cima). O cartao "sem PDF" tem
   "Abrir a janela do assistente" e "Comparar uma colecao". Na janela, o "i" das
   fichas tambem aparece junto de "Usar fichas" e a lista das fichas em Comparar.
 - **Eliminar:** uma resposta com texto nunca e tratada como erro no aviso (oferece
@@ -341,11 +342,14 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Painel:** caixa de texto por cima das respostas e a resposta mais recente
   logo abaixo dela. Separador "Personalizado" (grupo `meus`) com formulario
   para criar, editar e apagar acoes (`setCustomPrompt`/`removeCustomPrompt`,
-  ids estaveis `custom:<nome>`). Botao "+ PDF" abre um seletor com os artigos
-  da lista central do Zotero (`pickableItems`, `getSortedItems`), com pesquisa.
+  ids estaveis `custom:<nome>`). Botao "+ Artigos" (so na janela) abre um seletor com "Procurar em:"
+  (`pickableItems(limit, source)`: pasta aberta no Zotero `getSortedItems`, toda a biblioteca
+  `Zotero.Items.getAll` ou uma colecao), pesquisa e "Juntar a colecao toda" (`_addWholeCollection`).
+  As escolhas ficam ao mudar de pasta. Se a pasta aberta nao tem outros artigos, abre logo em toda
+  a biblioteca. Ja nao ha botao "+ Colecao" (o `_openCollectionPicker` fica para o menu das colecoes).
   Uma acao que precisa de mais PDFs (Comparar) abre o seletor.
 - **Enviar so com o botao:** Enter na caixa de texto muda de linha, nunca envia.
-  Enviar com a caixa vazia mostra um aviso. O seletor "+ PDF" ordena por data de
+  Enviar com a caixa vazia mostra um aviso. O seletor "+ Artigos" ordena por data de
   adicao (omissao), autor ou data de publicacao.
 - **Acoes em dois passos:** clicar numa acao so a escolhe (`selectAction`); o
   pedido segue com "Enviar" (o mesmo botao das perguntas, no painel e na janela),

@@ -49,6 +49,7 @@
 	const A = paper("Assistentes conversacionais em bibliotecas universitárias portuguesas", 2021, ["Silva", "Costa", "Reis"], "SILVAPDF", P(6, "Silva"));
 	window.ITEM_A = A;
 	const B = paper("Library chatbots after deployment: a qualitative study", 2023, ["García", "Ortega"], "GARCIAPDF", P(5, "García"));
+	const C = paper("Outra pasta: leitura digital", 2019, ["Reis"], "REISPDF", P(3, "Reis"));
 	window.opened = [];
 	// Sistema de ficheiros simulado (histórico das conversas)
 	const FILES = new Map();
@@ -64,7 +65,8 @@
 	window.Zotero = {
 		DataDirectory: { dir: "/dados" },
 		debug: () => {}, logError: e => console.error(e), locale: "pt-PT",
-		Items: { get: id => items.get(id) },
+		Items: { get: id => items.get(id), getAll: async () => [A, B, C] },
+		Libraries: { userLibraryID: 1 },
 		// Lista central do Zotero simulada (o que o utilizador tem aberto)
 		getActiveZoteroPane: () => ({ getSortedItems: () => [A, B] }),
 		launchURL: u => window.opened.push(u),

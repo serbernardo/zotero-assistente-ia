@@ -1222,7 +1222,7 @@
 .zia-picker-row input { margin-top: 2px; flex: none; }
 
 .zia-picker-sort { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
-.zia-picker-sortsel { min-width: 0; flex: 1; }
+.zia-picker-sortsel, .zia-picker-srcsel { min-width: 0; flex: 1; }
 
 /* ==========================================================================
    Paleta (inspirada no Beaver): fundo creme quente, tinta azul-noite para o
@@ -1369,7 +1369,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 /* Seletor de PDFs e formulário de ações */
 .zia-picker, .zia-custom-form { border-color: var(--zia-border); }
 .zia-picker-row:hover { background: var(--zia-sand); }
-.zia-picker-sortsel { font: inherit; font-size: 12px; }
+.zia-picker-sortsel, .zia-picker-srcsel { font: inherit; font-size: 12px; }
 
 /* Definições */
 .zia-hero { border-color: var(--zia-border); border-top: 4px solid var(--zia-gold); background: var(--zia-panel); }
@@ -1704,3 +1704,4 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-mode-section .zia-msg-assistant { position: relative; }
 .zia-msg-head.zia-head-x { position: absolute; top: 4px; inset-inline-end: 4px; margin: 0; padding: 0; background: none; border: none; width: auto; z-index: 1; }
 .zia-msg-head.zia-head-x ~ .zia-msg-tools { padding-inline-end: 24px; }
+.zia-input[hidden] { display: none; }

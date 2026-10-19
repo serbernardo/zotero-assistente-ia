@@ -29,9 +29,9 @@ async function main() {
 		return page;
 	};
 	const tab = (page, group) => page.click(`.zia-tab[data-group="${group}"]`);
-	// Janela: juntar os dois PDFs pelo seletor "+ PDF"
+	// Janela: juntar os dois PDFs pelo seletor "+ Artigos"
 	const addAll = async page => {
-		await page.click(".zia-bar-tools button:has-text(\"+ PDF\")");
+		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
 		await page.waitForSelector(".zia-picker-row");
 		for (const cb of await page.$$(".zia-picker-row input")) await cb.check();
 		await page.click(".zia-picker button:has-text(\"Juntar\")");
@@ -84,15 +84,13 @@ async function main() {
 		await page.waitForSelector("text=Nota guardada");
 		assert.equal(await page.evaluate(() => window.lastHeading), "Comparação: visão geral · Silva et al. 2021, García e Ortega 2023", "título da nota da comparação");
 		// sem pergunta livre na janela: sem escolher nada, não envia
-		const before = await page.evaluate(() => window.lastPrompt);
-		await page.fill(".zia-textarea", "E quanto à confiança dos utilizadores?");
-		await page.click(".zia-send");
-		await page.waitForSelector("text=Escolhe primeiro o que queres fazer");
-		assert.equal(await page.evaluate(() => window.lastPrompt), before, "nada é enviado sem escolher");
+		await page.evaluate(() => { if (view.selectedAction) view.selectAction(view.selectedAction); });
+		assert.equal(await page.isHidden(".zia-input"), true, "sem escolher nada, não há caixa de texto nem Enviar");
 		// Perguntar à coleção: resposta de cada artigo, barra e síntese, noutro separador
 		await page.evaluate(() => { window.MOCK.answer = "## Resposta de cada artigo\n| Artigo | Resposta | Evidência |\n|---|---|---|\n| D1 | Sim | Confiança alta [D1:p2] |\n| D2 | Não aborda | Não trata [D2:p1] |\n\n## Síntese\nSó um artigo trata a confiança [D1:p2].\n\nRESPOSTA D1: SIM\nRESPOSTA D2: NAO ABORDA"; });
 		await page.click('button[data-action="pergunta"]');
 		assert.match(await page.getAttribute(".zia-textarea", "placeholder"), /Escreve a tua pergunta/);
+		await page.fill(".zia-textarea", "E quanto à confiança dos utilizadores?");
 		await page.click(".zia-send");
 		await page.waitForSelector(".zia-stances");
 		assert.match(await page.evaluate(() => window.lastPrompt), /E quanto à confiança/);
@@ -136,12 +134,29 @@ async function main() {
 		await page.close();
 	}
 
-	// ---------- Janela: + PDF com seletor e pesquisa ----------
+	// ---------- Janela: + Artigos com seletor, pasta e pesquisa ----------
 	{
 		const page = await open("?mode=window", { width: 820, height: 700 });
-		await page.click(".zia-bar-tools button:has-text(\"+ PDF\")");
+		assert.equal(await page.locator("button:has-text(\"+ Coleção\")").count(), 0, "um só botão para juntar artigos");
+		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
 		await page.waitForSelector(".zia-picker-row");
 		assert.equal(await page.locator(".zia-picker-row").count(), 2);
+		// procurar noutra pasta: toda a biblioteca e uma coleção (com "Juntar a coleção toda")
+		await page.selectOption(".zia-picker-srcsel", "library");
+		await page.waitForSelector(".zia-picker-row:has-text(\"Outra pasta\")");
+		assert.equal(await page.locator(".zia-picker-row").count(), 3, "toda a biblioteca");
+		await page.check(".zia-picker-row:has-text(\"Outra pasta\") >> input");
+		await page.selectOption(".zia-picker-srcsel", "col:8");
+		await page.waitForSelector(".zia-picker-none");
+		assert.equal(await page.isHidden(".zia-picker-whole"), true, "coleção vazia: sem Juntar a coleção toda");
+		await page.selectOption(".zia-picker-srcsel", "view");
+		await page.waitForSelector(".zia-picker-row");
+		assert.match(await page.textContent(".zia-picker button.zia-btn-primary"), /Juntar \(1\)/, "a escolha de outra pasta fica");
+		await page.selectOption(".zia-picker-srcsel", "library");
+		await page.waitForSelector(".zia-picker-row:has-text(\"Outra pasta\")");
+		await page.uncheck(".zia-picker-row:has-text(\"Outra pasta\") >> input");
+		await page.selectOption(".zia-picker-srcsel", "view");
+		await page.waitForSelector(".zia-picker-row >> nth=1");
 		await page.fill(".zia-picker-search", "garcía");
 		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 1);
 		await page.fill(".zia-picker-search", "xyz");
@@ -822,10 +837,11 @@ async function main() {
 			ZoteroIA.saveNote = async a => { window.saved.push(a.heading); return origSave(a); };
 			window.MOCK.answer = "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p3] |";
 		});
-		await page.click("button:has-text(\"+ Coleção\")");
-		// escolhe a coleção numa lista, sem ter de a selecionar antes no Zotero
-		assert.equal(await page.locator(".zia-col-row").count(), 2);
-		await page.click(".zia-col-row:has-text(\"Tese\")");
+		// escolhe a coleção em "Procurar em", sem ter de a selecionar antes no Zotero, e junta-a toda
+		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.waitForSelector(".zia-picker-row");
+		await page.selectOption(".zia-picker-srcsel", "col:7");
+		await page.click(".zia-picker-whole:has-text(\"Juntar a coleção toda (2)\")");
 		await page.waitForSelector(".zia-chip-col:has-text(\"Coleção: Tese\")");
 		await page.waitForSelector("text=Coleção «Tese» selecionada");
 		await page.waitForSelector(".zia-chip >> nth=1");

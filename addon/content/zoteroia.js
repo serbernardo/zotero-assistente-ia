@@ -594,11 +594,23 @@ var ZoteroIA = {
 	 * Artigos com PDF que o utilizador está a ver na lista central do Zotero (coleção, pesquisa
 	 * ou biblioteca), para os juntar à conversa. Devolve { item, label } pela ordem da lista.
 	 */
-	async pickableItems(limit = 400) {
+	/**
+	 * Artigos com PDF para o seletor. source: "view" (a lista aberta no Zotero), "library" (toda a
+	 * biblioteca aberta) ou o id de uma coleção (número).
+	 */
+	async pickableItems(limit = 400, source = "view") {
 		const zp = Zotero.getActiveZoteroPane && Zotero.getActiveZoteroPane();
 		let items = [];
-		try { items = (zp && zp.getSortedItems && zp.getSortedItems()) || []; }
-		catch (e) { this.log("getSortedItems: " + e); }
+		try {
+			if (typeof source === "number") items = this.collectionItems(source).items;
+			else if (source === "library") {
+				const libID = (zp && zp.getSelectedLibraryID && zp.getSelectedLibraryID()) || Zotero.Libraries.userLibraryID;
+				items = (await Zotero.Items.getAll(libID, true, false)) || [];
+				limit = Math.max(limit, 5000);
+			}
+			else items = (zp && zp.getSortedItems && zp.getSortedItems()) || [];
+		}
+		catch (e) { this.log("pickableItems: " + e); }
 		const out = [];
 		for (const it of items) {
 			if (out.length >= limit) break;
