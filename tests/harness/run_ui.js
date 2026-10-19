@@ -106,18 +106,17 @@ async function main() {
 	// ---------- Painel lateral: sugestões, erro de limite e repetição com Gemini ----------
 	{
 		const page = await open("?mode=section", { width: 420, height: 900 });
-		assert.equal(await page.locator(".zia-chip").count(), 1);
+		assert.equal(await page.locator(".zia-chip").count(), 0, "um só PDF no registo: sem chip do artigo no Avançado");
 		assert.equal(JSON.stringify(await page.$$eval(".zia-engine option", os => os.map(o => o.value))), JSON.stringify(["gemini", "claude", "codex"]),
 			"Gemini, Claude Code e Codex, nesta ordem; chaves de API só quando configuradas");
 		assert.equal(await page.locator(".zia-tab-add").count(), 0, "sem botão +");
 		assert.equal(await page.locator('.zia-tab[data-group="meus"]').count(), 1, "separador Os meus sempre visível");
 		assert.equal(await page.locator(".zia-suggestion").count(), 4, "sugestões de perguntas");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
-		// no painel, o separador Comparar leva à janela grande com os PDFs da conversa
-		assert.match(await page.textContent('.zia-tab[data-group="comparar"]'), /↗/);
-		await page.click('.zia-tab[data-group="comparar"]');
+		// no painel, Comparar já não é separador: o atalho do rodapé leva à janela grande com os PDFs da conversa
+		assert.equal(await page.locator('.zia-tab[data-group="comparar"]').count(), 0, "sem separador Comparar no painel");
+		await page.click(".zia-footer .zia-link-btn:has-text('Comparar')");
 		assert.equal(await page.evaluate(() => window.openedWindow && window.openedWindow.group), "comparar", "abre a janela em Comparar");
-		assert.equal(await page.getAttribute('.zia-tab[data-group="comparar"]', "aria-selected"), "false", "o painel não muda para Comparar");
 		// o painel é para o artigo selecionado: sem "+ PDF" (vários PDFs só na janela)
 		assert.equal(await page.locator(".zia-chip-add").count(), 0, "sem + PDF no painel");
 		assert.doesNotMatch(await page.textContent(".zia-docs"), /D1/, "sem D1 nos chips");
@@ -366,7 +365,7 @@ async function main() {
 	// ---------- Referências-chave (Investigação futura): a lista de referências não é cortada ----------
 	{
 		const page = await open("?mode=section", { width: 420, height: 800 });
-		assert.equal(await page.textContent('.zia-tab[data-group="investigar"]'), "Investigação futura");
+		assert.equal(await page.textContent('.zia-tab[data-group="investigar"]'), "Investigar");
 		await page.click('.zia-tab[data-group="investigar"]');
 		assert.ok(await page.isVisible('button[data-action="referencias"]'));
 		await page.evaluate(() => { window.MOCK.answer = "1. Silva (2020). Teoria X. Usada para definir X [D1:p2]."; });
@@ -655,7 +654,8 @@ async function main() {
 		});
 		assert.equal(await page.evaluate(() => window.splitCount), 3, "histórico antigo: um separador por ação e por pergunta");
 		// Nova conversa abre um separador vazio
-		await page.click(".zia-footer button:has-text(\"Nova conversa\")");
+		assert.equal(await page.locator(".zia-footer button:has-text(\"Nova conversa\")").count(), 0, "sem Nova conversa no rodapé do Avançado");
+		await page.evaluate(() => view.newConversation());
 		assert.equal(await page.locator(".zia-conv-tab").count(), 3);
 		assert.equal(await page.locator(".zia-msg-assistant").count(), 0, "conversa nova vazia");
 		// fechar um separador pede sempre confirmação
@@ -680,7 +680,7 @@ async function main() {
 		});
 		assert.ok(order, "a caixa de texto fica antes das respostas");
 		await tab(page, "meus");
-		assert.equal(await page.textContent('.zia-tab[data-group="meus"]'), "Personalizado");
+		assert.equal(await page.textContent('.zia-tab[data-group="meus"]'), "Pers.");
 		await page.click(".zia-action-new");
 		await page.fill(".zia-custom-name", "Teoria");
 		await page.fill(".zia-custom-prompt", "Identifica o enquadramento teórico.");
@@ -786,8 +786,9 @@ async function main() {
 		assert.equal(await page.locator(".zia-status", { hasText: "ocupado" }).count(), 0, "o aviso antigo já não aparece com a resposta a chegar");
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"), null, { timeout: 30000 });
 		// no fim: concluído, e a explicação discreta por baixo da resposta, sem a palavra erro
-		assert.match(await page.textContent(".zia-status"), /Concluído/);
-		assert.doesNotMatch(await page.textContent(".zia-status"), /erro|Erro/);
+		assert.equal((await page.textContent(".zia-status")).trim(), "", "no Avançado o estado fica vazio no fim");
+		assert.match(await page.textContent(".zia-msg-meta"), /\d+ s/, "o tempo está na linha por baixo da resposta");
+		assert.doesNotMatch(await page.textContent(".zia-msg-meta"), /erro|Erro/);
 		assert.match(await page.textContent(".zia-msg-meta"), /Respondeu o gemini-3\.7-flash-lite, porque o gemini-3\.8-flash estava ocupado/);
 		assert.equal(await page.locator(".zia-msg-assistant .zia-preview-error, .zia-msg-error").count(), 0);
 		await page.screenshot({ path: path.join(OUT, "ui_painel_troca_de_modelo.png") });

@@ -26,6 +26,13 @@ var ZIAi18n = (function () {
 			"group.escrever": "Extrair",
 			"group.investigar": "Investigação futura",
 			"group.meus": "Personalizado",
+			"group.compreender.tab": "Compreender",
+			"group.avaliar.tab": "Avaliar",
+			"group.escrever.tab": "Extrair",
+			"group.investigar.tab": "Investigar",
+			"group.meus.tab": "Pers.",
+			"chat.compareLink": "Comparar artigos ↗",
+			"chat.retryList": "Repetir com…",
 
 			// Ações
 			"action.resumo.label": "Resumo",
@@ -711,6 +718,13 @@ var ZIAi18n = (function () {
 			"group.escrever": "Extract",
 			"group.investigar": "Future research",
 			"group.meus": "Custom",
+			"group.compreender.tab": "Understand",
+			"group.avaliar.tab": "Appraise",
+			"group.escrever.tab": "Extract",
+			"group.investigar.tab": "Research",
+			"group.meus.tab": "Custom",
+			"chat.compareLink": "Compare articles ↗",
+			"chat.retryList": "Repeat with…",
 
 			"action.resumo.label": "Summary",
 			"action.resumo.title": "Summary",

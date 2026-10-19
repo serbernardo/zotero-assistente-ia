@@ -73,6 +73,7 @@ var ZIAChatView = class {
 		this.simple = this.mode === "section" && (this.core.pref("ui.mode") || "simple") !== "advanced";
 		const root = this._el("div", `zia-root zia-mode-${this.mode}` + (this.simple ? " zia-simple" : ""));
 		this.root = root;
+		this._modeSwitch = null;
 
 		// Simples / Avançado (só no painel lateral: a janela é sempre avançada)
 		if (this.mode === "section") {
@@ -90,7 +91,9 @@ var ZIAChatView = class {
 				b.setAttribute("aria-pressed", on ? "true" : "false");
 				sw.appendChild(b);
 			}
-			root.appendChild(sw);
+			// No Avançado o interruptor vai para a barra do motor (uma linha só); no Simples fica sozinho
+			if (this.simple) root.appendChild(sw);
+			else this._modeSwitch = sw;
 		}
 
 		// Barra superior: documentos, motor e definições
@@ -111,6 +114,7 @@ var ZIAChatView = class {
 		this.engineSel.hidden = this.simple;
 		tools.appendChild(this.engineSel);
 		tools.appendChild(this._button("⚙", "zia-btn-small zia-btn-icon", () => this._openPrefs(), this.T("chat.settings.tip")));
+		if (this._modeSwitch) tools.appendChild(this._modeSwitch);
 		bar.appendChild(tools);
 		root.appendChild(bar);
 
@@ -173,8 +177,13 @@ var ZIAChatView = class {
 		const coffee = this.core.coffeeButton && this.core.coffeeButton(this.doc);
 		if (coffee) tail.appendChild(coffee);
 		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.newConversation(), this.T("chat.new.tip"));
-		tail.appendChild(this.newBtn);
+		// Painel Avançado: cada pergunta já abre o seu separador, por isso não há "Nova conversa" no rodapé
+		if (!(this.mode === "section" && !this.simple)) tail.appendChild(this.newBtn);
 		if (this.mode === "section") {
+			if (!this.simple) {
+				tail.appendChild(this._button(this.T("chat.compareLink"), "zia-link-btn", () => this.openInWindow({ group: "comparar" }),
+					this.T("chat.compareInWindow")));
+			}
 			tail.appendChild(this._button(this.T("chat.openWindow"), "zia-link-btn", () => this.openInWindow(),
 				this.T("chat.openWindow.tip")));
 		}
@@ -329,22 +338,19 @@ var ZIAChatView = class {
 		const box = this.tabsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
 		// A janela é só para comparar (as outras ações estão no painel lateral)
-		const groups = this.mode === "window" ? this.L.ACTION_GROUPS.filter(g => g.id === "comparar") : this.L.ACTION_GROUPS;
+		// No painel lateral, comparar faz-se só na janela grande: o atalho está no rodapé, não nos separadores
+		const groups = this.mode === "window" ? this.L.ACTION_GROUPS.filter(g => g.id === "comparar")
+			: this.L.ACTION_GROUPS.filter(g => g.id !== "comparar");
 		box.hidden = this.mode === "window" || this.simple;
 		if (!groups.some(g => g.id === this.group)) this.group = groups[0].id;
-		// No painel lateral, comparar faz-se só na janela grande: o separador leva lá
-		const external = g => this.mode === "section" && g.id === "comparar";
-		if (external({ id: this.group })) this.group = groups[0].id;
 		for (const g of groups) {
-			const t = this._button(g.label + (external(g) ? " ↗" : ""), "zia-tab" + (external(g) ? " zia-tab-external" : ""), () => {
-				if (external(g)) {
-					this.openInWindow({ group: "comparar" });
-					return;
-				}
+			// Nome curto no separador (cabe numa linha), o nome completo aparece ao passar o rato
+			const short = this.T("group." + g.id + ".tab");
+			const t = this._button(short && short !== "group." + g.id + ".tab" ? short : g.label, "zia-tab", () => {
 				this.group = g.id;
 				this.core.setPref("ui.group", g.id);
 				this._renderTabs();
-			}, external(g) ? this.T("chat.compareInWindow") : null);
+			}, g.label);
 			t.setAttribute("role", "tab");
 			t.setAttribute("aria-selected", g.id === this.group ? "true" : "false");
 			t.dataset.group = g.id;
@@ -873,10 +879,23 @@ var ZIAChatView = class {
 		}
 	}
 
+	/** O registo do artigo tem mais do que um PDF? */
+	_recordHasManyPdfs(d) {
+		try {
+			const parent = d.parentID && Zotero.Items.get(d.parentID);
+			if (!parent || !parent.getAttachments) return false;
+			return parent.getAttachments().map(id => Zotero.Items.get(id)).filter(a => a && a.isPDFAttachment && a.isPDFAttachment()).length > 1;
+		}
+		catch (e) {
+			return false;
+		}
+	}
+
 	_renderDocs() {
 		this._updatePlaceholder();
 		const box = this.docsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
+		box.hidden = false;
 		if (!this.state.docs.length) {
 			box.appendChild(this._el("span", "zia-muted",
 				this.T(this.mode === "window" ? "chat.noDocs.window" : "chat.noDocs.section")));
@@ -888,7 +907,12 @@ var ZIAChatView = class {
 			col.title = this.T("chat.collectionChip.tip", { name: this.collectionName });
 			box.appendChild(col);
 		}
-		for (const d of this.state.docs) {
+		// Painel Avançado com um só artigo: o Zotero já mostra qual é. O chip só aparece se o registo tem vários PDFs
+		if (this.mode === "section" && !this.simple && this.state.docs.length === 1 && !this._recordHasManyPdfs(this.state.docs[0])) {
+			box.hidden = true;
+		}
+		else box.hidden = false;
+		for (const d of box.hidden ? [] : this.state.docs) {
 			const chip = this._el("span", "zia-chip");
 			chip.title = d.fullRef;
 			chip.appendChild(this.doc.createTextNode(d.shortRef));
@@ -1336,6 +1360,8 @@ var ZIAChatView = class {
 		const x = this._button("✕", "zia-chip-x", () => this.selectAction(a.id), this.T("chat.pending.cancel"));
 		chip.appendChild(x);
 		box.appendChild(chip);
+		// Painel Avançado: uma linha a explicar o que a ação faz
+		if (this.mode === "section" && !this.simple && a.hint) box.appendChild(this._el("div", "zia-pending-desc", a.hint));
 		// Ações próprias: editar logo aqui (o formulário tem Guardar, Cancelar e Eliminar)
 		if (a.custom) {
 			box.appendChild(this._button(this.T("chat.meus.editOne"), "zia-btn-small", () => this._openCustomForm(a)));
@@ -1696,7 +1722,10 @@ var ZIAChatView = class {
 			botMsg.pending = false;
 			this.core.setPref(engine + ".lastTest", "ok");
 			const secs = Math.round((Date.now() - t0) / 1000);
-			this._setStatus(this.T("chat.done", { s: secs, engine: this.core.engineLabel(engine) }) + (botMsg.usageNote ? ` ${botMsg.usageNote}.` : ""));
+			botMsg.secs = secs;
+			// Painel Avançado: o tempo vai para a linha por baixo da resposta (motor, modelo e tempo juntos)
+			if (this.mode === "section" && !this.simple) this._setStatus("");
+			else this._setStatus(this.T("chat.done", { s: secs, engine: this.core.engineLabel(engine) }) + (botMsg.usageNote ? ` ${botMsg.usageNote}.` : ""));
 		}
 		catch (e) {
 			botMsg.pending = false;
@@ -2024,7 +2053,9 @@ var ZIAChatView = class {
 		const head = this._el("div", "zia-msg-head");
 		m.collapsed = false;
 		el.classList.remove("zia-collapsed");
-		head.appendChild(this._el("span", "zia-action-tag", this._actionTitle(m) || this.T("chat.question")));
+		// Painel Avançado com separadores de conversa visíveis: o nome já está no separador, não se repete aqui
+		const nameInTab = this.mode === "section" && !this.simple && (this.state.convs || []).length > 1;
+		if (!nameInTab) head.appendChild(this._el("span", "zia-action-tag", this._actionTitle(m) || this.T("chat.question")));
 		// Indicações ou artigo do pedido ("Resumir · foca a metodologia", "Ficha: Silva 2021")
 		const asked = String(m.asked || "");
 		if (m.actionLabel && asked.startsWith(m.actionLabel) && asked.length > m.actionLabel.length) {
@@ -2041,7 +2072,9 @@ var ZIAChatView = class {
 			del.addEventListener("keydown", ev => ev.stopPropagation());
 			head.appendChild(del);
 		}
-		el.appendChild(head);
+		// Só o x: fica no canto, sem ocupar uma linha própria
+		if (nameInTab && !head.querySelector(".zia-action-extra")) head.classList.add("zia-head-x");
+		if (head.firstChild) el.appendChild(head);
 		if (m.confirmDel) el.appendChild(this._confirmDelEl(m));
 		if (m.collapsed) {
 			// Também recolhida se pode guardar como nota
@@ -2136,7 +2169,7 @@ var ZIAChatView = class {
 			el.insertBefore(this._messageTools(m), body);
 			if (m.check) el.appendChild(this._checkBox(m.check));
 			if (m.tags && m.tags.length) el.appendChild(this._tagsRow(m));
-			const meta = [m.engine ? this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "") : "", m.usageNote, m.tokensNote].filter(Boolean);
+			const meta = [m.engine ? this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "") : "", m.secs && this.mode === "section" ? `${m.secs} s` : "", m.usageNote, m.tokensNote].filter(Boolean);
 			if (meta.length && !this.simple) el.appendChild(this._el("div", "zia-msg-meta", meta.join(" · ")));
 		}
 	}
@@ -2399,7 +2432,23 @@ var ZIAChatView = class {
 			}, this.T("chat.anki.tip")));
 		}
 		// O resumo da triagem é feito pela app, não por um motor: não há nada para repetir
-		if (m.request && !this.simple) for (const other of this._otherReadyEngines(m.engine).slice(0, 2)) {
+		const others = m.request && !this.simple ? this._otherReadyEngines(m.engine) : [];
+		if (others.length > 1) {
+			// Vários motores prontos: uma só lista em vez de um botão por motor
+			const sel = this._el("select", "zia-retry-sel");
+			sel.setAttribute("aria-label", this.T("chat.retryList"));
+			const first = this._el("option", null, this.T("chat.retryList"));
+			first.setAttribute("value", "");
+			sel.appendChild(first);
+			for (const other of others) {
+				const o = this._el("option", null, this.core.engineLabel(other));
+				o.setAttribute("value", other);
+				sel.appendChild(o);
+			}
+			sel.addEventListener("change", () => { if (sel.value) this._retry(m, sel.value); });
+			row.appendChild(sel);
+		}
+		else for (const other of others) {
 			row.appendChild(this._button(this.T("chat.retryWith", { engine: this.core.engineLabel(other) }), "zia-btn-small zia-btn-quiet", () => this._retry(m, other)));
 		}
 		return row;

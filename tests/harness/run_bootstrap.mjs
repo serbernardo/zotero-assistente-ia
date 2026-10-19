@@ -96,15 +96,19 @@ assert.equal(menuIDs.length, 3, "menus: item, coleção e ferramentas");
 assert.ok(menuIDs.every(Boolean), "menus aceites pelo MenuManager real: " + menuIDs.join(", "));
 assert.ok(Zotero.ZoteroIA && Zotero.ZoteroIA.ChatView, "núcleo exposto");
 
-// O assistente começa fechado no painel do item, uma só vez (a Info abre logo)
+// Comportamento normal do Zotero: o addon não fecha o assistente numa instalação nova
 {
 	const key = Object.keys(zprefs).find(k => /^panes\..*zoteroia-section.*\.open$/.test(k));
-	assert.ok(key, "estado da secção guardado: " + Object.keys(zprefs).join(", "));
-	assert.equal(zprefs[key], false, "fechado por omissão");
-	assert.equal(zprefs["extensions.zoteroia.pane.closedApplied"], true);
-	zprefs[key] = true; // a pessoa abre o assistente
-	vm.runInContext("closedByDefault", scopeCtx)(key.replace(/^panes\./, "").replace(/\.open$/, ""));
-	assert.equal(zprefs[key], true, "a escolha da pessoa fica");
+	assert.equal(key, undefined, "instalação nova: o addon não mexe no estado da secção");
+	// quem tinha a 0.10 (fechado por omissão) volta a ter o assistente aberto, uma só vez
+	const fake = "panes.teste.open";
+	zprefs["extensions.zoteroia.pane.closedApplied"] = true;
+	zprefs[fake] = false;
+	vm.runInContext("undoClosedByDefault", scopeCtx)("teste");
+	assert.equal(zprefs[fake], true, "volta a abrir");
+	zprefs[fake] = false; // a pessoa fecha-o
+	vm.runInContext("undoClosedByDefault", scopeCtx)("teste");
+	assert.equal(zprefs[fake], false, "a escolha da pessoa fica");
 }
 
 // Botão PT/EN no título do painel: troca a língua e mostra a sigla certa
@@ -140,4 +144,4 @@ if (warnings.length) {
 	console.error("Avisos do Zotero:\n" + warnings.join("\n"));
 	process.exit(1);
 }
-console.log("OK bootstrap: chrome registado, 4 scripts carregados, preferências, secção e 3 menus (incluindo o das coleções) aceites pelas validações reais do Zotero, assistente fechado por omissão uma só vez, textos e ícones presentes, encerramento limpo");
+console.log("OK bootstrap: chrome registado, 4 scripts carregados, preferências, secção e 3 menus (incluindo o das coleções) aceites pelas validações reais do Zotero, comportamento normal do Zotero ao abrir e fechar, textos e ícones presentes, encerramento limpo");

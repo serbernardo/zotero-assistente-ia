@@ -119,11 +119,10 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Icone a seguir a Info:** `placeAfterInfo` no `bootstrap.js` poe o paneID
   logo depois de "info" na pref do Zotero `sidenav.order`, uma so vez (pref
   `sidenav.placed`), para respeitar se a pessoa mudar a ordem depois.
-- **Assistente fechado por omissao:** `closedByDefault` no `bootstrap.js` poe a pref do Zotero
-  `panes.<paneID>.open` a false uma so vez (pref `pane.closedApplied`): a Info abre logo e o
-  assistente fica fechado ate a pessoa o abrir, e dai em diante o Zotero guarda a escolha. O icone
-  ✦ da barra lateral leva ate ao assistente mas nao o abre (o Zotero faz o mesmo com as suas
-  seccoes fechadas): abre-se no titulo.
+- **Abrir e fechar como no Zotero:** o addon nao mexe no estado da seccao nem desfaz o "fixar"
+  do icone. A 0.10 fechava o assistente por omissao (`pane.closedApplied`): `undoClosedByDefault`
+  no `bootstrap.js` volta a abri-lo uma so vez (pref `pane.normalApplied`) e dai em diante o
+  Zotero guarda a escolha da pessoa.
 - **Acoes proprias:** ao escolher uma acao do Personalizado aparece "Editar" ao
   lado do pedido. O formulario tem Guardar, Cancelar e Eliminar (`_deleteCustom`).
 - **Colecao indicada:** depois de juntar uma colecao aparece a etiqueta
@@ -169,8 +168,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   "Comparar uma colecao".
 - **Creditos com versao e data:** `build.py` grava `content/buildinfo.json` (data
   de empacotamento) dentro do `.xpi`; `showBuildInfo` mostra versao e data.
-- **Comparar so na janela:** no painel o separador Comparar e um atalho
-  (`openInWindow({ group: "comparar" })`) e o painel nunca salta para Comparar.
+- **Comparar so na janela:** no painel nao ha separador Comparar, o atalho "Comparar artigos ↗"
+  esta no rodape do Avancado (`openInWindow({ group: "comparar" })`).
   O menu do clique direito nos itens tem so as 5 comparacoes (precisam de 2 ou
   mais PDFs) e abre a janela ja no separador Comparar. A janela mostra so as
   acoes de Comparar (sem a fila de separadores, `.zia-tabs[hidden]`): as outras
@@ -181,8 +180,13 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   "Comparison: <type> · <articles>" (EN), com ate 3 artigos e "e mais N" / "and N more"
   (`_heading`). No menu do clique direito os mesmos tipos aparecem como verbo:
   "Comparar: metodos" / "Compare: methods".
-- **Nunca fixado:** o Zotero fixa a seccao cujo icone se carregou; o `onItemChange`
-  desfaz isso para o assistente, para cada registo abrir na Info.
+- **Painel Avancado** (`.zia-mode-section:not(.zia-simple)`): motor, ⚙ e interruptor Simples/Avancado
+  numa linha. Separadores com sublinhado e nomes curtos (`group.<id>.tab`: Investigar, Pers.), o nome
+  completo aparece ao passar o rato. Sem chip do artigo, menos se o registo tem varios PDFs
+  (`_recordHasManyPdfs`). A acao escolhida mostra a descricao (`.zia-pending-desc`, o `hint`). Com os
+  separadores de conversa visiveis o nome nao se repete na resposta (so o x no canto, `.zia-head-x`).
+  O tempo fica na linha por baixo da resposta (`m.secs`), nao no estado. Com 2 ou mais motores
+  prontos, "Repetir com" e uma lista (`.zia-retry-sel`). Rodape sem "Nova conversa".
 - **Painel = um artigo:** no painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
   so na janela (com "+ PDF" e "+ Colecao" na barra de cima). O cartao "sem PDF" tem
   "Abrir a janela do assistente" e "Comparar uma colecao". Na janela, o "i" das
@@ -194,7 +198,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   `_routeConversation` (chamado em `_ask`): uma acao vai para o separador dela
   (ou um novo), cada pergunta abre um novo (sem historico), um separador vazio e
   aproveitado; "Repetir" fica no mesmo (`stay`). Escolher uma acao ja pedida abre
-  o separador dela sem enviar. "Nova conversa" abre um separador vazio. Fechar
+  o separador dela sem enviar. "Nova conversa" (so no Simples e na janela) abre um separador vazio. Fechar
   pede sempre confirmacao. Sem limite automatico. O historico antigo (tudo numa
   conversa) e separado por acao ao abrir (`_splitByAction`). Ficheiro de historico versao 2
   (`conversations`, `active`); a versao 1 ainda se le.
@@ -229,8 +233,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   (`.zia-action-extra`). As perguntas livres mantem a bolha.
 - **Respostas:** Copiar e Guardar como nota ficam por cima do texto. O titulo
   tem so a acao e o x (nunca recolhe). O motor, o modelo e o consumo ficam por
-  baixo do texto (`.zia-msg-meta`). Rodape do painel com
-  "Nova conversa" e "Abrir em janela" (e o botao de apoio, escondido por agora).
+  baixo do texto (`.zia-msg-meta`). Rodape do painel com "Abrir em janela" (Avancado tambem
+  com "Comparar artigos ↗", Simples com "Nova conversa") e o botao de apoio, escondido por agora.
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,

@@ -52,7 +52,7 @@ async function startup({ id, version, rootURI }) {
 
 	registerSection(id, rootURI);
 	placeAfterInfo(sectionID);
-	closedByDefault(sectionID);
+	undoClosedByDefault(sectionID);
 	registerMenus(id, rootURI);
 
 	for (const win of Zotero.getMainWindows()) {
@@ -79,13 +79,13 @@ function placeAfterInfo(paneID) {
 	}
 }
 
-// O assistente começa fechado (a Info abre logo). Só uma vez: se a pessoa o abrir, o Zotero
-// guarda essa escolha em panes.<id>.open e ela fica.
-function closedByDefault(paneID) {
+// Comportamento normal do Zotero ao abrir e fechar o assistente. A 0.10 fechava-o uma vez por
+// omissão: volta a abri-lo uma só vez e daí em diante o Zotero guarda a escolha da pessoa.
+function undoClosedByDefault(paneID) {
 	try {
-		if (!paneID || ZoteroIA.pref("pane.closedApplied")) return;
-		Zotero.Prefs.set(`panes.${paneID}.open`, false);
-		ZoteroIA.setPref("pane.closedApplied", true);
+		if (!paneID || !ZoteroIA.pref("pane.closedApplied") || ZoteroIA.pref("pane.normalApplied")) return;
+		Zotero.Prefs.set(`panes.${paneID}.open`, true);
+		ZoteroIA.setPref("pane.normalApplied", true);
 	}
 	catch (e) {
 		Zotero.logError(e);
@@ -126,13 +126,6 @@ function registerSection(pluginID, rootURI) {
 			},
 		],
 		onItemChange: ({ body, item, setEnabled }) => {
-			// O Zotero "fixa" a secção cujo ícone se carregou e depois abre sempre nela.
-			// O assistente nunca fica fixado: cada registo abre na Info, como no Zotero normal.
-			try {
-				const details = body && body.closest && body.closest("item-details");
-				if (details && sectionID && details.pinnedPane === sectionID) details.pinnedPane = "";
-			}
-			catch (e) { /* versão do Zotero sem fixar secções */ }
 			// Sempre visível (também em registos sem PDF): o painel explica o que fazer
 			setEnabled(!!item);
 			return true;
