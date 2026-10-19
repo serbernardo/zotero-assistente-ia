@@ -2308,14 +2308,20 @@ var ZIAChatView = class {
 			}
 		}
 		if (isMap && !m.pending) this._mindmapNodes(body);
-		// Mapa de temas: vista em árvore ou em grafo (no grafo, um artigo com dois temas aparece uma só vez)
+		// Mapa mental (Mapa ou Lista) e mapa de temas (Constelação ou Árvore): a vista desenhada é interativa
 		let graph = null;
-		if (m.actionID === "temas" && !m.pending && m.text) {
+		if (isMap && !m.pending && m.text) {
+			const isThemes = m.actionID === "temas";
+			// Mapa mental: "map" = diagrama com curvas (M2), "list" = ramos com cor (M1). Fica a última escolha
+			const kinds = isThemes ? ["graph", "tree"] : ["map", "list"];
+			const saved = !isThemes && this.core.pref("mindmap.view");
+			const cur = kinds.includes(m.view) ? m.view : kinds.includes(saved) ? saved : kinds[0];
 			const views = this._el("div", "zia-viewswitch");
-			for (const v of ["tree", "graph"]) {
-				const on = (m.view || "tree") === v;
-				const b = this._button(this.T("temas.view." + v), "zia-mode-btn" + (on ? " on" : ""), () => {
+			for (const v of kinds) {
+				const on = cur === v;
+				const b = this._button(this.T((isThemes ? "temas.view." : "map.view.") + v), "zia-mode-btn" + (on ? " on" : ""), () => {
 					m.view = v;
+					if (!isThemes) this.core.setPref("mindmap.view", v);
 					this._renderMessage(m);
 				});
 				b.dataset.view = v;
@@ -2323,7 +2329,9 @@ var ZIAChatView = class {
 				views.appendChild(b);
 			}
 			el.appendChild(views);
-			if (m.view === "graph") graph = this._themeGraph(body);
+			if (cur === "graph") graph = this._themeGraph(body, m);
+			if (cur === "map") graph = this._mindmapSVG(body, m);
+			if (cur === "list" && !isThemes) this._mindmapBranches(body);
 		}
 		if (m.pending) {
 			body.appendChild(this._el("span", "zia-typing", m.text ? " ▍" : this.T("chat.preparing")));
@@ -2370,114 +2378,457 @@ var ZIAChatView = class {
 		}
 	}
 
+	/** Cores dos ramos e dos temas (a primeira é o azul petróleo da app). */
+	get MAP_COLORS() {
+		return ["#1f5f66", "#c2410c", "#6d4bb3", "#2f7d4f", "#b45309", "#2563eb", "#be185d", "#0e7490", "#4d7c0f", "#9333ea"];
+	}
+
+	_svg(tag, attrs, parent) {
+		const e = this.doc.createElementNS("http://www.w3.org/2000/svg", tag);
+		for (const k in attrs || {}) if (attrs[k] != null) e.setAttribute(k, attrs[k]);
+		if (parent) parent.appendChild(e);
+		return e;
+	}
+
+	/** Parte um texto em linhas de até n caracteres. */
+	_wrap(text, n) {
+		const out = [];
+		let line = "";
+		// palavras maiores do que a linha partem-se (nos hífenes, se houver)
+		const words = [];
+		for (const w of String(text).split(/\s+/).filter(Boolean)) {
+			if (w.length <= n) { words.push(w); continue; }
+			const parts = w.split(/(?<=-)/);
+			let cur = "";
+			for (const p of parts) {
+				if (cur && (cur + p).length > n) { words.push(cur); cur = ""; }
+				cur += p;
+				while (cur.length > n) { words.push(cur.slice(0, n - 1) + "-"); cur = cur.slice(n - 1); }
+			}
+			if (cur) words.push(cur);
+		}
+		for (const w of words) {
+			if (line && (line + " " + w).length > n) {
+				out.push(line);
+				line = w;
+			}
+			else line = line ? line + " " + w : w;
+		}
+		if (line) out.push(line);
+		return out.length ? out : [""];
+	}
+
+	/** Texto de um ramo sem as citações, e as citações à parte (com a página, para abrir o PDF). */
+	_mmInfo(li) {
+		const node = li.querySelector(":scope > .zia-mm-node");
+		if (!node) return { text: "", cites: [] };
+		const cites = [...node.querySelectorAll(".zia-cite")];
+		const copy = node.cloneNode(true);
+		for (const c of copy.querySelectorAll(".zia-cite")) c.remove();
+		const text = copy.textContent.replace(/\s+/g, " ").replace(/[\s,;:(\[]+$/, "").replace(/^\[[^\]]*\]\s*/, m0 => m0).trim();
+		return { text, cites };
+	}
+
 	/**
-	 * Mapa de temas em grafo: a coleção ao centro, os temas à volta e os artigos por fora. Um artigo em
-	 * vários temas é um só círculo, ligado a cada um. Lê a lista já desenhada (com as citações clicáveis).
+	 * Caixa de um mapa desenhado: arrastar para mover, botões para aproximar, afastar e ajustar
+	 * (Ctrl + roda do rato também). A vista fica guardada na mensagem ao redesenhar.
 	 */
-	_themeGraph(body) {
-		const SVG = "http://www.w3.org/2000/svg";
+	_mapCanvas(svg, world, cw, ch, m, { minScale = 0.35, startScale, extra = [], left = false } = {}) {
+		const box = this._el("div", "zia-mapbox");
+		const tools = this._el("div", "zia-map-tools");
+		const vp = this._el("div", "zia-map-view");
+		vp.appendChild(svg);
+		svg.setAttribute("width", "100%");
+		svg.setAttribute("height", "100%");
+		let st = m.mapView || null;
+		const apply = () => {
+			world.setAttribute("transform", `translate(${st.tx} ${st.ty}) scale(${st.s})`);
+			m.mapView = st;
+		};
+		const width = () => vp.clientWidth || 360;
+		const fit = keepHeight => {
+			const W = width();
+			let s = Math.min(1.15, (W - 16) / cw);
+			if (startScale && s < startScale) s = startScale;
+			s = Math.max(minScale, s);
+			st = { s, tx: left && cw * s > W ? 8 : (W - cw * s) / 2, ty: 10 };
+			if (!keepHeight) vp.style.height = Math.round(Math.min(Math.max(ch * s + 20, 220), 620)) + "px";
+			apply();
+		};
+		const zoom = (f, cx, cy) => {
+			const ns = Math.min(3, Math.max(0.2, st.s * f));
+			if (cx == null) { cx = width() / 2; cy = (vp.clientHeight || 300) / 2; }
+			st = { s: ns, tx: cx - (cx - st.tx) * ns / st.s, ty: cy - (cy - st.ty) * ns / st.s };
+			apply();
+		};
+		for (const [label, tip, fn] of [["−", this.T("map.zoomOut"), () => zoom(1 / 1.25)], ["+", this.T("map.zoomIn"), () => zoom(1.25)], [this.T("map.fit"), this.T("map.fit"), () => fit(true)]]) {
+			tools.appendChild(this._button(label, "zia-btn-small zia-map-btn", fn, tip));
+		}
+		for (const [label, fn] of extra) tools.appendChild(this._button(label, "zia-btn-small zia-map-btn", fn));
+		// Arrastar o fundo move o mapa (os nós continuam a receber os cliques)
+		let drag = null;
+		vp.addEventListener("pointerdown", ev => {
+			if (ev.button !== 0 || (ev.target.closest && ev.target.closest(".zia-map-hit"))) return;
+			drag = { x: ev.clientX, y: ev.clientY, tx: st.tx, ty: st.ty };
+			vp.classList.add("zia-dragging");
+			try { vp.setPointerCapture(ev.pointerId); } catch (e) { /* sem captura */ }
+		});
+		vp.addEventListener("pointermove", ev => {
+			if (!drag) return;
+			st = { s: st.s, tx: drag.tx + ev.clientX - drag.x, ty: drag.ty + ev.clientY - drag.y };
+			apply();
+		});
+		const end = () => { drag = null; vp.classList.remove("zia-dragging"); };
+		vp.addEventListener("pointerup", end);
+		vp.addEventListener("pointercancel", end);
+		vp.addEventListener("wheel", ev => {
+			if (!ev.ctrlKey) return;
+			ev.preventDefault();
+			const r = vp.getBoundingClientRect();
+			zoom(ev.deltaY < 0 ? 1.12 : 1 / 1.12, ev.clientX - r.left, ev.clientY - r.top);
+		}, { passive: false });
+		box.append(tools, vp);
+		if (st) {
+			vp.style.height = (m.mapHeight || 360) + "px";
+			apply();
+		}
+		else this.win.setTimeout(() => { fit(); m.mapHeight = parseInt(vp.style.height, 10) || 360; }, 0);
+		return box;
+	}
+
+	/**
+	 * Mapa mental desenhado: o tema ao centro à esquerda, os ramos com cor e as ideias à direita,
+	 * ligados por curvas. Clicar num ramo abre ou fecha as suas ideias. A página de cada ideia abre o PDF.
+	 */
+	_mindmapSVG(body, m) {
 		const rootLi = body.querySelector("ul > li");
 		if (!rootLi) return null;
-		const nodes = [], edges = [], docs = new Map();
-		const labelOf = li => {
-			const n = li.querySelector(":scope > .zia-mm-node");
-			return n ? n.textContent.replace(/\s+/g, " ").trim() : "";
+		const COLORS = this.MAP_COLORS.slice(1);
+		const pageOf = t => {
+			const x = String(t).match(/(pp?\.\s*[\d\s,–-]+)\s*$/);
+			return x ? x[1].trim() : String(t).trim();
 		};
-		let slot = 0;
-		const walk = (li, depth, parent) => {
-			const kids = li.querySelectorAll(":scope > ul > li, :scope > ol > li");
-			const cite = li.querySelector(":scope > .zia-mm-node .zia-cite");
-			if (!kids.length && depth > 0) {
-				// artigo: identificado pela citação (o mesmo artigo em dois temas é um só nó)
-				const key = cite ? cite.textContent.trim() : labelOf(li);
+		const root = this._mmInfo(rootLi);
+		const branches = [...rootLi.querySelectorAll(":scope > ul > li, :scope > ol > li")].map((li, i) => {
+			const leaves = [];
+			const walk = (l, level) => {
+				for (const k of l.querySelectorAll(":scope > ul > li, :scope > ol > li")) {
+					leaves.push(Object.assign(this._mmInfo(k), { level }));
+					walk(k, level + 1);
+				}
+			};
+			walk(li, 0);
+			return Object.assign(this._mmInfo(li), { leaves, color: COLORS[i % COLORS.length], i });
+		});
+		if (!m.mmClosed) m.mmClosed = [];
+		const closed = new Set(m.mmClosed);
+		// No painel (estreito) o desenho é mais compacto e a letra maior, para se ler depois de encolhido
+		const narrow = this.mode === "section";
+		const CH = narrow ? 7 : 6.4, LH = narrow ? 16 : 15;
+		const rootLines = this._wrap(root.text, narrow ? 16 : 22);
+		const rootW = narrow ? 128 : 170, rootH = rootLines.length * 17 + (root.cites.length ? 16 : 0) + 18;
+		const brLines = branches.map(b => this._wrap(b.text, narrow ? 14 : 18));
+		const brW = Math.min(narrow ? 128 : 170, Math.max(84, ...brLines.map(ls => Math.max(...ls.map(l => l.length)) * 7.2 + 44)));
+		const leafChars = narrow ? 24 : 34, leafW = leafChars * CH + 30;
+		const x0 = 10, xB = x0 + rootW + (narrow ? 30 : 48), xL = xB + brW + (narrow ? 24 : 36);
+		// alturas
+		let y = 10;
+		const anyOpen = branches.some(b => b.leaves.length && !closed.has(b.i));
+		for (const [bi, b] of branches.entries()) {
+			b.lines = brLines[bi];
+			b.h = b.lines.length * LH + 12;
+			b.open = b.leaves.length && !closed.has(b.i);
+			let ly = y;
+			if (b.open) {
+				for (const l of b.leaves) {
+					const pages = l.cites.map(c => pageOf(c.textContent));
+					l.lines = this._wrap(l.text, leafChars - l.level * 3);
+					l.pages = pages;
+					l.h = l.lines.length * LH + (pages.length ? LH : 0) + 8;
+					l.y = ly;
+					ly += l.h;
+				}
+			}
+			const block = Math.max(b.h + 6, b.open ? ly - y : 0) + 10;
+			b.y = y + block / 2 - b.h / 2;
+			y += block;
+		}
+		const totalH = Math.max(y, rootH + 20);
+		const rootY = totalH / 2 - rootH / 2;
+		const cw = (anyOpen ? xL + leafW : xB + brW) + 10, ch = totalH + 10;
+		const svg = this._svg("svg", { class: "zia-mm-svg" + (narrow ? " zia-mm-narrow" : ""), role: "img", "aria-label": this.T("action.mapa.label") });
+		const world = this._svg("g", { class: "zia-map-world" }, svg);
+		const links = this._svg("g", { fill: "none", "stroke-linecap": "round" }, world);
+		const curve = (xa, ya, xb, yb) => `M${xa} ${ya} C ${(xa + xb) / 2} ${ya}, ${(xa + xb) / 2} ${yb}, ${xb} ${yb}`;
+		// raiz (azul petróleo)
+		const rg = this._svg("g", { class: "zia-mm-root" }, world);
+		this._svg("rect", { x: x0, y: rootY, width: rootW, height: rootH, rx: 14, fill: this.MAP_COLORS[0] }, rg);
+		rootLines.forEach((t, k) => {
+			const tx = this._svg("text", { x: x0 + rootW / 2, y: rootY + 22 + k * 17, "text-anchor": "middle", class: "zia-mm-roottext" }, rg);
+			tx.textContent = t;
+		});
+		if (root.cites.length) this._mmPages(rg, x0 + rootW / 2, rootY + rootH - 10, root.cites.map(c => pageOf(c.textContent)), root.cites, "middle", true);
+		// ramos e ideias
+		for (const b of branches) {
+			const cy = b.y + b.h / 2;
+			this._svg("path", { d: curve(x0 + rootW, rootY + rootH / 2, xB, cy), stroke: b.color, "stroke-width": 2.4, class: "zia-mm-link" }, links);
+			const g = this._svg("g", { class: "zia-mm-branch zia-map-hit" + (b.open ? " open" : ""), tabindex: "0", role: "button", "aria-expanded": b.open ? "true" : "false" }, world);
+			this._svg("rect", { x: xB, y: b.y, width: brW, height: b.h, rx: b.h / 2 > 14 ? 12 : b.h / 2, fill: b.color, "fill-opacity": 0.12, stroke: b.color, "stroke-width": 1.4 }, g);
+			b.lines.forEach((t, k) => {
+				const tx = this._svg("text", { x: xB + 12, y: b.y + 17 + k * LH, fill: b.color, class: "zia-mm-brtext" }, g);
+				tx.textContent = t;
+			});
+			if (b.leaves.length) {
+				const badge = this._svg("text", { x: xB + brW - 10, y: b.y + b.h / 2 + 4, "text-anchor": "end", fill: b.color, class: "zia-mm-count" }, g);
+				badge.textContent = b.open ? "−" : "+" + b.leaves.length;
+			}
+			const tip = this._svg("title", {}, g);
+			tip.textContent = this.T(b.open ? "map.close" : "map.open");
+			const toggle = () => {
+				const set = new Set(m.mmClosed);
+				if (set.has(b.i)) set.delete(b.i); else set.add(b.i);
+				m.mmClosed = [...set];
+				this._renderMessage(m);
+			};
+			g.addEventListener("click", toggle);
+			g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); } });
+			if (!b.open) continue;
+			for (const l of b.leaves) {
+				const ly = l.y + 4 + LH / 2;
+				const lx = xL + l.level * 14;
+				this._svg("path", { d: curve(xB + brW, cy, lx - 4, ly), stroke: b.color, "stroke-width": 1.3, "stroke-opacity": 0.55, class: "zia-mm-link" }, links);
+				const lg = this._svg("g", { class: "zia-mm-leaf" }, world);
+				this._svg("circle", { cx: lx, cy: ly, r: 3.2, fill: b.color }, lg);
+				l.lines.forEach((t, k) => {
+					const tx = this._svg("text", { x: lx + 9, y: ly + 4 + k * LH, class: "zia-mm-leaftext" }, lg);
+					tx.textContent = t;
+				});
+				if (l.pages.length) this._mmPages(lg, lx + 9, ly + 4 + l.lines.length * LH, l.pages, l.cites, "start");
+			}
+		}
+		const all = branches.filter(b => b.leaves.length).map(b => b.i);
+		return this._mapCanvas(svg, world, cw, ch, m, {
+			startScale: 0.75, left: true,
+			extra: all.length ? [
+				[this.T("map.expandAll"), () => { m.mmClosed = []; this._renderMessage(m); }],
+				[this.T("map.collapseAll"), () => { m.mmClosed = all; this._renderMessage(m); }],
+			] : [],
+		});
+	}
+
+	/**
+	 * Mapa mental em ramos com cor (M1): a lista encaixada com a raiz a azul petróleo, cada ramo com a
+	 * sua cor e, com um só artigo, só a página nas citações (o título da citação tem a referência inteira).
+	 */
+	_mindmapBranches(body) {
+		body.classList.add("zia-mm-m1");
+		const COLORS = this.MAP_COLORS.slice(1);
+		const rootLi = body.querySelector("ul > li");
+		if (!rootLi) return;
+		[...rootLi.querySelectorAll(":scope > ul > li, :scope > ol > li")].forEach((li, i) => li.style.setProperty("--c", COLORS[i % COLORS.length]));
+		if (this.state.docs.length === 1) {
+			for (const c of body.querySelectorAll(".zia-cite")) {
+				const x = c.textContent.match(/(pp?\.\s*[\d\s,–-]+)\s*$/);
+				if (!x) continue;
+				if (!c.title) c.title = c.textContent;
+				c.textContent = x[1].trim();
+			}
+		}
+	}
+
+	/** Páginas de uma ideia do mapa: pequenas, clicáveis (abrem o PDF nessa página). */
+	_mmPages(parent, x, y, pages, cites, anchor, light) {
+		const t = this._svg("text", { x, y, "text-anchor": anchor, class: "zia-mm-pages" + (light ? " light" : "") }, parent);
+		pages.forEach((pg, k) => {
+			if (k) t.appendChild(this.doc.createTextNode(" · "));
+			const s = this._svg("tspan", { class: "zia-mm-pg zia-map-hit" }, t);
+			s.textContent = pg;
+			const c = cites[k];
+			if (c) {
+				s.addEventListener("click", ev => { ev.stopPropagation(); c.click(); });
+				const tip = this._svg("title", {}, s);
+				tip.textContent = c.title || c.textContent;
+			}
+		});
+		return t;
+	}
+
+	/**
+	 * Mapa de temas em constelação: cada tema é uma nuvem de cor com os seus artigos. Um artigo em
+	 * vários temas é um só círculo, entre as nuvens e ligado a cada uma. Passar o rato mostra o título,
+	 * clicar abre o PDF, clicar num tema (ou na legenda) destaca-o.
+	 */
+	_themeGraph(body, m) {
+		const rootLi = body.querySelector("ul > li");
+		if (!rootLi) return null;
+		const root = this._mmInfo(rootLi);
+		const themes = [], docs = new Map(), edges = [];
+		const refOf = c => String(c.textContent || "").replace(/,?\s*pp?\.\s*[\d\s,–-]+$/, "").trim();
+		const walk = (li, theme) => {
+			for (const k of li.querySelectorAll(":scope > ul > li, :scope > ol > li")) {
+				const kids = k.querySelectorAll(":scope > ul > li, :scope > ol > li");
+				const info = this._mmInfo(k);
+				if (kids.length || !theme) {
+					// tema (os subtemas também contam como temas)
+					const t = { kind: "theme", label: info.text.replace(/\s*\(\d+\)\s*$/, ""), docs: [], i: themes.length };
+					themes.push(t);
+					walk(k, t);
+					continue;
+				}
+				const cite = info.cites[0] || null;
+				const key = cite ? refOf(cite) : info.text;
 				let d = docs.get(key);
 				if (!d) {
-					// nome do artigo sem o texto da citação (a citação fica na dica)
-					const node = li.querySelector(":scope > .zia-mm-node");
-					let name = labelOf(li);
-					if (node && cite) {
-						const copy = node.cloneNode(true);
-						for (const c of copy.querySelectorAll(".zia-cite")) c.remove();
-						name = copy.textContent.replace(/\s+/g, " ").replace(/[\s,;:(\[]+$/, "").trim() || key;
-					}
-					d = { kind: "doc", label: name, full: labelOf(li), cite, angles: [], depth };
+					d = { kind: "doc", ref: cite ? refOf(cite) : info.text, title: info.text, cite, themes: [] };
 					docs.set(key, d);
-					nodes.push(d);
 				}
-				d.angles.push(slot++);
-				edges.push([parent, d]);
-				return d;
+				if (!d.themes.includes(theme)) {
+					d.themes.push(theme);
+					theme.docs.push(d);
+					edges.push([theme, d]);
+				}
 			}
-			const n = { kind: depth === 0 ? "root" : "theme", label: labelOf(li), depth, angles: [] };
-			nodes.push(n);
-			if (parent) edges.push([parent, n]);
-			for (const k of kids) {
-				const c = walk(k, depth + 1, n);
-				n.angles.push(...(c.kind === "doc" ? [c.angles[c.angles.length - 1]] : c.angles));
-			}
-			return n;
 		};
-		walk(rootLi, 0, null);
-		const total = Math.max(slot, 1);
-		const maxDepth = Math.max(1, ...nodes.filter(n => n.kind !== "doc").map(n => n.depth));
-		const W = 640, C = W / 2, ring = d => (d / (maxDepth + 1)) * (C - 70);
-		const ang = n => (n.angles.length ? n.angles.reduce((a, b) => a + b, 0) / n.angles.length : 0) / total * 2 * Math.PI - Math.PI / 2;
-		for (const n of nodes) {
-			const r = n.kind === "root" ? 0 : n.kind === "doc" ? C - 70 : ring(n.depth);
-			n.x = C + r * Math.cos(ang(n));
-			n.y = C + r * Math.sin(ang(n));
+		walk(rootLi, null);
+		if (!themes.length) return null;
+		const COL = this.MAP_COLORS;
+		themes.forEach((t, i) => { t.color = COL[i % COL.length]; });
+		const n = themes.length, R = n === 1 ? 0 : 110 + 26 * n;
+		themes.forEach((t, i) => {
+			// dois temas lado a lado, três ou mais à volta
+			const a = (n === 2 ? Math.PI : -Math.PI / 2) + i * 2 * Math.PI / n;
+			t.a = a; t.x = R * Math.cos(a); t.y = R * Math.sin(a);
+		});
+		const list = [...docs.values()];
+		for (const t of themes) {
+			const own = t.docs.filter(d => d.themes.length === 1);
+			const rr = 52 + 5 * own.length;
+			own.forEach((d, k) => {
+				const a = t.a + (k - (own.length - 1) / 2) * Math.min(0.75, (2 * Math.PI) / Math.max(own.length, 1));
+				d.x = t.x + rr * Math.cos(n === 1 ? -Math.PI / 2 + k * 2 * Math.PI / own.length : a);
+				d.y = t.y + rr * Math.sin(n === 1 ? -Math.PI / 2 + k * 2 * Math.PI / own.length : a);
+			});
 		}
-		const short = (t, n) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
-		// Área do desenho à medida do conteúdo, a contar com o comprimento dos nomes (nada fica cortado)
-		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-		for (const n of nodes) {
-			const w = short(n.label, n.kind === "doc" ? 26 : 34).length * 6.8 + 14;
-			const right = n.x >= C - 1;
-			const lx = n.kind === "root" ? n.x - w / 2 : right ? n.x : n.x - w;
-			const rx = n.kind === "root" ? n.x + w / 2 : right ? n.x + w : n.x;
-			x0 = Math.min(x0, lx, n.x - 14); x1 = Math.max(x1, rx, n.x + 14);
-			y0 = Math.min(y0, n.y - 28); y1 = Math.max(y1, n.y + 16);
+		for (const d of list) {
+			if (d.themes.length < 2) continue;
+			d.x = d.themes.reduce((s, t) => s + t.x, 0) / d.themes.length * 0.8;
+			d.y = d.themes.reduce((s, t) => s + t.y, 0) / d.themes.length * 0.8;
 		}
-		const svg = this.doc.createElementNS(SVG, "svg");
-		const vw = Math.ceil(x1 - x0 + 16), vh = Math.ceil(y1 - y0 + 16);
-		svg.setAttribute("viewBox", `${Math.floor(x0 - 8)} ${Math.floor(y0 - 8)} ${vw} ${vh}`);
-		// tamanho natural: só encolhe se não couber
-		svg.setAttribute("width", vw);
-		svg.setAttribute("height", vh);
-		svg.setAttribute("class", "zia-graph");
-		svg.setAttribute("role", "img");
-		svg.setAttribute("aria-label", this.T("temas.view.graph"));
-		for (const [a, b] of edges) {
-			const l = this.doc.createElementNS(SVG, "line");
-			l.setAttribute("x1", a.x); l.setAttribute("y1", a.y); l.setAttribute("x2", b.x); l.setAttribute("y2", b.y);
-			l.setAttribute("class", "zia-g-edge");
-			svg.appendChild(l);
+		// Afastar círculos que ficam por cima uns dos outros (os temas ficam no sítio)
+		for (let it = 0; it < 80; it++) {
+			for (let i = 0; i < list.length; i++) {
+				const a = list[i];
+				for (const b of list.slice(i + 1).concat(themes)) {
+					const dx = a.x - b.x, dy = a.y - b.y, dist = Math.hypot(dx, dy) || 0.01;
+					const min = b.kind === "theme" ? 46 : 30;
+					if (dist >= min) continue;
+					const push = (min - dist) / 2, ux = dx / dist, uy = dy / dist;
+					a.x += ux * push; a.y += uy * push;
+					if (b.kind === "doc") { b.x -= ux * push; b.y -= uy * push; }
+				}
+			}
 		}
-		for (const n of nodes) {
-			const g = this.doc.createElementNS(SVG, "g");
-			g.setAttribute("class", "zia-g-" + n.kind);
-			const c = this.doc.createElementNS(SVG, "circle");
-			c.setAttribute("cx", n.x); c.setAttribute("cy", n.y);
-			c.setAttribute("r", n.kind === "root" ? 12 : n.kind === "theme" ? 8 : 6);
-			const t = this.doc.createElementNS(SVG, "text");
-			const right = n.x >= C - 1;
-			t.setAttribute("x", n.kind === "root" ? n.x : n.x + (right ? 10 : -10));
-			t.setAttribute("y", n.kind === "root" ? n.y - 18 : n.y + 4);
-			t.setAttribute("text-anchor", n.kind === "root" ? "middle" : right ? "start" : "end");
-			t.textContent = short(n.label, n.kind === "doc" ? 26 : 34);
-			const tip = this.doc.createElementNS(SVG, "title");
-			tip.textContent = n.full || n.label;
-			g.append(tip, c, t);
-			if (n.kind === "doc" && n.cite) {
-				g.setAttribute("tabindex", "0");
-				g.style.cursor = "pointer";
-				const open = () => n.cite.click();
+		const many = list.length > 30;
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		const halo = t => Math.max(56, ...t.docs.filter(d => d.themes.length === 1).map(d => Math.hypot(d.x - t.x, d.y - t.y) + 26));
+		for (const t of themes) {
+			const h = halo(t);
+			t.h = h;
+			minX = Math.min(minX, t.x - h, t.x - t.label.length * 3.6 - 20); maxX = Math.max(maxX, t.x + h, t.x + t.label.length * 3.6 + 20);
+			minY = Math.min(minY, t.y - h); maxY = Math.max(maxY, t.y + h);
+		}
+		for (const d of list) {
+			minX = Math.min(minX, d.x - 12); maxX = Math.max(maxX, d.x + 14 + (many ? 0 : d.ref.length * 5.6));
+			minY = Math.min(minY, d.y - 12); maxY = Math.max(maxY, d.y + 12);
+		}
+		const ox = -minX + 16, oy = -minY + 16, cw = maxX - minX + 32, ch = maxY - minY + 32;
+		const svg = this._svg("svg", { class: "zia-graph" + (many ? " zia-g-many" : ""), role: "img", "aria-label": this.T("temas.view.graph") });
+		const defs = this._svg("defs", {}, svg);
+		const world = this._svg("g", { class: "zia-map-world" }, svg);
+		const inner = this._svg("g", { transform: `translate(${ox} ${oy})` }, world);
+		const gHalo = this._svg("g", {}, inner), gEdge = this._svg("g", { fill: "none" }, inner), gDoc = this._svg("g", {}, inner), gTheme = this._svg("g", {}, inner);
+		for (const t of themes) this._svg("circle", { cx: t.x, cy: t.y, r: t.h, fill: t.color, "fill-opacity": 0.05, stroke: t.color, "stroke-opacity": 0.18, "stroke-dasharray": "2 4", class: "zia-g-halo", "data-t": t.i }, gHalo);
+		for (const [t, d] of edges) {
+			const mx = (t.x + d.x) / 2 * 0.92, my = (t.y + d.y) / 2 * 0.92;
+			const e = this._svg("path", { d: `M${t.x} ${t.y} Q ${mx} ${my} ${d.x} ${d.y}`, stroke: t.color, "stroke-width": 1.4, "stroke-opacity": 0.55, class: "zia-g-edge" + (d.themes.length > 1 ? " multi" : ""), "data-t": t.i }, gEdge);
+			(d.edgeEls = d.edgeEls || []).push(e);
+		}
+		const box = this._el("div", "zia-graph-wrap");
+		const tipEl = this._el("div", "zia-g-tip");
+		tipEl.hidden = true;
+		let focus = null;
+		const setFocus = i => {
+			focus = focus === i ? null : i;
+			svg.classList.toggle("zia-g-focus", focus != null);
+			for (const el of svg.querySelectorAll("[data-t]")) el.classList.toggle("on", focus != null && String(el.dataset.t).split(",").includes(String(focus)));
+			for (const c of box.querySelectorAll(".zia-g-legend button")) c.classList.toggle("on", focus != null && c.dataset.t === String(focus));
+		};
+		list.forEach((d, k) => {
+			const g = this._svg("g", { class: "zia-g-doc zia-map-hit", tabindex: "0", "data-t": d.themes.map(t => t.i).join(",") }, gDoc);
+			let fill = d.themes[0].color;
+			if (d.themes.length > 1) {
+				const grad = this._svg("linearGradient", { id: `zia-mix-${k}-${Math.random().toString(36).slice(2, 7)}` }, defs);
+				const step = 100 / d.themes.length;
+				d.themes.forEach((t, j) => {
+					this._svg("stop", { offset: `${j * step}%`, "stop-color": t.color }, grad);
+					this._svg("stop", { offset: `${(j + 1) * step}%`, "stop-color": t.color }, grad);
+				});
+				fill = `url(#${grad.getAttribute("id")})`;
+			}
+			this._svg("circle", { cx: d.x, cy: d.y, r: d.themes.length > 1 ? 9 : 7, fill, stroke: "#fff", "stroke-width": 2 }, g);
+			const tx = this._svg("text", { x: d.x + 11, y: d.y + 4, class: "zia-g-label" }, g);
+			tx.textContent = d.ref.length > 26 ? d.ref.slice(0, 25) + "…" : d.ref;
+			const show = () => {
+				for (const e of d.edgeEls || []) e.classList.add("hot");
+				while (tipEl.firstChild) tipEl.removeChild(tipEl.firstChild);
+				tipEl.appendChild(this._el("div", "zia-g-tip-ref", d.ref));
+				if (d.title && d.title !== d.ref) tipEl.appendChild(this._el("div", "zia-g-tip-title", d.title));
+				tipEl.appendChild(this._el("div", "zia-g-tip-themes", d.themes.map(t => t.label).join(" · ")));
+				if (d.cite) tipEl.appendChild(this._el("div", "zia-g-tip-open", this.T("temas.openPdf")));
+				tipEl.hidden = false;
+				const vr = box.getBoundingClientRect(), r = g.getBoundingClientRect();
+				tipEl.style.left = Math.max(4, Math.min(vr.width - 230, r.right - vr.left + 8)) + "px";
+				tipEl.style.top = Math.max(4, r.top - vr.top - 6) + "px";
+			};
+			const hide = () => { for (const e of d.edgeEls || []) e.classList.remove("hot"); tipEl.hidden = true; };
+			g.addEventListener("mouseenter", show);
+			g.addEventListener("focus", show);
+			g.addEventListener("mouseleave", hide);
+			g.addEventListener("blur", hide);
+			if (d.cite) {
+				const open = () => d.cite.click();
 				g.addEventListener("click", open);
 				g.addEventListener("keydown", ev => { if (ev.key === "Enter") open(); });
 			}
-			svg.appendChild(g);
+		});
+		for (const t of themes) {
+			const g = this._svg("g", { class: "zia-g-theme zia-map-hit", tabindex: "0", "data-t": t.i, role: "button" }, gTheme);
+			const label = `${t.label} · ${t.docs.length}`;
+			const w = Math.max(60, label.length * 6.6 + 22);
+			// Etiqueta clara: fundo branco com um toque da cor, contorno fino e texto na cor do tema
+			this._svg("rect", { x: t.x - w / 2, y: t.y - 13, width: w, height: 26, rx: 13, fill: "#fff", class: "zia-g-themebg" }, g);
+			this._svg("rect", { x: t.x - w / 2, y: t.y - 13, width: w, height: 26, rx: 13, fill: t.color, "fill-opacity": 0.12, stroke: t.color, "stroke-width": 1.3 }, g);
+			const tx = this._svg("text", { x: t.x, y: t.y + 4, "text-anchor": "middle", class: "zia-g-themetext", fill: t.color }, g);
+			tx.textContent = label;
+			g.addEventListener("click", () => setFocus(t.i));
+			g.addEventListener("keydown", ev => { if (ev.key === "Enter") setFocus(t.i); });
 		}
-		return svg;
+		if (root.text) box.appendChild(this._el("div", "zia-map-caption", root.text));
+		const canvas = this._mapCanvas(svg, world, cw, ch, m, {});
+		canvas.appendChild(tipEl);
+		box.appendChild(canvas);
+		const legend = this._el("div", "zia-g-legend");
+		for (const t of themes) {
+			const c = this._button("", "zia-g-chip", () => setFocus(t.i));
+			c.dataset.t = String(t.i);
+			const dot = this._el("i");
+			dot.style.background = t.color;
+			c.append(dot, this.doc.createTextNode(`${t.label} · ${t.docs.length}`));
+			legend.appendChild(c);
+		}
+		box.appendChild(legend);
+		box.appendChild(this._el("div", "zia-map-hint", this.T("temas.hint")));
+		return box;
 	}
 
 	/** Perguntar à coleção: barra com o total de cada resposta (Sim, Em parte, Não, Não aborda). */

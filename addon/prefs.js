@@ -12,6 +12,7 @@ pref("extensions.zoteroia.history.save", true);
 pref("extensions.zoteroia.ui.group", "compreender");
 // Painel: "simple" (licenciatura, poucos botões grandes) ou "advanced" (todas as ações)
 pref("extensions.zoteroia.ui.mode", "simple");
+pref("extensions.zoteroia.mindmap.view", "map");
 
 // Claude com chave da API da Anthropic (a chave fica encriptada, nunca em texto simples)
 pref("extensions.zoteroia.anthropic.key", "");

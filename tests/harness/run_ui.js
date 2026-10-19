@@ -291,20 +291,35 @@ async function main() {
 		await page.evaluate(() => { window.MOCK.answer = "- Estudo sobre X\n  - Problema\n    - Falta de dados sobre X [D1:p2]\n  - Método\n    - Inquérito a 120 pessoas [D1:p4]\n    - Entrevistas a 12 docentes [D1:p5]\n  - Resultados\n    - X melhora Y [D1:p7]\n"; });
 		await page.click('.zia-simple-btn[data-action="mapa"]');
 		await page.waitForFunction(() => window.engineCalls === 3);
-		await page.waitForSelector(".zia-mindmap li li li");
+		await page.waitForSelector("svg.zia-mm-svg");
 		await page.waitForFunction(() => !document.querySelector(".zia-typing"));
 		assert.match(await page.evaluate(() => window.lastPrompt), /mapa mental/);
-		const map = await page.$eval(".zia-mindmap", el => ({
-			root: el.querySelector(":scope > ul > li > .zia-mm-node").textContent.trim(),
-			branches: el.querySelectorAll(":scope > ul > li > ul > li").length,
-			lines: getComputedStyle(el.querySelector("li li"), "::before").borderLeftStyle,
-			cites: el.querySelectorAll(".zia-mm-node .zia-cite").length,
-		}));
-		assert.equal(map.root, "Estudo sobre X");
-		assert.equal(map.branches, 3);
-		assert.equal(map.lines, "solid", "ramos desenhados");
-		assert.ok(map.cites >= 4, "citações clicáveis no mapa");
-		await page.locator(".zia-mindmap").screenshot({ path: path.join(OUT, "ui_mapa_mental.png") });
+		// Diagrama (M2): raiz, 3 ramos, 4 ideias, páginas clicáveis
+		assert.equal(await page.textContent(".zia-mm-root"), "Estudo sobre X");
+		assert.equal(await page.locator(".zia-mm-branch").count(), 3);
+		assert.equal(await page.locator(".zia-mm-leaf").count(), 4);
+		assert.ok(await page.locator(".zia-mm-pg").count() >= 4, "páginas clicáveis no mapa");
+		await page.waitForFunction(() => /scale/.test(document.querySelector(".zia-map-world").getAttribute("transform") || ""));
+		await page.locator(".zia-mapbox").screenshot({ path: path.join(OUT, "ui_mapa_mental.png") });
+		await page.locator(".zia-mm-pg >> nth=0").click();
+		assert.ok((await page.evaluate(() => window.opened)).some(u => /SILVAPDF#2/.test(u)), "a página abre o PDF");
+		// fechar um ramo esconde as suas ideias, Abrir tudo volta a mostrar
+		await page.locator(".zia-mm-branch >> nth=1").click();
+		assert.equal(await page.locator(".zia-mm-leaf").count(), 2);
+		await page.click(".zia-map-btn:has-text(\"Abrir tudo\")");
+		assert.equal(await page.locator(".zia-mm-leaf").count(), 4);
+		// aproximar muda a escala
+		const t0 = await page.getAttribute(".zia-map-world", "transform");
+		await page.click(".zia-map-btn:has-text(\"+\")");
+		assert.notEqual(await page.getAttribute(".zia-map-world", "transform"), t0);
+		// Ramos (M1): a lista com cor, só a página nas citações, e a escolha fica guardada
+		await page.click('.zia-viewswitch [data-view="list"]');
+		await page.waitForSelector(".zia-mm-m1 li li li");
+		assert.equal(await page.evaluate(() => ZoteroIA.pref("mindmap.view")), "list");
+		assert.match(await page.textContent(".zia-mm-m1 .zia-cite"), /^p\. \d+$/);
+		await page.locator(".zia-mindmap").screenshot({ path: path.join(OUT, "ui_mapa_mental_ramos.png") });
+		await page.click('.zia-viewswitch [data-view="map"]');
+		await page.waitForSelector("svg.zia-mm-svg");
 		await page.evaluate(() => { window.engineCalls = 2; });
 
 		// relevância: precisa do tema escrito na caixa, e pode repetir-se com outro tema
@@ -488,19 +503,22 @@ async function main() {
 		await page.click('button[data-action="temas"]');
 		assert.match(await page.getAttribute(".zia-textarea", "placeholder"), /Nada a escrever/);
 		await page.click(".zia-send");
-		await page.waitForSelector(".zia-mindmap li li li");
+		await page.waitForSelector("svg.zia-graph");
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
 		const mp = await page.evaluate(() => window.lastPrompt);
 		assert.match(mp, /tipo="ficha"/, "envia só os metadados");
 		assert.ok(!mp.includes("<p n="), "não envia o texto dos PDFs");
 		assert.ok(await page.isVisible("text=Artigos que ficaram fora do mapa"), "avisa o artigo que ficou de fora");
 		assert.ok(await page.isVisible("text=Agrupamento sugerido pela IA"));
-		// vista em grafo: um artigo em dois temas é um só nó, e abre o PDF
-		await page.click('.zia-viewswitch [data-view="graph"]');
-		await page.waitForSelector("svg.zia-graph");
+		// constelação (vista por omissão): um artigo em dois temas é um só nó, legenda, destaque e cartão
 		assert.equal(await page.locator(".zia-g-theme").count(), 2);
 		assert.equal(await page.locator(".zia-g-doc").count(), 1, "o mesmo artigo em dois temas é um só nó");
-		assert.equal(await page.locator(".zia-g-edge").count(), 4);
+		assert.equal(await page.locator(".zia-g-edge").count(), 2);
+		assert.equal(await page.locator(".zia-g-legend .zia-g-chip").count(), 2);
+		await page.locator(".zia-g-legend .zia-g-chip >> nth=0").click();
+		assert.equal(await page.locator("svg.zia-graph.zia-g-focus").count(), 1, "clicar num tema destaca-o");
+		await page.locator(".zia-g-doc circle").hover();
+		assert.ok(await page.isVisible(".zia-g-tip"), "cartão com o título ao passar o rato");
 		await page.screenshot({ path: path.join(OUT, "ui_janela_mapa_temas_grafo.png") });
 		await page.locator(".zia-g-doc circle").click();
 		assert.ok((await page.evaluate(() => window.opened)).some(u => /SILVAPDF/.test(u)), "clicar no artigo abre o PDF");

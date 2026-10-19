@@ -36,8 +36,10 @@ Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`). Nomes 
   - Perguntar a colecao (`pergunta`): tabela por artigo, sintese e linhas tecnicas `RESPOSTA D1: SIM|EM
     PARTE|NAO|NAO ABORDA` (`parseStances`, `removeStanceLines`), barra `_stanceMeter` (`msg.stances`).
   - Mapa de temas (`temas`, `metaOnly`): envia so titulo, resumo e palavras-chave (`itemMetaText`, sem
-    resumo usa o inicio do PDF). Vistas Arvore e Grafo (`_themeGraph`, SVG radial sem bibliotecas: um
-    artigo em varios temas e um so no, clicar abre o PDF). Avisa os artigos que ficaram de fora.
+    resumo usa o inicio do PDF). Vistas Constelacao (por omissao, `_themeGraph`: cada tema numa nuvem
+    de cor com etiqueta clara, um artigo em varios temas e um so circulo com as cores dos temas e
+    ligacoes tracejadas, cartao com titulo ao passar o rato, clicar abre o PDF, clicar num tema ou na
+    legenda destaca-o) e Arvore (a lista). Avisa os artigos que ficaram de fora.
   - Revisao de literatura (`cmp_sintese`, a unica revisao).
   - Triagem (`triagem`, com os numeros para o diagrama PRISMA no resumo).
   Visao geral nao se chama "Comparacao geral": as notas ja comecam por "Comparacao:".
@@ -128,8 +130,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   lado do pedido. O formulario tem Guardar, Cancelar e Eliminar (`_deleteCustom`).
 - **Colecao indicada:** depois de juntar uma colecao aparece a etiqueta
   "Colecao: X" antes dos artigos e uma mensagem com quantos foram juntados.
-- **Botoes principais iguais** (Enviar, Pedir, Guardar, Juntar): tinta cheia,
-  texto branco, mesmo tamanho. O Enviar nunca fica cinzento: se faltar algo, o
+- **Botoes principais iguais** (Enviar, Pedir, Guardar, Juntar): azul petroleo (`--zia-accent`
+  #1f5f66, no escuro #4fa3aa), texto branco, mesmo tamanho. O interruptor Simples/Avancado usa a mesma cor. O Enviar nunca fica cinzento: se faltar algo, o
   clique explica o que falta.
 - **Mesmo autor e ano:** `disambiguateRefs` (lib.js) acrescenta a, b, c ao ano
   (Silva et al., 2021a e 2021b) nos chips, citacoes e notas. O id Dn continua unico
@@ -235,9 +237,15 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   ("Confirmado no PDF") quando nao ha problemas, os avisos aparecem inteiros. Mudar de modo nas
   definicoes a meio de uma resposta so redesenha no fim (`_rebuildLater`). Mesmas cores do resto.
   Nos testes do painel `ui.html` usa "advanced" por omissao (`?uimode=simple` para o simples).
-- **Mapa mental** (acao `mapa`): a IA devolve so uma lista encaixada; `_mindmapNodes` poe o texto de
-  cada ramo numa caixa (`.zia-mm-node`) e o CSS `.zia-mindmap` desenha os ramos (sem bibliotecas,
-  funciona no painel estreito). Nas notas fica a lista encaixada.
+- **Mapa mental** (acao `mapa`): a IA devolve so uma lista encaixada (`_mindmapNodes`). Duas vistas com
+  interruptor, a ultima escolha fica na pref `mindmap.view`: "Diagrama" (`map`, `_mindmapSVG`: raiz a
+  azul petroleo, ramos com cor e curvas, ideias com a pagina clicavel `_mmPages`, clicar num ramo abre
+  ou fecha, Abrir tudo / Fechar tudo, `m.mmClosed`) e "Ramos" (`list`, `_mindmapBranches`, CSS
+  `.zia-mm-m1`: a lista com cor por ramo e so a pagina nas citacoes quando ha um artigo). No painel o
+  diagrama e mais compacto (`zia-mm-narrow`). `_wrap` parte palavras compridas. Nas notas fica a lista.
+- **Mapas interativos** (`_mapCanvas`): arrastar para mover, botoes −, + e Ajustar, Ctrl + roda do
+  rato. A vista fica em `m.mapView`. Os nos clicaveis tem `.zia-map-hit` (nao comecam o arrastar).
+  Tudo em SVG feito pelo addon, sem bibliotecas de fora. Cores em `MAP_COLORS` (a primeira e o petroleo).
 - **Testar o que percebi** (acao `estudo`): 8 perguntas (compreensao, ligacao de ideias, reflexao
   critica) com resposta modelo e pagina. "Ideias principais" (`pontos`) nao sao palavras-chave
   (essas sao a acao `etiquetas`).
@@ -447,7 +455,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.2.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
