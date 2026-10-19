@@ -71,6 +71,7 @@ pref("extensions.zoteroia.sidenav.placed", false);
 // O assistente começa fechado no painel do item (aplicado uma só vez)
 pref("extensions.zoteroia.pane.closedApplied", false);
 pref("extensions.zoteroia.pane.normalApplied", false);
+pref("extensions.zoteroia.ui.simpleApplied", false);
 // Estilo das citações ao copiar e nas notas: "" = formato simples, ou o id de um estilo do Zotero
 pref("extensions.zoteroia.cite.style", "");
 // Ordem dos separadores dos motores nas definições (arrastar para mudar)

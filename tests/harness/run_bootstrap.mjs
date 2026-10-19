@@ -111,6 +111,14 @@ assert.ok(Zotero.ZoteroIA && Zotero.ZoteroIA.ChatView, "núcleo exposto");
 	assert.equal(zprefs[fake], false, "a escolha da pessoa fica");
 }
 
+// O painel abre no Simples: quem estava no Avançado volta ao Simples uma só vez
+{
+	assert.equal(zprefs["extensions.zoteroia.ui.simpleApplied"], true);
+	zprefs["extensions.zoteroia.ui.mode"] = "advanced"; // a pessoa muda depois
+	vm.runInContext("simpleModeOnce", scopeCtx)();
+	assert.equal(zprefs["extensions.zoteroia.ui.mode"], "advanced", "a escolha da pessoa fica");
+}
+
 // Botão PT/EN no título do painel: troca a língua e mostra a sigla certa
 {
 	const style = {};

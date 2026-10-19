@@ -76,7 +76,7 @@
 	const params = new URLSearchParams(location.search);
 	const prefs = {
 		engine: "claude", "claude.enabled": true, "gemini.key": "oskv1:simulada", answerLang: params.get("lang") || "ui",
-		"privacy.ack.claude": true, "privacy.ack.gemini": true, "ui.group": "compreender",
+		"privacy.ack.claude": true, "privacy.ack.gemini": true, "gemini.lastTest": "ok", "ui.group": "compreender",
 		"fichas.autoSave": true, "claude.maxChars": 600000, "gemini.maxChars": 400000, "anthropic.maxChars": 400000,
 		"custom.prompts": params.get("custom") || "", "ui.lang": params.get("ui") || "auto",
 		"ui.mode": params.get("uimode") || "advanced",

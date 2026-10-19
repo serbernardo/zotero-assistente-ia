@@ -69,6 +69,87 @@ var ZIAChatView = class {
 		return b;
 	}
 
+	/**
+	 * Lista de escolha. No painel é um select normal. Na janela do assistente (uma janela XUL própria)
+	 * os select nativos não abrem, por isso a lista é feita com botões. As duas têm addOption,
+	 * clearOptions, value, disabled e o evento "change".
+	 */
+	_select(cls, label) {
+		if (this.mode !== "window") {
+			const sel = this._el("select", cls);
+			if (label) sel.setAttribute("aria-label", label);
+			sel.addOption = (value, text) => {
+				const o = this._el("option", null, text);
+				o.setAttribute("value", value);
+				sel.appendChild(o);
+			};
+			sel.clearOptions = () => { while (sel.firstChild) sel.removeChild(sel.firstChild); };
+			return sel;
+		}
+		const root = this._el("div", "zia-dd " + (cls || ""));
+		const btn = this._el("button", "zia-dd-btn");
+		btn.setAttribute("type", "button");
+		btn.setAttribute("aria-haspopup", "listbox");
+		if (label) btn.setAttribute("aria-label", label);
+		const text = this._el("span", "zia-dd-text");
+		btn.append(text, this._el("span", "zia-dd-caret", "▾"));
+		const list = this._el("div", "zia-dd-list");
+		list.setAttribute("role", "listbox");
+		list.hidden = true;
+		root.append(btn, list);
+		const opts = [];
+		let value = "", disabled = false;
+		const show = () => {
+			const o = opts.find(x => x.value === value) || opts[0];
+			text.textContent = o ? o.text : "";
+			for (const it of list.children) it.classList.toggle("on", it.dataset.value === value);
+		};
+		const onDoc = ev => { if (!root.contains(ev.target)) close(); };
+		const close = () => {
+			list.hidden = true;
+			root.classList.remove("zia-dd-open");
+			btn.setAttribute("aria-expanded", "false");
+			this.doc.removeEventListener("mousedown", onDoc, true);
+		};
+		btn.addEventListener("click", ev => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			if (disabled) return;
+			if (!list.hidden) return close();
+			list.hidden = false;
+			root.classList.add("zia-dd-open");
+			btn.setAttribute("aria-expanded", "true");
+			this.doc.addEventListener("mousedown", onDoc, true);
+			const on = list.querySelector(".on");
+			if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest" });
+		});
+		root.addEventListener("keydown", ev => { if (ev.key === "Escape" && !list.hidden) { ev.stopPropagation(); close(); btn.focus(); } });
+		root.addOption = (v, t) => {
+			opts.push({ value: v, text: t });
+			const it = this._button(t, "zia-dd-item", () => {
+				close();
+				if (value === v) return;
+				value = v;
+				show();
+				root.dispatchEvent(new this.win.Event("change"));
+			});
+			it.dataset.value = v;
+			it.setAttribute("role", "option");
+			list.appendChild(it);
+			if (opts.length === 1 && !value) value = v;
+			show();
+		};
+		root.clearOptions = () => {
+			opts.length = 0;
+			while (list.firstChild) list.removeChild(list.firstChild);
+			value = "";
+			show();
+		};
+		Object.defineProperty(root, "value", { get: () => value, set: v => { value = v; show(); } });
+		Object.defineProperty(root, "disabled", { get: () => disabled, set: v => { disabled = !!v; btn.disabled = disabled; if (disabled) close(); } });
+		return root;
+	}
+
 	_build() {
 		this.simple = this.mode === "section" && (this.core.pref("ui.mode") || "simple") !== "advanced";
 		const root = this._el("div", `zia-root zia-mode-${this.mode}` + (this.simple ? " zia-simple" : ""));
@@ -105,7 +186,7 @@ var ZIAChatView = class {
 			tools.appendChild(this._button(this.T("chat.addPdf"), "zia-btn-small", () => this._openPicker(),
 				this.T("chat.addPdf.tip")));
 		}
-		this.engineSel = this._el("select", "zia-engine");
+		this.engineSel = this._select("zia-engine", this.T("chat.engine.tip"));
 		this.engineSel.title = this.T("chat.engine.tip");
 		this.engineSel.addEventListener("change", () => this._setEngine(this.engineSel.value));
 		// No modo simples usa-se o motor escolhido nas definições
@@ -127,6 +208,12 @@ var ZIAChatView = class {
 		root.appendChild(this.tabsEl);
 		this.actionsEl = this._el("div", "zia-actions");
 		root.appendChild(this.actionsEl);
+		// Painel Avançado: indicações para a próxima ação (abrem com "+ indicações") e "ou" antes da pergunta
+		this.hintsEl = this._el("div", "zia-hints");
+		this.hintsEl.hidden = true;
+		this.hintsInput = null;
+		root.appendChild(this.hintsEl);
+		if (this._isAdv()) root.appendChild(this._el("div", "zia-or", this.T("chat.or")));
 		const fichasLabel = this._el("label", "zia-fichas-toggle");
 		this.useFichas = this._el("input");
 		this.useFichas.setAttribute("type", "checkbox");
@@ -277,19 +364,13 @@ var ZIAChatView = class {
 
 	_renderEngines() {
 		const sel = this.engineSel;
-		while (sel.firstChild) sel.removeChild(sel.firstChild);
-		if (!this.engine) {
-			const o = this._el("option", null, this.T("chat.engine.choose"));
-			o.value = "";
-			sel.appendChild(o);
-		}
+		sel.clearOptions();
+		if (!this.engine) sel.addOption("", this.T("chat.engine.choose"));
 		const main = this.core.MAIN_ENGINES || this.core.ENGINE_ORDER;
 		for (const id of this.core.ENGINE_ORDER) {
 			const ready = this.core.isEngineReady(id);
 			if (!main.includes(id) && !ready && id !== this.engine) continue;
-			const o = this._el("option", null, this.core.engineLabel(id) + (ready ? "" : this.T("chat.engine.notReady")));
-			o.value = id;
-			sel.appendChild(o);
+			sel.addOption(id, this.core.engineLabel(id) + (ready ? "" : this.T("chat.engine.notReady")));
 		}
 		sel.value = this.engine || "";
 	}
@@ -308,8 +389,9 @@ var ZIAChatView = class {
 		return !!this.engine && this.core.isEngineReady(this.engine);
 	}
 
+	/** Outros motores para "Repetir com": só os que já funcionaram (estado "Pronto" nas definições). */
 	_otherReadyEngines(engine) {
-		return this.core.readyEngines().filter(e => e !== engine);
+		return this.core.readyEngines().filter(e => e !== engine && this.core.pref(e + ".lastTest") === "ok");
 	}
 
 	// ------------------------------------------------------------------
@@ -371,7 +453,7 @@ var ZIAChatView = class {
 		}
 		for (const a of list) {
 			const b = this._button(a.button || a.label, "zia-action" + (custom && this._editCustom ? " zia-editing" : ""),
-				() => (custom && this._editCustom ? this._openCustomForm(a) : this.selectAction(a.id)), a.hint);
+				() => (custom && this._editCustom ? this._openCustomForm(a) : this._isAdv() ? this._runAdvanced(a.id) : this.selectAction(a.id)), a.hint);
 			b.dataset.action = a.id;
 			if (!(custom && this._editCustom)) this.actionButtons[a.id] = b;
 			box.appendChild(b);
@@ -393,6 +475,19 @@ var ZIAChatView = class {
 				info.setAttribute("aria-expanded", this._triagemInfoOpen ? "true" : "false");
 				box.appendChild(info);
 			}
+		}
+		// Painel Avançado: as ações enviam logo, as indicações (opcionais) escrevem-se antes
+		if (this._isAdv() && list.length && !(custom && this._editCustom)) {
+			const open = this._hintsOpen || !!this._hintsFor;
+			const t = this._button(this.T(open ? "chat.hints.close" : "chat.hints.open"), "zia-link-btn zia-hints-toggle", () => {
+				this._hintsOpen = !open;
+				this._hintsFor = null;
+				this._renderHints();
+				this._renderActions();
+				if (this._hintsOpen && this.hintsInput) this.hintsInput.focus();
+			}, this.T("chat.hints.tip"));
+			t.setAttribute("aria-expanded", open ? "true" : "false");
+			box.appendChild(t);
 		}
 		if (this.group === "comparar" && this._triagemInfoOpen) box.appendChild(this._triagemInfoEl());
 		// Na janela, a lista das fichas aparece também em Comparar (onde se usam)
@@ -868,7 +963,7 @@ var ZIAChatView = class {
 		// Triagem e relevância precisam de texto escrito: a caixa diz o que escrever
 		const key = a && a.needsCriteria ? (a.needsMsg || "chat.triagem.needCriteria")
 			: a && a.metaOnly ? "temas.placeholder"
-				: a ? "chat.placeholder.action" : this.simple ? "simple.placeholder"
+				: a ? "chat.placeholder.action" : this.simple || this._isAdv() ? "simple.placeholder"
 					: this.mode === "window" ? "win.chooseFirst" : (this.state.docs.length === 1 ? "chat.placeholder.one" : "chat.placeholder");
 		this.textarea.setAttribute("placeholder", this.T(key));
 	}
@@ -954,13 +1049,8 @@ var ZIAChatView = class {
 		// Onde procurar: a pasta aberta no Zotero, toda a biblioteca ou qualquer coleção
 		const srcRow = this._el("div", "zia-picker-sort");
 		srcRow.appendChild(this._el("span", "zia-muted", this.T("chat.picker.source")));
-		const srcSel = this._el("select", "zia-picker-srcsel");
-		srcSel.setAttribute("aria-label", this.T("chat.picker.source"));
-		const opt = (value, label) => {
-			const o = this._el("option", null, label);
-			o.setAttribute("value", value);
-			srcSel.appendChild(o);
-		};
+		const srcSel = this._select("zia-picker-srcsel", this.T("chat.picker.source"));
+		const opt = (value, label) => srcSel.addOption(value, label);
 		opt("view", this.T("chat.picker.source.view"));
 		opt("library", this.T("chat.picker.source.library"));
 		let cols = [];
@@ -971,13 +1061,8 @@ var ZIAChatView = class {
 		box.appendChild(srcRow);
 		const sortRow = this._el("div", "zia-picker-sort");
 		sortRow.appendChild(this._el("span", "zia-muted", this.T("chat.picker.sort")));
-		const sortSel = this._el("select", "zia-picker-sortsel");
-		sortSel.setAttribute("aria-label", this.T("chat.picker.sort"));
-		for (const k of ["added", "author", "date"]) {
-			const o = this._el("option", null, this.T("chat.picker.sort." + k));
-			o.setAttribute("value", k);
-			sortSel.appendChild(o);
-		}
+		const sortSel = this._select("zia-picker-sortsel", this.T("chat.picker.sort"));
+		for (const k of ["added", "author", "date"]) sortSel.addOption(k, this.T("chat.picker.sort." + k));
 		sortRow.appendChild(sortSel);
 		box.appendChild(sortRow);
 		const search = this._el("input", "zia-picker-search");
@@ -1310,6 +1395,61 @@ var ZIAChatView = class {
 		}
 		box.appendChild(grid);
 		this._updateButtons();
+	}
+
+	/** Painel Avançado (não o Simples nem a janela). */
+	_isAdv() {
+		return this.mode === "section" && !this.simple;
+	}
+
+	/** Campo das indicações do painel Avançado (o texto fica ao mudar de separador). */
+	_renderHints() {
+		const box = this.hintsEl;
+		if (!box) return;
+		const a = this._hintsFor && this._action(this._hintsFor);
+		const open = this._isAdv() && (this._hintsOpen || !!a);
+		box.hidden = !open;
+		while (box.firstChild) box.removeChild(box.firstChild);
+		if (!open) return;
+		if (!this.hintsInput) {
+			this.hintsInput = this._el("textarea", "zia-textarea zia-hints-input");
+			this.hintsInput.setAttribute("rows", "1");
+		}
+		this.hintsInput.setAttribute("placeholder", this.T(a ? (a.needsMsg || "chat.triagem.needCriteria") : "chat.hints.placeholder"));
+		box.appendChild(this.hintsInput);
+		// A relevância precisa do tema: o pedido segue com este botão
+		if (a) box.appendChild(this._button(this.T("chat.hints.run", { label: a.label }), "zia-send zia-hints-run", () => this._runAdvanced(a.id)));
+	}
+
+	/** Painel Avançado: um clique numa ação envia logo (com as indicações, se houver). */
+	_runAdvanced(id) {
+		if (this.busy) return;
+		const a = this._action(id);
+		if (!a) return;
+		const extra = this.hintsInput ? this.hintsInput.value.trim() : "";
+		if (a.needsCriteria && !extra) {
+			this._hintsFor = id;
+			this._renderHints();
+			this._renderActions();
+			this._setStatus(this.T(a.needsMsg || "chat.triagem.needCriteria"), "warn");
+			if (this.hintsInput) this.hintsInput.focus();
+			return;
+		}
+		if (!extra && this._lastAnswerFor(id)) {
+			// Já foi pedido: mostra a resposta que existe, sem gastar outro pedido
+			this.selectedAction = null;
+			this.selectAction(id);
+			this.selectedAction = null;
+			this._renderPending();
+			this._updateButtons();
+			return;
+		}
+		if (this._engineReady() && this.hintsInput) this.hintsInput.value = "";
+		this._hintsFor = null;
+		this._hintsOpen = false;
+		this._renderHints();
+		this._renderActions();
+		this.runAction(id, { extra });
 	}
 
 	_runSimple(id) {
@@ -2018,9 +2158,11 @@ var ZIAChatView = class {
 				return;
 			}
 			const help = this._el("div", "zia-empty");
-			// Na janela, os passos ficam um por linha
-			for (const t of this.T(this.mode === "window" ? "chat.empty.window" : "chat.empty.section").split(/\s(?=\d\. )/)) {
-				help.appendChild(this._el("p", null, t));
+			// Na janela, os passos ficam um por linha. No Avançado as sugestões chegam (sem texto a repetir)
+			if (!this._isAdv()) {
+				for (const t of this.T(this.mode === "window" ? "chat.empty.window" : "chat.empty.section").split(/\s(?=\d\. )/)) {
+					help.appendChild(this._el("p", null, t));
+				}
 			}
 			if (this.state.docs.length) {
 				const sug = this._el("div", "zia-suggestions");

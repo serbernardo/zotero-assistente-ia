@@ -29,6 +29,11 @@ async function main() {
 		return page;
 	};
 	const tab = (page, group) => page.click(`.zia-tab[data-group="${group}"]`);
+	// Lista própria da janela: abre e escolhe
+	const dd = async (page, sel, value) => {
+		await page.click(`${sel} .zia-dd-btn`);
+		await page.click(`${sel} .zia-dd-item[data-value="${value}"]`);
+	};
 	// Janela: juntar os dois PDFs pelo seletor "+ Artigos"
 	const addAll = async page => {
 		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
@@ -45,7 +50,8 @@ async function main() {
 			if (id !== "comparar") await page.click(`.zia-preset[data-action="${id}"]`);
 		}
 		else await page.click(`button[data-action="${id}"]`);
-		await page.click(".zia-send");
+		// Painel Avançado: um clique numa ação envia logo
+		if (!(await page.locator(".zia-mode-section:not(.zia-simple)").count())) await page.click(".zia-send");
 	};
 
 	// ---------- Janela: comparar 2 PDFs ----------
@@ -142,20 +148,20 @@ async function main() {
 		await page.waitForSelector(".zia-picker-row");
 		assert.equal(await page.locator(".zia-picker-row").count(), 2);
 		// procurar noutra pasta: toda a biblioteca e uma coleção (com "Juntar a coleção toda")
-		await page.selectOption(".zia-picker-srcsel", "library");
+		await dd(page, ".zia-picker-srcsel", "library");
 		await page.waitForSelector(".zia-picker-row:has-text(\"Outra pasta\")");
 		assert.equal(await page.locator(".zia-picker-row").count(), 3, "toda a biblioteca");
 		await page.check(".zia-picker-row:has-text(\"Outra pasta\") >> input");
-		await page.selectOption(".zia-picker-srcsel", "col:8");
+		await dd(page, ".zia-picker-srcsel", "col:8");
 		await page.waitForSelector(".zia-picker-none");
 		assert.equal(await page.isHidden(".zia-picker-whole"), true, "coleção vazia: sem Juntar a coleção toda");
-		await page.selectOption(".zia-picker-srcsel", "view");
+		await dd(page, ".zia-picker-srcsel", "view");
 		await page.waitForSelector(".zia-picker-row");
 		assert.match(await page.textContent(".zia-picker button.zia-btn-primary"), /Juntar \(1\)/, "a escolha de outra pasta fica");
-		await page.selectOption(".zia-picker-srcsel", "library");
+		await dd(page, ".zia-picker-srcsel", "library");
 		await page.waitForSelector(".zia-picker-row:has-text(\"Outra pasta\")");
 		await page.uncheck(".zia-picker-row:has-text(\"Outra pasta\") >> input");
-		await page.selectOption(".zia-picker-srcsel", "view");
+		await dd(page, ".zia-picker-srcsel", "view");
 		await page.waitForSelector(".zia-picker-row >> nth=1");
 		await page.fill(".zia-picker-search", "garcía");
 		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 1);
@@ -596,7 +602,6 @@ async function main() {
 		await tab(page, "meus");
 		await page.evaluate(() => { window.MOCK.answer = "Teoria da aceitação [D1:p2]."; });
 		await page.click("button.zia-action:has-text(\"Teoria\")");
-		await page.click(".zia-send");
 		await page.waitForSelector("text=Teoria da aceitação");
 		assert.match(await page.evaluate(() => window.lastPrompt), /Identifica o enquadramento teórico\./);
 		console.log("OK os meus prompts: separador próprio e pedido com a instrução do utilizador");
@@ -607,19 +612,16 @@ async function main() {
 	{
 		const page = await open("?mode=section", { width: 420, height: 900 });
 		await page.evaluate(a => { window.MOCK.answer = a; }, pontos);
-		await page.click('button[data-action="resumo"]');
-		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "clicar numa ação não envia logo");
-		assert.equal(await page.getAttribute('button[data-action="resumo"]', "aria-pressed"), "true");
-		assert.equal(await page.textContent(".zia-pending-chip"), "Resumo✕");
-		assert.equal(await page.textContent(".zia-send"), "Enviar ➤");
-		await page.click('button[data-action="resumo"]');
-		assert.equal(await page.isHidden(".zia-pending"), true, "clicar outra vez cancela a escolha");
-		await page.click('button[data-action="resumo"]');
-		await page.fill(".zia-textarea", "foca a metodologia");
+		// Avançado: a caixa é só para perguntas e um clique numa ação envia logo, com as indicações escritas antes
+		assert.equal(await page.getAttribute(".zia-textarea", "placeholder"), "Ou pergunta algo sobre o artigo…");
+		assert.equal(await page.isHidden(".zia-hints"), true, "indicações fechadas por omissão");
+		await page.click(".zia-hints-toggle");
+		await page.fill(".zia-hints-input", "foca a metodologia");
 		await page.keyboard.press("Enter");
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "Enter não envia");
-		await page.click(".zia-send");
+		await page.click('button[data-action="resumo"]');
 		await page.waitForSelector("text=Guardar como nota");
+		assert.equal(await page.isHidden(".zia-hints"), true, "as indicações fecham depois de usadas");
 		assert.match(await page.evaluate(() => window.lastPrompt), /Indicações adicionais do utilizador: foca a metodologia/);
 		assert.equal(await page.locator('button[data-action="resumo"].zia-done').count(), 1, "ação já pedida fica marcada");
 		// sem título repetido: a bolha do pedido some e as indicações ficam ao lado do nome da ação
@@ -715,17 +717,6 @@ async function main() {
 		await page.click('button[data-action="custom:teoria"]');
 		await page.click(".zia-custom-btns button:has-text(\"Eliminar\")");
 		assert.equal(await page.evaluate(() => ZoteroIA.pref("custom.prompts")), "");
-		// escolher a ação mostra "Editar", que abre o formulário com Eliminar
-		await page.click(".zia-action-new");
-		await page.fill(".zia-custom-name", "Rápida");
-		await page.fill(".zia-custom-prompt", "Diz o tema.");
-		await page.click(".zia-custom-btns button:has-text(\"Guardar\")");
-		await page.click('button[data-action="custom:rapida"]');
-		await page.click(".zia-pending button:has-text(\"Editar\")");
-		page.once("dialog", d => d.accept());
-		await page.click(".zia-custom-btns button:has-text(\"Eliminar\")");
-		assert.equal(await page.evaluate(() => ZoteroIA.pref("custom.prompts")), "");
-		assert.equal(await page.isHidden(".zia-pending"), true);
 		// a resposta mais recente fica em cima e a anterior pode ser guardada como nota já recolhida
 		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.answer = "Resposta B [D1:p2]."; });
@@ -740,6 +731,36 @@ async function main() {
 		await page.screenshot({ path: path.join(OUT, "ui_painel_personalizado.png") });
 		console.log("OK personalizado: criar, usar, editar e apagar ações no painel; caixa de texto antes das respostas; guardar nota a partir da resposta");
 		await page.close();
+	}
+
+	// ---------- Avançado (opção B): relevância com tema, Repetir com só para motores prontos, lista do motor na janela ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 900 });
+		await page.evaluate(() => { window.MOCK.answer = "Relevante [D1:p1]."; });
+		await tab(page, "avaliar");
+		await page.click('button[data-action="relevancia"]');
+		assert.equal(await page.evaluate(() => window.engineCalls || 0), 0, "sem tema não envia");
+		assert.equal(await page.isVisible(".zia-hints-input"), true, "abre o campo para o tema");
+		assert.match(await page.getAttribute(".zia-hints-input", "placeholder"), /tema/);
+		await page.fill(".zia-hints-input", "literacia digital");
+		await page.click(".zia-hints-run");
+		await page.waitForSelector("text=Guardar como nota");
+		assert.match(await page.evaluate(() => window.lastPrompt), /literacia digital/);
+		// o Gemini está "Pronto" (teste ok): aparece Repetir com Gemini
+		assert.equal(await page.locator("button:has-text(\"Repetir com Gemini\")").count(), 1);
+		await page.close();
+		const p2 = await open("?mode=section", { width: 420, height: 900 });
+		await p2.evaluate(() => { ZoteroIA.setPref("gemini.lastTest", ""); window.MOCK.answer = "Resumo [D1:p1]."; });
+		await act(p2, "resumo");
+		await p2.waitForSelector("text=Guardar como nota");
+		assert.equal(await p2.locator("button:has-text(\"Repetir com\"), .zia-retry-sel").count(), 0, "motor nunca testado: sem Repetir com");
+		await p2.close();
+		const w = await open("?mode=window", { width: 820, height: 700 });
+		assert.equal(await w.locator("select").count(), 0, "a janela não usa listas nativas (não abrem no Zotero)");
+		await dd(w, ".zia-engine", "gemini");
+		assert.equal(await w.evaluate(() => view.engine), "gemini", "lista do motor da janela funciona");
+		await w.close();
+		console.log("OK Avançado: relevância pede o tema, Repetir com só para motores prontos, listas da janela funcionam");
 	}
 
 	// ---------- Janela: triagem por critérios ----------
@@ -840,7 +861,7 @@ async function main() {
 		// escolhe a coleção em "Procurar em", sem ter de a selecionar antes no Zotero, e junta-a toda
 		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
 		await page.waitForSelector(".zia-picker-row");
-		await page.selectOption(".zia-picker-srcsel", "col:7");
+		await dd(page, ".zia-picker-srcsel", "col:7");
 		await page.click(".zia-picker-whole:has-text(\"Juntar a coleção toda (2)\")");
 		await page.waitForSelector(".zia-chip-col:has-text(\"Coleção: Tese\")");
 		await page.waitForSelector("text=Coleção «Tese» selecionada");

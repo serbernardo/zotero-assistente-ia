@@ -32,6 +32,12 @@ var ZIAi18n = (function () {
 			"group.investigar.tab": "Investigar",
 			"group.meus.tab": "Pers.",
 			"chat.compareLink": "Comparar artigos ↗",
+			"chat.or": "ou",
+			"chat.hints.open": "+ indicações",
+			"chat.hints.close": "− indicações",
+			"chat.hints.tip": "Escreve indicações para a próxima ação antes de carregar nela, por exemplo: foca a metodologia",
+			"chat.hints.placeholder": "Indicações para a próxima ação (opcional), por exemplo: foca a metodologia",
+			"chat.hints.run": "Pedir: {label}",
 			"chat.retryList": "Repetir com…",
 
 			// Ações
@@ -728,6 +734,12 @@ var ZIAi18n = (function () {
 			"group.investigar.tab": "Research",
 			"group.meus.tab": "Custom",
 			"chat.compareLink": "Compare articles ↗",
+			"chat.or": "or",
+			"chat.hints.open": "+ instructions",
+			"chat.hints.close": "− instructions",
+			"chat.hints.tip": "Write instructions for the next action before clicking it, for example: focus on the methods",
+			"chat.hints.placeholder": "Instructions for the next action (optional), for example: focus on the methods",
+			"chat.hints.run": "Run: {label}",
 			"chat.retryList": "Repeat with…",
 
 			"action.resumo.label": "Summary",

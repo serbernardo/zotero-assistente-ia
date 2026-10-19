@@ -53,6 +53,7 @@ async function startup({ id, version, rootURI }) {
 	registerSection(id, rootURI);
 	placeAfterInfo(sectionID);
 	undoClosedByDefault(sectionID);
+	simpleModeOnce();
 	registerMenus(id, rootURI);
 
 	for (const win of Zotero.getMainWindows()) {
@@ -86,6 +87,19 @@ function undoClosedByDefault(paneID) {
 		if (!paneID || !ZoteroIA.pref("pane.closedApplied") || ZoteroIA.pref("pane.normalApplied")) return;
 		Zotero.Prefs.set(`panes.${paneID}.open`, true);
 		ZoteroIA.setPref("pane.normalApplied", true);
+	}
+	catch (e) {
+		Zotero.logError(e);
+	}
+}
+
+// O painel abre no modo Simples. Quem já tinha mudado para o Avançado volta ao Simples uma só vez,
+// e daí em diante fica a escolha da pessoa.
+function simpleModeOnce() {
+	try {
+		if (ZoteroIA.pref("ui.simpleApplied")) return;
+		ZoteroIA.setPref("ui.mode", "simple");
+		ZoteroIA.setPref("ui.simpleApplied", true);
 	}
 	catch (e) {
 		Zotero.logError(e);
@@ -197,9 +211,10 @@ function registerMenus(pluginID, rootURI) {
 	catch (e) {
 		Zotero.logError(e);
 	}
-	const openWith = (items, autoAction) => {
-		const group = autoAction && ZoteroIA.lib.ACTIONS[autoAction] ? ZoteroIA.lib.ACTIONS[autoAction].group : null;
-		ZoteroIA.openWindow({ items, collectionIDs: ZoteroIA.selectedCollectionIDs(), autoAction, group });
+	const openWith = (items, autoAction, chooseAction) => {
+		const id = autoAction || chooseAction;
+		const group = id && ZoteroIA.lib.ACTIONS[id] ? ZoteroIA.lib.ACTIONS[id].group : null;
+		ZoteroIA.openWindow({ items, collectionIDs: ZoteroIA.selectedCollectionIDs(), autoAction, chooseAction, group });
 	};
 	const pdfCount = items => (items || []).filter(i => i.isRegularItem() || (i.isAttachment() && i.isPDFAttachment())).length;
 	try {
@@ -213,8 +228,26 @@ function registerMenus(pluginID, rootURI) {
 					menuType: "submenu",
 					l10nID: "zoteroia-menu-root",
 					icon: rootURI + "content/icons/sparkle16.svg",
-					// Só as funcionalidades de comparação (precisam de 2 ou mais PDFs selecionados)
+					// Abrir os artigos selecionados na janela, perguntar, mapa de temas e as comparações
 					menus: [
+						{
+							menuType: "menuitem",
+							l10nID: "zoteroia-menu-open",
+							onShowing: (ev, ctx) => ctx.setEnabled(pdfCount(ctx.items) >= 1),
+							onCommand: (ev, ctx) => openWith(ctx.items),
+						},
+						{
+							menuType: "menuitem",
+							l10nID: "zoteroia-menu-ask",
+							onShowing: (ev, ctx) => ctx.setEnabled(pdfCount(ctx.items) >= 2),
+							onCommand: (ev, ctx) => openWith(ctx.items, null, "pergunta"),
+						},
+						{
+							menuType: "menuitem",
+							l10nID: "zoteroia-menu-themes",
+							onShowing: (ev, ctx) => ctx.setEnabled(pdfCount(ctx.items) >= 2),
+							onCommand: (ev, ctx) => openWith(ctx.items, "temas"),
+						},
 						{
 							menuType: "menuitem",
 							l10nID: "zoteroia-menu-compare",

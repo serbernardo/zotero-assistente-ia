@@ -37,6 +37,8 @@ var ZIAWindow = {
 		await this.view.setItems(args.items || [], { collectionIDs: args.collectionIDs || [] });
 		// Vindo de "Comparar coleção": abre logo a lista das coleções
 		if (args.pickCollection) this.view._openCollectionPicker();
+		// Vindo do clique direito "Perguntar a estes artigos": a ação fica escolhida, falta escrever a pergunta
+		if (args.chooseAction && this.view.state.docs.length) this.view.selectAction(args.chooseAction);
 		if (args.autoAction) {
 			const a = Zotero.ZoteroIA.lib.ACTIONS[args.autoAction];
 			if (a && this.view.state.docs.length >= a.minDocs) {
