@@ -111,12 +111,17 @@ async function main() {
 	{
 		const page = await open("?mode=section", { width: 420, height: 900 });
 		assert.equal(await page.locator(".zia-chip").count(), 0, "um só PDF no registo: sem chip do artigo no Avançado");
-		assert.equal(JSON.stringify(await page.$$eval(".zia-engine option", os => os.map(o => o.value))), JSON.stringify(["gemini", "claude", "codex"]),
-			"Gemini, Claude Code e Codex, nesta ordem; chaves de API só quando configuradas");
+		assert.equal(await page.isVisible(".zia-engine"), false, "no painel o motor escolhe-se nas definições");
 		assert.equal(await page.locator(".zia-tab-add").count(), 0, "sem botão +");
 		assert.equal(await page.locator('.zia-tab[data-group="meus"]').count(), 1, "separador Os meus sempre visível");
-		assert.equal(await page.locator(".zia-suggestion").count(), 4, "sugestões de perguntas");
+		assert.equal(await page.locator(".zia-suggestion").count(), 0, "sem perguntas por baixo da caixa");
+		assert.equal(await page.locator(".zia-footer").count(), 0, "sem rodapé (nem Nova conversa)");
+		assert.equal(await page.locator('button[data-action="resumo"] .zia-ic svg').count(), 1, "ação com ícone");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
+		// as perguntas de exemplo estão em Pers.
+		await tab(page, "meus");
+		assert.equal(await page.locator(".zia-examples .zia-suggestion").count(), 4, "perguntas de exemplo em Pers.");
+		await tab(page, "compreender");
 		// no painel, Comparar já não é separador: o atalho do rodapé leva à janela grande com os PDFs da conversa
 		assert.equal(await page.locator('.zia-tab[data-group="comparar"]').count(), 0, "sem separador Comparar no painel");
 		// PT/EN e definições numa linha (sem título repetido), e a faixa "Vários artigos" abre a janela
@@ -198,14 +203,14 @@ async function main() {
 			const r = await page.evaluate(() => {
 				const box = document.querySelector("collapsible-section").getBoundingClientRect();
 				const inside = sel => { const b = document.querySelector(sel).getBoundingClientRect(); return b.left >= box.left && b.right <= box.right + 0.5 && b.width > 0; };
-				return { gear: inside(".zia-top .zia-btn-icon"), engine: inside(".zia-engine"), send: inside(".zia-send") };
+				return { gear: inside(".zia-top .zia-btn-icon"), strip: inside(".zia-multi-strip"), send: inside(".zia-send") };
 			});
-			assert.ok(r.gear && r.engine && r.send, `largura ${w}: ⚙, motor e Enviar visíveis ${JSON.stringify(r)}`);
+			assert.ok(r.gear && r.strip && r.send, `largura ${w}: definições, Vários artigos e Enviar visíveis ${JSON.stringify(r)}`);
 		}
 		await page.evaluate(() => { document.querySelector(".pane").style.width = "min-content"; });
 		const minW = await page.evaluate(() => document.querySelector(".pane").getBoundingClientRect().width);
 		assert.ok(minW < 200, `o painel não pode exigir largura mínima grande (${minW}px)`);
-		console.log("OK painel estreito: ⚙, motor e Enviar sempre visíveis, sem forçar a largura do Zotero");
+		console.log("OK painel estreito: definições, Vários artigos e Enviar sempre visíveis, sem forçar a largura do Zotero");
 		await page.close();
 	}
 
@@ -213,6 +218,7 @@ async function main() {
 	{
 		const page = await open("?mode=section&lang=en", { width: 420, height: 700 });
 		await page.evaluate(() => { window.MOCK.answer = "The main finding is X [D1:p3]."; });
+		await tab(page, "meus");
 		await page.locator(".zia-suggestion").first().click();
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "a sugestão só preenche a caixa");
 		await page.click(".zia-send");
@@ -230,7 +236,9 @@ async function main() {
 		assert.equal(await page.textContent('button[data-action="resumo"]'), "Summarise", "botão com verbo");
 		assert.equal(await page.textContent('.zia-tab[data-group="compreender"]'), "Understand");
 		assert.equal(await page.textContent(".zia-send"), "Send ➤");
+		await tab(page, "meus");
 		assert.match(await page.locator(".zia-suggestion").first().textContent(), /research question/);
+		await tab(page, "compreender");
 		await page.evaluate(() => { window.MOCK.answer = "The main finding is X [D1:p3]."; });
 		await act(page, "resumo");
 		await page.waitForSelector("text=Save as note");
@@ -299,35 +307,23 @@ async function main() {
 		await page.evaluate(() => { window.MOCK.answer = "- Estudo sobre X\n  - Problema\n    - Falta de dados sobre X [D1:p2]\n  - Método\n    - Inquérito a 120 pessoas [D1:p4]\n    - Entrevistas a 12 docentes [D1:p5]\n  - Resultados\n    - X melhora Y [D1:p7]\n"; });
 		await page.click('.zia-simple-btn[data-action="mapa"]');
 		await page.waitForFunction(() => window.engineCalls === 3);
-		await page.waitForSelector("svg.zia-mm-svg");
+		await page.waitForSelector(".zia-mm-m1 li li li");
 		await page.waitForFunction(() => !document.querySelector(".zia-typing"));
 		assert.match(await page.evaluate(() => window.lastPrompt), /mapa mental/);
-		// Diagrama (M2): raiz, 3 ramos, 4 ideias, páginas clicáveis
-		assert.equal(await page.textContent(".zia-mm-root"), "Estudo sobre X");
-		assert.equal(await page.locator(".zia-mm-branch").count(), 3);
-		assert.equal(await page.locator(".zia-mm-leaf").count(), 4);
-		assert.ok(await page.locator(".zia-mm-pg").count() >= 4, "páginas clicáveis no mapa");
-		await page.waitForFunction(() => /scale/.test(document.querySelector(".zia-map-world").getAttribute("transform") || ""));
-		await page.locator(".zia-mapbox").screenshot({ path: path.join(OUT, "ui_mapa_mental.png") });
-		await page.locator(".zia-mm-pg >> nth=0").click();
-		assert.ok((await page.evaluate(() => window.opened)).some(u => /SILVAPDF#2/.test(u)), "a página abre o PDF");
-		// fechar um ramo esconde as suas ideias, Abrir tudo volta a mostrar
-		await page.locator(".zia-mm-branch >> nth=1").click();
-		assert.equal(await page.locator(".zia-mm-leaf").count(), 2);
-		await page.click(".zia-map-btn:has-text(\"Abrir tudo\")");
-		assert.equal(await page.locator(".zia-mm-leaf").count(), 4);
-		// aproximar muda a escala
-		const t0 = await page.getAttribute(".zia-map-world", "transform");
-		await page.click(".zia-map-btn:has-text(\"+\")");
-		assert.notEqual(await page.getAttribute(".zia-map-world", "transform"), t0);
-		// Ramos (M1): a lista com cor, só a página nas citações, e a escolha fica guardada
-		await page.click('.zia-viewswitch [data-view="list"]');
-		await page.waitForSelector(".zia-mm-m1 li li li");
-		assert.equal(await page.evaluate(() => ZoteroIA.pref("mindmap.view")), "list");
+		// só Ramos: raiz, 3 ramos com cor, 4 ideias, só a página nas citações (clicáveis)
+		assert.equal(await page.locator(".zia-viewswitch").count(), 0, "sem Diagrama");
+		assert.equal((await page.textContent(".zia-mm-m1 > ul > li > .zia-mm-node")).trim(), "Estudo sobre X");
+		assert.equal(await page.locator(".zia-mm-m1 > ul > li > ul > li").count(), 3);
+		assert.equal(await page.locator(".zia-mm-m1 li li li").count(), 4);
 		assert.match(await page.textContent(".zia-mm-m1 .zia-cite"), /^p\. \d+$/);
-		await page.locator(".zia-mindmap").screenshot({ path: path.join(OUT, "ui_mapa_mental_ramos.png") });
-		await page.click('.zia-viewswitch [data-view="map"]');
-		await page.waitForSelector("svg.zia-mm-svg");
+		await page.locator(".zia-mindmap").screenshot({ path: path.join(OUT, "ui_mapa_mental.png") });
+		await page.locator(".zia-mm-m1 .zia-cite >> nth=0").click();
+		assert.ok((await page.evaluate(() => window.opened)).some(u => /SILVAPDF#2/.test(u)), "a página abre o PDF");
+		// clicar num ramo esconde as suas ideias e volta a mostrar
+		await page.locator(".zia-mm-fold >> nth=1").click();
+		assert.equal(await page.locator(".zia-mm-m1 li li li:visible").count(), 2);
+		await page.locator(".zia-mm-fold >> nth=1").click();
+		assert.equal(await page.locator(".zia-mm-m1 li li li:visible").count(), 4);
 		await page.evaluate(() => { window.engineCalls = 2; });
 
 		// relevância: precisa do tema escrito na caixa, e pode repetir-se com outro tema
@@ -358,7 +354,7 @@ async function main() {
 		assert.deepEqual(await pressed(), ["simple:false", "advanced:true"]);
 		assert.equal(await page.evaluate(() => window.view.core.pref("ui.mode")), "advanced");
 		assert.ok(await page.isVisible(".zia-tabs"));
-		assert.ok(await page.isVisible(".zia-engine"));
+		assert.equal(await page.isVisible(".zia-engine"), false, "no Avançado também não há lista do motor");
 		assert.ok(await page.isVisible('button[data-action="critica"], .zia-tab[data-group="avaliar"]'));
 		assert.equal(await page.locator(".zia-simple-grid").count(), 0);
 		assert.ok(await page.isVisible("text=A amostra tem 120"), "a conversa mantém-se ao mudar de modo");
@@ -558,6 +554,7 @@ async function main() {
 	// ---------- Sugestões com texto longo nunca ficam cortadas ----------
 	{
 		const page = await open("?mode=section", { width: 300, height: 800 });
+		await tab(page, "meus");
 		const cut = await page.$$eval(".zia-suggestion", bs => bs.filter(b => b.scrollHeight > b.clientHeight + 1).map(b => b.textContent));
 		assert.deepEqual(cut, [], "sugestões cortadas: " + cut.join(" | "));
 		console.log("OK sugestões em painel estreito: texto inteiro, sem cortes");
@@ -577,8 +574,7 @@ async function main() {
 		await page.click('.zia-setup button[data-engine="anthropic"]');
 		assert.deepEqual(await page.evaluate(() => window.opened), ["prefs"]);
 		await page.click('.zia-setup button[data-engine="codex"]');
-		await page.waitForSelector(".zia-suggestion");
-		assert.equal(await page.inputValue(".zia-engine"), "codex");
+		await page.waitForFunction(() => window.view.engine === "codex");
 		console.log("OK configuração inicial: Claude, ChatGPT e Gemini, nada é enviado sem motor, conta ChatGPT (Codex) ativada com um clique");
 		await page.close();
 	}

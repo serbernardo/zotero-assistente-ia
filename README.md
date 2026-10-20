@@ -54,9 +54,9 @@ The assistant sits in the item pane, right after Info. It has two modes:
 
 You can also ask any free question about the article. Each action and each question gets its own tab, and the conversation is kept per article.
 
-### Interactive mind map
+### Mind map
 
-Two views: **Diagram** (branches with colours and curves, click a branch to open or close it, drag to move, zoom in and out) and **Branches** (a coloured outline). Every idea shows its page, and clicking the page opens the PDF there.
+A coloured outline: the main topic on top, each branch in its own colour. Click a branch to hide or show its ideas. Every idea shows its page, and clicking the page opens the PDF there.
 
 ![Mind map](docs/screenshots/mind-map.png)
 

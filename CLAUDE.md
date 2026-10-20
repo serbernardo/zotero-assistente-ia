@@ -130,8 +130,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   lado do pedido. O formulario tem Guardar, Cancelar e Eliminar (`_deleteCustom`).
 - **Colecao indicada:** depois de juntar uma colecao aparece a etiqueta
   "Colecao: X" antes dos artigos e uma mensagem com quantos foram juntados.
-- **Botoes principais iguais** (Enviar, Pedir, Guardar, Juntar): azul petroleo (`--zia-accent`
-  #1f5f66, no escuro #4fa3aa), texto branco, mesmo tamanho. O interruptor Simples/Avancado usa a mesma cor. O Enviar nunca fica cinzento: se faltar algo, o
+- **Botoes principais iguais** (Enviar, Pedir, Guardar, Juntar): azul acinzentado (`--zia-accent`
+  #4a6fa5, no escuro #8fb0de), texto branco, mesmo tamanho. O interruptor Simples/Avancado usa a mesma cor. O Enviar nunca fica cinzento: se faltar algo, o
   clique explica o que falta.
 - **Mesmo autor e ano:** `disambiguateRefs` (lib.js) acrescenta a, b, c ao ano
   (Silva et al., 2021a e 2021b) nos chips, citacoes e notas. O id Dn continua unico
@@ -204,6 +204,13 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   as comparacoes.
 - **Simples por omissao:** `simpleModeOnce` no `bootstrap.js` poe `ui.mode` = simple uma so vez (pref
   `ui.simpleApplied`), depois fica a escolha da pessoa.
+- **Icones das acoes** (`_actionIcon`, `_icon`): cada acao tem um icone em linha fina num quadrado claro
+  com a cor da acao (`.zia-ic`, `.zia-k-<cor>`), igual no Simples, no Avancado e nos 5 cartoes da janela.
+- **Painel sem ajuda nem motor:** sem lista do motor no painel (Simples e Avancado, motor nas definicoes),
+  sem perguntas por baixo da caixa e sem rodape ("Nova conversa" retirado). As perguntas de exemplo estao
+  em Pers. (`.zia-examples`, um clique escreve a pergunta na caixa). A janela mantem os 3 passos.
+- **Seletor + Artigos:** "Marcar todos" e "Desmarcar todos" (so os artigos visiveis, a pesquisa conta) e
+  aviso com mais de 50 artigos escolhidos (`chat.picker.many`).
 - **Linha de cima do painel** (`.zia-top`): sem titulo (o Zotero ja mostra "Assistente IA" no cabecalho),
   PT/EN (`.zia-langswitch`, muda `ui.lang` e redesenha) e definicoes (icone `sliders`). Icones em linha
   fina desenhados em SVG (`_icon`, `_iconButton`). Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
@@ -243,13 +250,11 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   ("Confirmado no PDF") quando nao ha problemas, os avisos aparecem inteiros. Mudar de modo nas
   definicoes a meio de uma resposta so redesenha no fim (`_rebuildLater`). Mesmas cores do resto.
   Nos testes do painel `ui.html` usa "advanced" por omissao (`?uimode=simple` para o simples).
-- **Mapa mental** (acao `mapa`): a IA devolve so uma lista encaixada (`_mindmapNodes`). Duas vistas com
-  interruptor, a ultima escolha fica na pref `mindmap.view`: "Diagrama" (`map`, `_mindmapSVG`: raiz a
-  azul petroleo, ramos com cor e curvas, ideias com a pagina clicavel `_mmPages`, clicar num ramo abre
-  ou fecha, Abrir tudo / Fechar tudo, `m.mmClosed`) e "Ramos" (`list`, `_mindmapBranches`, CSS
-  `.zia-mm-m1`: a lista com cor por ramo e so a pagina nas citacoes quando ha um artigo). No painel o
-  diagrama e mais compacto (`zia-mm-narrow`). `_wrap` parte palavras compridas. Nas notas fica a lista.
-- **Mapas interativos** (`_mapCanvas`): arrastar para mover, botoes −, + e Ajustar, Ctrl + roda do
+- **Mapa mental** (acao `mapa`): a IA devolve so uma lista encaixada (`_mindmapNodes`). So a vista Ramos
+  (`_mindmapBranches`, CSS `.zia-mm-m1`): raiz a azul, cada ramo com a sua cor, so a pagina nas citacoes
+  quando ha um artigo, clicar no nome de um ramo esconde ou mostra as ideias (`.zia-mm-fold`,
+  `.zia-folded`). O Diagrama em SVG foi retirado a pedido. Nas notas fica a lista.
+- **Mapa de temas interativo** (`_mapCanvas`, so a Constelacao): arrastar para mover, botoes −, + e Ajustar, Ctrl + roda do
   rato. A vista fica em `m.mapView`. Os nos clicaveis tem `.zia-map-hit` (nao comecam o arrastar).
   Tudo em SVG feito pelo addon, sem bibliotecas de fora. Cores em `MAP_COLORS` (a primeira e o petroleo).
 - **Testar o que percebi** (acao `estudo`): 8 perguntas (compreensao, ligacao de ideias, reflexao
@@ -461,7 +466,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.5.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.6.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica

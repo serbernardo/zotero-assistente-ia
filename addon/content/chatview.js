@@ -157,10 +157,51 @@ var ZIAChatView = class {
 			sliders: [["path", { d: "M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6" }], ["circle", { cx: 10, cy: 4.5, r: 1.6 }], ["circle", { cx: 6, cy: 11.5, r: 1.6 }]],
 			docs: [["rect", { x: 5, y: 1.8, width: 8.5, height: 10.5, rx: 1.6 }], ["path", { d: "M2.5 5v8a1.7 1.7 0 0 0 1.7 1.7H10" }], ["path", { d: "M7.3 5.3h4M7.3 7.8h4M7.3 10.2h2.4" }]],
 			chevron: [["path", { d: "M6 3.5 10.5 8 6 12.5" }]],
+			sum: [["path", { d: "M3 3.5h10M3 6.5h10M3 9.5h7M3 12.5h5" }]],
+			list: [["circle", { cx: 3.2, cy: 4, r: 0.9, fill: "currentColor" }], ["circle", { cx: 3.2, cy: 8, r: 0.9, fill: "currentColor" }], ["circle", { cx: 3.2, cy: 12, r: 0.9, fill: "currentColor" }], ["path", { d: "M6 4h7.5M6 8h7.5M6 12h7.5" }]],
+			bulb: [["path", { d: "M6 12.5h4M6.5 14.5h3M8 1.8a4.4 4.4 0 0 0-2.6 8c.4.3.6.8.6 1.3v.4h4v-.4c0-.5.2-1 .6-1.3A4.4 4.4 0 0 0 8 1.8Z" }]],
+			key: [["circle", { cx: 5.5, cy: 10.5, r: 3 }], ["path", { d: "M7.6 8.4 13.5 2.5M11.2 4.8l1.8 1.8M9.6 6.4l1.4 1.4" }]],
+			map: [["circle", { cx: 3.5, cy: 8, r: 1.8 }], ["circle", { cx: 12.5, cy: 3.5, r: 1.6 }], ["circle", { cx: 12.5, cy: 8, r: 1.6 }], ["circle", { cx: 12.5, cy: 12.5, r: 1.6 }], ["path", { d: "M5.3 8h5.6M5 7c2-3 3.5-3.5 5.9-3.5M5 9c2 3 3.5 3.5 5.9 3.5" }]],
+			quiz: [["circle", { cx: 8, cy: 8, r: 6.2 }], ["path", { d: "M6.2 6.3a1.9 1.9 0 0 1 3.7.5c0 1.2-1.9 1.5-1.9 2.6M8 11.6h.01" }]],
+			target: [["circle", { cx: 8, cy: 8, r: 6.2 }], ["circle", { cx: 8, cy: 8, r: 3.4 }], ["circle", { cx: 8, cy: 8, r: 0.8, fill: "currentColor" }]],
+			outline: [["path", { d: "M2.5 3.5h11M5 7h8.5M7.5 10.5h6M5 14h8.5" }]],
+			highlight: [["path", { d: "m9.5 2.8 3.7 3.7-6.4 6.4H3.1V9.2Z" }], ["path", { d: "M2 14.5h12" }]],
+			shield: [["path", { d: "M8 1.8 13 3.6v4c0 3-2.2 5.5-5 6.6-2.8-1.1-5-3.6-5-6.6v-4Z" }], ["path", { d: "m5.6 8 1.7 1.7 3.2-3.4" }]],
+			flask: [["path", { d: "M6 1.8h4M6.6 1.8v4.3L2.8 12.6a1.1 1.1 0 0 0 1 1.6h8.4a1.1 1.1 0 0 0 1-1.6L9.4 6.1V1.8M4.6 9.6h6.8" }]],
+			scale: [["path", { d: "M8 2v12M4.5 14h7M3 4.5h10M3 4.5 1.4 8.5a1.8 1.8 0 0 0 3.2 0ZM13 4.5l-1.6 4a1.8 1.8 0 0 0 3.2 0Z" }]],
+			card: [["rect", { x: 2, y: 3, width: 12, height: 10, rx: 1.6 }], ["path", { d: "M5 6.5h6M5 9h6M5 11.5h3" }]],
+			quote: [["path", { d: "M3 9.5c0-2.5 1-4 3-5M3 9.5h3V13H3ZM9 9.5c0-2.5 1-4 3-5M9 9.5h3V13H9Z" }]],
+			tag: [["path", { d: "M2.5 2.5h5.3l6 6-5.3 5.3-6-6Z" }], ["circle", { cx: 5.3, cy: 5.3, r: 0.9, fill: "currentColor" }]],
+			search: [["circle", { cx: 7, cy: 7, r: 4.5 }], ["path", { d: "m10.3 10.3 3.2 3.2" }]],
+			book: [["path", { d: "M2.5 3.2c2-.8 3.8-.6 5.5.6 1.7-1.2 3.5-1.4 5.5-.6v9.6c-2-.8-3.8-.6-5.5.6-1.7-1.2-3.5-1.4-5.5-.6ZM8 3.8v9.6" }]],
+			arrow: [["path", { d: "M4 12 12 4M6 4h6v6" }]],
+			star: [["path", { d: "M8 2.5 9.5 5.8l3.6.4-2.7 2.4.8 3.5L8 10.3l-3.2 1.8.8-3.5-2.7-2.4 3.6-.4Z" }]],
+			cols: [["rect", { x: 2, y: 2.5, width: 12, height: 11, rx: 1.6 }], ["path", { d: "M6 2.5v11M10 2.5v11M2 6h12" }]],
+			chat: [["path", { d: "M2.5 4.2c0-1 .8-1.7 1.7-1.7h7.6c1 0 1.7.8 1.7 1.7v5.1c0 1-.8 1.7-1.7 1.7H7l-3 2.5V11h.2c-1 0-1.7-.8-1.7-1.7Z" }], ["path", { d: "M5.5 6.6h5" }]],
+			constellation: [["circle", { cx: 8, cy: 8, r: 2 }], ["circle", { cx: 3, cy: 3.5, r: 1.4 }], ["circle", { cx: 13, cy: 4, r: 1.4 }], ["circle", { cx: 3.5, cy: 12.5, r: 1.4 }], ["circle", { cx: 12.5, cy: 12.5, r: 1.4 }], ["path", { d: "M6.4 6.8 4.1 4.5M9.6 6.8l2.3-2M6.5 9.3l-2 2.2M9.5 9.3l2 2.2" }]],
+			review: [["path", { d: "M4 1.8h5.5L12.5 5v9.2H4Z" }], ["path", { d: "M9.5 1.8V5h3M6 8h4.5M6 10.5h4.5M6 13h2.5" }]],
+			funnel: [["path", { d: "M2.5 3h11L9.2 8.3v4.2l-2.4 1.2V8.3Z" }]],
 		}[name] || [];
 		const svg = this._svg("svg", { viewBox: "0 0 16 16", width: 16, height: 16, fill: "none", stroke: "currentColor", "stroke-width": 1.5, "stroke-linecap": "round", "stroke-linejoin": "round", class: "zia-icon " + (cls || ""), "aria-hidden": "true" });
 		for (const [tag, attrs] of P) this._svg(tag, attrs, svg);
 		return svg;
+	}
+
+	/** Ícone e cor de cada ação (os mesmos no Simples, no Avançado e na janela). */
+	_actionIcon(id) {
+		const MAP = {
+			resumo: ["sum", "blue"], pontos: ["list", "rose"], simples: ["bulb", "amber"], conceitos: ["key", "violet"],
+			estudo: ["quiz", "orange"], esquema: ["outline", "slate"], mapa: ["map", "green"], destaques: ["highlight", "yellow"],
+			relevancia: ["target", "teal"], critica: ["shield", "green"], metodos: ["flask", "violet"], conclusoes: ["scale", "amber"],
+			ficha: ["card", "blue"], excertos: ["quote", "rose"], etiquetas: ["tag", "orange"],
+			lacunas: ["search", "teal"], referencias: ["book", "violet"], perguntas: ["arrow", "amber"],
+			compare: ["cols", "blue"], pergunta: ["chat", "teal"], temas: ["constellation", "green"], cmp_sintese: ["review", "violet"], triagem: ["funnel", "orange"],
+		};
+		const [icon, color] = MAP[id] || (String(id).startsWith("custom:") ? ["star", "slate"] : null) || [];
+		if (!icon) return null;
+		const tile = this._el("span", "zia-ic zia-k-" + color);
+		tile.appendChild(this._icon(icon));
+		return tile;
 	}
 
 	/** Botão só com ícone (com a dica para quem passa o rato e para leitores de ecrã). */
@@ -506,6 +547,8 @@ var ZIAChatView = class {
 			const b = this._button(a.button || a.label, "zia-action" + (custom && this._editCustom ? " zia-editing" : ""),
 				() => (custom && this._editCustom ? this._openCustomForm(a) : this._isAdv() ? this._runAdvanced(a.id) : this.selectAction(a.id)), a.hint);
 			b.dataset.action = a.id;
+			const ic = this._actionIcon(a.id);
+			if (ic) { b.insertBefore(ic, b.firstChild); b.classList.add("zia-has-ic"); }
 			if (!(custom && this._editCustom)) this.actionButtons[a.id] = b;
 			box.appendChild(b);
 			// Ficha: botão "i" com a explicação do que é e dos campos
@@ -1403,6 +1446,8 @@ var ZIAChatView = class {
 			const on = id === "compare" ? COMPARE.includes(sel) : sel === id;
 			const b = this._button("", "zia-simple-btn" + (on ? " zia-selected" : ""),
 				() => pick(id === "compare" ? (COMPARE.includes(sel) ? sel : "comparar") : id));
+			const ic = this._actionIcon(id);
+			if (ic) { b.appendChild(ic); b.classList.add("zia-has-ic"); }
 			b.appendChild(this._el("span", "zia-simple-label", label));
 			b.appendChild(this._el("span", "zia-simple-desc", desc));
 			b.setAttribute("aria-pressed", on ? "true" : "false");
@@ -1464,6 +1509,8 @@ var ZIAChatView = class {
 			const a = this._action(id);
 			if (!a || (a.needsHighlights && !this._hasHighlights())) continue;
 			const b = this._button("", "zia-simple-btn", () => this._runSimple(id));
+			const ic = this._actionIcon(id);
+			if (ic) { b.appendChild(ic); b.classList.add("zia-has-ic"); }
 			b.appendChild(this._el("span", "zia-simple-label", a.button || a.label));
 			b.appendChild(this._el("span", "zia-simple-desc", this.T("simple." + id + ".desc")));
 			b.dataset.action = id;
@@ -2438,7 +2485,7 @@ var ZIAChatView = class {
 
 	/** Cores dos ramos e dos temas (a primeira é o azul petróleo da app). */
 	get MAP_COLORS() {
-		return ["#1f5fbf", "#c2410c", "#6d4bb3", "#2f7d4f", "#b45309", "#2563eb", "#be185d", "#0e7490", "#4d7c0f", "#9333ea"];
+		return ["#4a6fa5", "#c2410c", "#6d4bb3", "#2f7d4f", "#b45309", "#2563eb", "#be185d", "#0e7490", "#4d7c0f", "#9333ea"];
 	}
 
 	_svg(tag, attrs, parent) {

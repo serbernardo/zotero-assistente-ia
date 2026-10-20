@@ -1,7 +1,7 @@
 {
 	"manifest_version": 2,
 	"name": "Assistente IA",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"description": "Assistente de leitura científica / research reading assistant: resumos, avaliação crítica, fichas, comparação de PDFs, revisão de literatura e lacunas, com citações à página. Gemini, ChatGPT ou IAEdu, com contas gratuitas ou pagas.",
 	"author": "Sérgio Bernardo",
 	"homepage_url": "https://github.com/serbernardo/zotero-assistente-ia",
