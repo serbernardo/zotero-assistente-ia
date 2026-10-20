@@ -27,7 +27,7 @@ Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`). Nomes 
 - Investigacao futura/Future research (grupo `investigar`): Lacunas, Referencias-chave (`referencias`,
   `keepRefs`: a lista de referencias do PDF nao e cortada), Perguntas de investigacao.
 - Compreender tem tambem Explicar os meus destaques (`destaques`, `useAnnotations`, `needsHighlights`:
-  so aparece, no Simples e no Avancado, quando o PDF tem destaques, `_hasHighlights`).
+  so aparece no Avancado e quando o PDF tem destaques, `_hasHighlights`).
 - Janela (varios artigos, `_renderWindowActions`): 5 botoes grandes, sem separadores e sem pergunta
   livre: a caixa de texto e o Enviar so aparecem depois de escolher uma opcao (`_syncInput`).
   O texto inicial mostra os 3 passos (`chat.empty.window`):
@@ -229,8 +229,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   recusa isso como extracao do pensamento interno (`reasoning_extraction`).
 - **Modo Simples / Avancado** (pref `ui.mode`, "simple" por omissao, so no painel lateral: a janela
   e sempre avancada). Interruptor no topo do painel (`.zia-modeswitch`) e lista nas definicoes
-  (Respostas, `initUIMode`). Simples (`this.simple`, `_renderSimpleActions`, `_runSimple`): 7 botoes
-  grandes com descricao (resumo, simples, conceitos, mapa, ficha, estudo, relevancia) que enviam logo;
+  (Respostas, `initUIMode`). Simples (`this.simple`, `_renderSimpleActions`, `_runSimple`): 6 botoes
+  grandes com descricao (resumo, simples, conceitos, mapa, estudo, relevancia) que enviam logo (Ficha de
+  leitura e Explicar os meus destaques so no Avancado);
   uma acao ja pedida mostra a resposta sem novo pedido (menos a relevancia, que usa o tema escrito na
   caixa e pode repetir-se). Sem "Excertos citaveis" no simples (estudantes devem parafrasear). Sem separadores, lista de motores (usa o das
   definicoes), "Repetir com" nem motor/modelo por baixo da resposta; verificacao curta

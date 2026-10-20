@@ -39,7 +39,7 @@ The settings show step-by-step instructions for each one, with official links an
 
 The assistant sits in the item pane, right after Info. It has two modes:
 
-- **Simple:** large buttons that run with one click (Summarise, Plain-language summary, Key concepts, Mind map, Reading sheet, Test my understanding, Relevance to my topic).
+- **Simple:** large buttons that run with one click (Summarise, Plain-language summary, Key concepts, Mind map, Test my understanding, Relevance to my topic).
 - **Advanced:** all actions, grouped in tabs.
 
 ![Side panel, advanced mode](docs/screenshots/panel-advanced.png)

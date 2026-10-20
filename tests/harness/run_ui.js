@@ -255,7 +255,7 @@ async function main() {
 		assert.ok(!(await page.isVisible(".zia-tabs")), "sem separadores no simples");
 		assert.ok(!(await page.isVisible(".zia-engine")), "sem lista de motores no simples");
 		const labels = await page.$$eval(".zia-simple-btn .zia-simple-label", ls => ls.map(l => l.textContent));
-		assert.deepEqual(labels, ["Resumir", "Explicação simples", "Conceitos-chave", "Mapa mental", "Ficha de leitura", "Testar o que percebi", "Relevância para o meu tema"]);
+		assert.deepEqual(labels, ["Resumir", "Explicação simples", "Conceitos-chave", "Mapa mental", "Testar o que percebi", "Relevância para o meu tema"]);
 		const over = await page.$$eval(".zia-simple-btn", (bs) => bs.filter(b => b.scrollHeight > b.clientHeight + 1 || b.getBoundingClientRect().right > document.querySelector(".zia-root").getBoundingClientRect().right + 1).length);
 		assert.equal(over, 0, "botões grandes inteiros e dentro do painel estreito");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_simples.png"), fullPage: true });
@@ -358,13 +358,13 @@ async function main() {
 		await page.click('.zia-mode-btn[data-uimode="simple"]');
 		assert.ok(await page.isVisible(".zia-simple-grid"));
 		assert.equal(await page.evaluate(() => window.view.core.pref("ui.mode")), "simple");
-		console.log("OK modo simples: 7 botões grandes (com mapa mental e relevância para o tema) que enviam logo, sem motor, separadores nem Repetir, verificação curta, troca para avançado e volta");
+		console.log("OK modo simples: 6 botões grandes (com mapa mental e relevância para o tema) que enviam logo, sem motor, separadores nem Repetir, verificação curta, troca para avançado e volta");
 		await page.close();
 	}
 	{
 		const page = await open("?mode=section&uimode=simple&ui=en", { width: 300, height: 800 });
 		const labels = await page.$$eval(".zia-simple-btn .zia-simple-label", ls => ls.map(l => l.textContent));
-		assert.deepEqual(labels, ["Summarise", "Plain-language summary", "Key concepts", "Mind map", "Reading sheet", "Test my understanding", "Relevance to my topic"]);
+		assert.deepEqual(labels, ["Summarise", "Plain-language summary", "Key concepts", "Mind map", "Test my understanding", "Relevance to my topic"]);
 		assert.deepEqual(await page.$$eval(".zia-mode-btn", bs => bs.map(b => b.textContent)), ["Simple", "Advanced"]);
 		await page.close();
 		const win = await open("?mode=window&uimode=simple", { width: 820, height: 800 });
@@ -474,7 +474,7 @@ async function main() {
 		assert.match(csv, /"O que mede o estudo\?","Mede o tempo de resposta \(Silva et al\., 2021, p\. 2\)\."/);
 		await page.close();
 		page = await open("?mode=section&uimode=simple&hl=1", { width: 360, height: 900 });
-		assert.ok(await page.isVisible('.zia-simple-btn[data-action="destaques"]'), "no simples também aparece com destaques");
+		assert.equal(await page.locator('.zia-simple-btn[data-action="destaques"]').count(), 0, "no simples não aparece (só no Avançado)");
 		await page.close();
 		console.log("OK Explicar os meus destaques só com destaques (os destaques vão no pedido) e exportação para o Anki");
 	}

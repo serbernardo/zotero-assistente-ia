@@ -1383,7 +1383,8 @@ var ZIAChatView = class {
 		const box = this.actionsEl;
 		box.appendChild(this._el("div", "zia-simple-ask", this.T("simple.ask")));
 		const grid = this._el("div", "zia-simple-grid");
-		for (const id of ["resumo", "simples", "destaques", "conceitos", "mapa", "ficha", "estudo", "relevancia"]) {
+		// Ficha de leitura e Explicar os meus destaques ficam só no Avançado
+		for (const id of ["resumo", "simples", "conceitos", "mapa", "estudo", "relevancia"]) {
 			const a = this._action(id);
 			if (!a || (a.needsHighlights && !this._hasHighlights())) continue;
 			const b = this._button("", "zia-simple-btn", () => this._runSimple(id));
