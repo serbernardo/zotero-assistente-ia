@@ -119,17 +119,16 @@ async function main() {
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
 		// no painel, Comparar já não é separador: o atalho do rodapé leva à janela grande com os PDFs da conversa
 		assert.equal(await page.locator('.zia-tab[data-group="comparar"]').count(), 0, "sem separador Comparar no painel");
-		// título, PT/EN e definições numa linha, e a faixa "Vários artigos" abre a janela
-		assert.equal(await page.textContent(".zia-top-title"), "Assistente IA");
+		// PT/EN e definições numa linha (sem título repetido), e a faixa "Vários artigos" abre a janela
+		assert.equal((await page.textContent(".zia-top")).replace(/\s/g, ""), "PTEN", "sem título repetido");
 		assert.equal(await page.locator(".zia-top .zia-btn-icon").count(), 1, "definições na linha do título");
 		await page.click(".zia-multi-strip");
 		assert.ok(await page.evaluate(() => !!window.openedWindow), "a faixa abre a janela do assistente");
 		// PT/EN no painel muda a língua de tudo
 		await page.click('.zia-langswitch [data-lang="en"]');
-		await page.waitForSelector(".zia-top-title:has-text(\"AI Assistant\")");
-		assert.equal(await page.textContent(".zia-multi-text b"), "Several articles");
+		await page.waitForSelector(".zia-multi-text b:has-text(\"Several articles\")");
 		await page.click('.zia-langswitch [data-lang="pt-PT"]');
-		await page.waitForSelector(".zia-top-title:has-text(\"Assistente IA\")");
+		await page.waitForSelector(".zia-multi-text b:has-text(\"Vários artigos\")");
 		// o painel é para o artigo selecionado: sem "+ PDF" (vários PDFs só na janela)
 		assert.equal(await page.locator(".zia-chip-add").count(), 0, "sem + PDF no painel");
 		assert.doesNotMatch(await page.textContent(".zia-docs"), /D1/, "sem D1 nos chips");

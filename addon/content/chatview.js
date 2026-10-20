@@ -177,12 +177,11 @@ var ZIAChatView = class {
 		this.root = root;
 		this._modeSwitch = null;
 
-		// Painel lateral: título, língua (PT/EN) e definições numa linha, e a faixa "Vários artigos"
+		// Painel lateral: língua (PT/EN) e definições à direita, e a faixa "Vários artigos"
 		if (this.mode === "section") {
 			const top = this._el("div", "zia-top");
-			const title = this._el("span", "zia-top-title");
-			title.append(this._icon("spark", "zia-icon-spark"), this.doc.createTextNode(this.T("app.name")));
-			top.appendChild(title);
+			// Sem título: o Zotero já mostra "Assistente IA" no cabeçalho da secção
+			top.appendChild(this._el("span", "zia-top-title"));
 			const lang = this._el("div", "zia-langswitch");
 			lang.setAttribute("role", "group");
 			lang.title = this.T("ui.lang.tip");

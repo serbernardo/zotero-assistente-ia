@@ -22,7 +22,7 @@ Requires **Zotero 8 or later**. Updates install automatically (or use **Check fo
 
 ## Connect an AI
 
-Open the plugin settings (the ⚙ button in the panel) and pick one:
+Open the plugin settings (the settings button at the top of the panel) and pick one:
 
 | Service | Cost | What you need |
 |---|---|---|
@@ -62,7 +62,7 @@ Two views: **Diagram** (branches with colours and curves, click a branch to open
 
 ### Assistant window: several articles
 
-Open it from the panel, from the right-click menu on selected items, or on a collection. Use **+ Articles** to add articles from the open folder, the whole library or any collection.
+Open it from the "Several articles" bar at the top of the panel, from the right-click menu on selected items, or on a collection. Use **+ Articles** to add articles from the open folder, the whole library or any collection.
 
 ![Adding articles](docs/screenshots/window-add-articles.png)
 

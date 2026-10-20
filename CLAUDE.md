@@ -204,8 +204,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   as comparacoes.
 - **Simples por omissao:** `simpleModeOnce` no `bootstrap.js` poe `ui.mode` = simple uma so vez (pref
   `ui.simpleApplied`), depois fica a escolha da pessoa.
-- **Linha do titulo do painel** (`.zia-top`): "✦ Assistente IA", PT/EN (`.zia-langswitch`, muda `ui.lang`
-  e redesenha) e ⚙. Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
+- **Linha de cima do painel** (`.zia-top`): sem titulo (o Zotero ja mostra "Assistente IA" no cabecalho),
+  PT/EN (`.zia-langswitch`, muda `ui.lang` e redesenha) e definicoes (icone `sliders`). Icones em linha
+  fina desenhados em SVG (`_icon`, `_iconButton`). Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
   (`.zia-multi-strip`) abre a janela com o artigo. Sem botoes no titulo da seccao do Zotero (sem
   `sectionButtons`) e sem "Abrir em janela" nem "Comparar artigos ↗" no rodape.
 - **Painel = um artigo:** no painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
@@ -460,7 +461,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.3.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Creditos
