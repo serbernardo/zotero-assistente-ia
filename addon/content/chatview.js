@@ -181,6 +181,9 @@ var ZIAChatView = class {
 			constellation: [["circle", { cx: 8, cy: 8, r: 2 }], ["circle", { cx: 3, cy: 3.5, r: 1.4 }], ["circle", { cx: 13, cy: 4, r: 1.4 }], ["circle", { cx: 3.5, cy: 12.5, r: 1.4 }], ["circle", { cx: 12.5, cy: 12.5, r: 1.4 }], ["path", { d: "M6.4 6.8 4.1 4.5M9.6 6.8l2.3-2M6.5 9.3l-2 2.2M9.5 9.3l2 2.2" }]],
 			review: [["path", { d: "M4 1.8h5.5L12.5 5v9.2H4Z" }], ["path", { d: "M9.5 1.8V5h3M6 8h4.5M6 10.5h4.5M6 13h2.5" }]],
 			funnel: [["path", { d: "M2.5 3h11L9.2 8.3v4.2l-2.4 1.2V8.3Z" }]],
+			shelf: [["rect", { x: 2.5, y: 3, width: 3, height: 10, rx: 0.8 }], ["rect", { x: 6.5, y: 3, width: 3, height: 10, rx: 0.8 }], ["path", { d: "m10.9 4.4 2.5-.7 2 8.4-2.5.7Z" }]],
+			folder: [["path", { d: "M2 4.3c0-.7.6-1.3 1.3-1.3h3l1.5 1.7h4.9c.7 0 1.3.6 1.3 1.3v6.2c0 .7-.6 1.3-1.3 1.3H3.3c-.7 0-1.3-.6-1.3-1.3Z" }]],
+			sort: [["path", { d: "M5 3v10M2.8 10.8 5 13l2.2-2.2M11 13V3M8.8 5.2 11 3l2.2 2.2" }]],
 		}[name] || [];
 		const svg = this._svg("svg", { viewBox: "0 0 16 16", width: 16, height: 16, fill: "none", stroke: "currentColor", "stroke-width": 1.5, "stroke-linecap": "round", "stroke-linejoin": "round", class: "zia-icon " + (cls || ""), "aria-hidden": "true" });
 		for (const [tag, attrs] of P) this._svg(tag, attrs, svg);
@@ -1139,36 +1142,73 @@ var ZIAChatView = class {
 		box.dataset.kind = "items";
 		box.appendChild(this._el("div", "zia-picker-title", reason || this.T("chat.picker.title")));
 		const inConv = new Set(this.state.docs.map(d => d.parentID || d.itemID));
-		// Os artigos escolhidos ficam marcados ao mudar de pasta: pode juntar-se de várias pastas de uma vez
+		// Os artigos escolhidos ficam marcados ao mudar de coleção: pode juntar-se de várias de uma vez
 		const chosen = new Map();
-		// Onde procurar: a pasta aberta no Zotero, toda a biblioteca ou qualquer coleção
-		const srcRow = this._el("div", "zia-picker-sort");
-		srcRow.appendChild(this._el("span", "zia-muted", this.T("chat.picker.source")));
-		const srcSel = this._select("zia-picker-srcsel", this.T("chat.picker.source"));
-		const opt = (value, label) => srcSel.addOption(value, label);
-		opt("view", this.T("chat.picker.source.view"));
-		opt("library", this.T("chat.picker.source.library"));
 		let cols = [];
 		try { cols = this.core.listCollections ? this.core.listCollections() : []; }
 		catch (e) { this.core.log("listCollections: " + e); }
-		for (const c of cols) opt("col:" + c.id, "\u00a0\u00a0".repeat(c.depth + 1) + c.name);
-		srcRow.appendChild(srcSel);
-		box.appendChild(srcRow);
-		const sortRow = this._el("div", "zia-picker-sort");
-		sortRow.appendChild(this._el("span", "zia-muted", this.T("chat.picker.sort")));
-		const sortSel = this._select("zia-picker-sortsel", this.T("chat.picker.sort"));
-		for (const k of ["added", "author", "date"]) sortSel.addOption(k, this.T("chat.picker.sort." + k));
-		sortRow.appendChild(sortSel);
-		box.appendChild(sortRow);
+		let source = "library";
+
+		// Pesquisa (com lupa)
+		const sbox = this._el("div", "zia-picker-searchbox");
+		sbox.appendChild(this._icon("search"));
 		const search = this._el("input", "zia-picker-search");
 		search.setAttribute("type", "search");
 		search.setAttribute("placeholder", this.T("chat.picker.search"));
 		search.setAttribute("aria-label", this.T("chat.picker.search"));
-		box.appendChild(search);
+		sbox.appendChild(search);
+		box.appendChild(sbox);
+
+		// Onde procurar (toda a biblioteca ou uma coleção) e ordenar, numa só linha
+		const bar = this._el("div", "zia-picker-bar");
+		const seg = this._el("div", "zia-picker-seg");
+		const libBtn = this._button("", "zia-picker-segbtn on", () => setSource("library"));
+		libBtn.append(this._icon("shelf"), this.doc.createTextNode(this.T("chat.picker.source.library")));
+		seg.appendChild(libBtn);
+		const colBtn = this._button("", "zia-picker-segbtn", () => setSource("col:" + colSel.value));
+		colBtn.append(this._icon("folder"), this.doc.createTextNode(this.T("chat.picker.collection")));
+		colBtn.hidden = !cols.length;
+		seg.appendChild(colBtn);
+		bar.appendChild(seg);
+		const colSel = this._select("zia-picker-colsel", this.T("chat.picker.collection"));
+		for (const c of cols) colSel.addOption(String(c.id), "  ".repeat(c.depth) + c.name);
+		const preferred = cols.find(c => c.selected) || cols[0];
+		if (preferred) colSel.value = String(preferred.id);
+		colSel.hidden = true;
+		bar.appendChild(colSel);
+		const sortWrap = this._el("div", "zia-picker-sortwrap");
+		sortWrap.title = this.T("chat.picker.sort");
+		sortWrap.appendChild(this._icon("sort"));
+		const sortSel = this._select("zia-picker-sortsel", this.T("chat.picker.sort"));
+		for (const k of ["added", "author", "date", "title"]) sortSel.addOption(k, this.T("chat.picker.sort." + k));
+		sortWrap.appendChild(sortSel);
+		bar.appendChild(sortWrap);
+		box.appendChild(bar);
+
+		// Lista: a caixa "Marcar todos" fica por cima do primeiro artigo
+		const head = this._el("label", "zia-picker-all");
+		const allCb = this._el("input");
+		allCb.setAttribute("type", "checkbox");
+		const allTxt = this._el("span", null, "");
+		head.append(allCb, allTxt);
+		head.hidden = true;
+		box.appendChild(head);
 		const ul = this._el("div", "zia-picker-list");
 		ul.setAttribute("role", "listbox");
 		ul.setAttribute("aria-multiselectable", "true");
 		box.appendChild(ul);
+		const many = this._el("div", "zia-picker-many");
+		many.hidden = true;
+		box.appendChild(many);
+
+		// Rodapé: contagem, juntar a coleção toda, Cancelar e Juntar
+		const foot = this._el("div", "zia-picker-foot");
+		const cnt = this._el("span", "zia-picker-count", "");
+		const wholeBtn = this._button("", "zia-link-btn zia-picker-whole", () => {
+			const c = cols.find(x => "col:" + x.id === source);
+			if (c) this._addWholeCollection(c);
+		});
+		wholeBtn.hidden = true;
 		const addBtn = this._button(this.T("chat.picker.add", { n: 0 }), "zia-btn-small zia-btn-primary", async () => {
 			const items = [...chosen.values()];
 			this._closePicker();
@@ -1178,95 +1218,97 @@ var ZIAChatView = class {
 			if (a && this.state.docs.length >= a.minDocs) this._setStatus(this.T("chat.picker.ready", { label: a.label }));
 		});
 		addBtn.disabled = true;
-		// Marcar todos / Desmarcar todos: só os artigos que aparecem (a pesquisa conta)
-		const many = this._el("div", "zia-picker-many");
-		many.hidden = true;
+		foot.append(cnt, wholeBtn, this._el("span", "zia-picker-spacer"), this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()), addBtn);
+		box.appendChild(foot);
+
+		const cmp = {
+			added: (a, b) => (b.added || "").localeCompare(a.added || ""),
+			author: (a, b) => (a.author || "").localeCompare(b.author || "", undefined, { sensitivity: "base" }) || (b.date || "").localeCompare(a.date || ""),
+			date: (a, b) => (b.date || "").localeCompare(a.date || ""),
+			title: (a, b) => (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" }),
+		};
+		let rows = [];
+		const visible = () => rows.filter(r => !r.row.hidden);
+		// Estado da caixa "Marcar todos": marcada se todos os visíveis estão escolhidos, mista se só alguns
 		const refresh = () => {
+			const vis = visible();
+			const n = vis.filter(r => chosen.has(r.x.item.id)).length;
+			head.hidden = !vis.length;
+			allCb.checked = vis.length > 0 && n === vis.length;
+			allCb.indeterminate = n > 0 && n < vis.length;
+			allTxt.textContent = this.T("chat.picker.selectAll", { n: vis.length });
+			cnt.textContent = this.T("chat.picker.chosen", { n: chosen.size });
 			addBtn.textContent = this.T("chat.picker.add", { n: chosen.size });
 			addBtn.disabled = !chosen.size;
 			many.hidden = chosen.size <= 50;
 			many.textContent = this.T("chat.picker.many", { n: chosen.size });
 		};
-		const setAll = on => {
-			for (const r of rows) {
-				if (r.row.hidden) continue;
-				r.cb.checked = on;
-				if (on) chosen.set(r.x.item.id, r.x.item);
+		allCb.addEventListener("change", () => {
+			for (const r of visible()) {
+				r.cb.checked = allCb.checked;
+				if (allCb.checked) chosen.set(r.x.item.id, r.x.item);
 				else chosen.delete(r.x.item.id);
+				r.row.classList.toggle("on", allCb.checked);
 			}
 			refresh();
-		};
-		const bulk = this._el("div", "zia-picker-bulk");
-		bulk.append(
-			this._button(this.T("chat.picker.selectAll"), "zia-btn-small", () => setAll(true)),
-			this._button(this.T("chat.picker.clearAll"), "zia-btn-small", () => setAll(false)),
-		);
-		// Numa coleção: juntar todos os artigos dela de uma vez (fica indicada como "Coleção: X")
-		const wholeBtn = this._button("", "zia-btn-small zia-picker-whole", () => {
-			const c = cols.find(x => "col:" + x.id === srcSel.value);
-			if (c) this._addWholeCollection(c);
 		});
-		wholeBtn.hidden = true;
-		const btns = this._el("div", "zia-custom-btns");
-		btns.append(addBtn, wholeBtn, this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()));
-		box.appendChild(btns);
-		box.insertBefore(bulk, ul);
-		box.insertBefore(many, btns);
-		const cmp = {
-			added: (a, b) => (b.added || "").localeCompare(a.added || ""),
-			author: (a, b) => (a.author || "").localeCompare(b.author || "", undefined, { sensitivity: "base" }) || (b.date || "").localeCompare(a.date || ""),
-			date: (a, b) => (b.date || "").localeCompare(a.date || ""),
-		};
-		let rows = [];
 		const filter = () => {
 			const q = search.value.trim().toLowerCase();
 			for (const r of rows) r.row.hidden = !!q && !r.text.includes(q);
+			refresh();
 		};
 		let loadID = 0;
 		const load = async () => {
 			const my = ++loadID;
 			while (ul.firstChild) ul.removeChild(ul.firstChild);
-			ul.appendChild(this._el("div", "zia-muted", this.T("chat.picker.loading")));
-			const v = srcSel.value;
+			ul.appendChild(this._el("div", "zia-muted zia-picker-msg", this.T("chat.picker.loading")));
 			let list = [];
-			try { list = await this.core.pickableItems(400, v.startsWith("col:") ? Number(v.slice(4)) : v); }
+			try { list = await this.core.pickableItems(400, source.startsWith("col:") ? Number(source.slice(4)) : source); }
 			catch (e) { this.core.log("pickableItems: " + e); }
 			if (my !== loadID) return;
 			list = list.filter(x => !inConv.has(x.item.id));
 			while (ul.firstChild) ul.removeChild(ul.firstChild);
-			wholeBtn.hidden = !v.startsWith("col:") || !list.length;
+			wholeBtn.hidden = !source.startsWith("col:") || !list.length;
 			wholeBtn.textContent = this.T("chat.picker.whole", { n: list.length });
 			if (!list.length) ul.appendChild(this._el("div", "zia-muted zia-picker-none", this.T("chat.picker.empty")));
 			list.sort(cmp[sortSel.value]);
 			rows = [];
 			for (const x of list) {
-				const row = this._el("label", "zia-picker-row");
+				const row = this._el("label", "zia-picker-row" + (chosen.has(x.item.id) ? " on" : ""));
 				const cb = this._el("input");
 				cb.setAttribute("type", "checkbox");
 				cb.checked = chosen.has(x.item.id);
 				cb.addEventListener("change", () => {
 					if (cb.checked) chosen.set(x.item.id, x.item);
 					else chosen.delete(x.item.id);
+					row.classList.toggle("on", cb.checked);
 					refresh();
 				});
-				row.append(cb, this._el("span", null, x.label));
+				const meta = this._el("span", "zia-picker-meta");
+				meta.appendChild(this._el("span", "zia-picker-ref", x.ref || x.label));
+				if (x.title) meta.appendChild(this._el("span", "zia-picker-ttl", x.title));
+				row.append(cb, meta);
+				row.title = x.label;
 				rows.push({ row, cb, text: x.label.toLowerCase(), x });
 				ul.appendChild(row);
 			}
 			filter();
 		};
-		srcSel.addEventListener("change", load);
+		const setSource = v => {
+			source = v;
+			libBtn.classList.toggle("on", v === "library");
+			colBtn.classList.toggle("on", v !== "library");
+			colSel.hidden = v === "library";
+			load();
+		};
+		colSel.addEventListener("change", () => setSource("col:" + colSel.value));
 		sortSel.addEventListener("change", () => {
 			rows.sort((r1, r2) => cmp[sortSel.value](r1.x, r2.x));
 			for (const r of rows) ul.appendChild(r.row);
 		});
 		search.addEventListener("input", filter);
+		refresh();
 		await load();
-		// A pasta aberta no Zotero não tem outros artigos: procura logo em toda a biblioteca
-		if (!rows.length && srcSel.value === "view") {
-			srcSel.value = "library";
-			await load();
-		}
 		search.focus();
 	}
 

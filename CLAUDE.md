@@ -209,8 +209,13 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Painel sem ajuda nem motor:** sem lista do motor no painel (Simples e Avancado, motor nas definicoes),
   sem perguntas por baixo da caixa e sem rodape ("Nova conversa" retirado). As perguntas de exemplo estao
   em Pers. (`.zia-examples`, um clique escreve a pergunta na caixa). A janela mantem os 3 passos.
-- **Seletor + Artigos:** "Marcar todos" e "Desmarcar todos" (so os artigos visiveis, a pesquisa conta) e
-  aviso com mais de 50 artigos escolhidos (`chat.picker.many`).
+- **Seletor + Artigos** (`_openPicker`): pesquisa com lupa, "Toda a biblioteca" e "Coleção" (lista das
+  coleções ao lado) em botoes, "Ordenar" discreto a direita (Mais recentes, Autor, Ano, Titulo). Sem "Pasta
+  aberta". Linhas compactas de duas linhas (autor e ano a negrito, titulo por baixo, `x.ref`/`x.title`
+  de `pickableItems`). Uma caixa "Marcar todos (N)" por cima do primeiro artigo marca e desmarca os artigos
+  visiveis (a pesquisa conta, fica mista com so alguns). Rodape: "Escolhidos: N", "Juntar a colecao toda"
+  numa colecao, Cancelar e Juntar. Aviso com mais de 50 escolhidos (`chat.picker.many`). As escolhas ficam ao
+  mudar de colecao.
 - **Linha de cima do painel** (`.zia-top`): sem titulo (o Zotero ja mostra "Assistente IA" no cabecalho),
   PT/EN (`.zia-langswitch`, muda `ui.lang` e redesenha) e definicoes (icone `sliders`). Icones em linha
   fina desenhados em SVG (`_icon`, `_iconButton`). Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
@@ -375,11 +380,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Painel:** caixa de texto por cima das respostas e a resposta mais recente
   logo abaixo dela. Separador "Personalizado" (grupo `meus`) com formulario
   para criar, editar e apagar acoes (`setCustomPrompt`/`removeCustomPrompt`,
-  ids estaveis `custom:<nome>`). Botao "+ Artigos" (so na janela) abre um seletor com "Procurar em:"
-  (`pickableItems(limit, source)`: pasta aberta no Zotero `getSortedItems`, toda a biblioteca
-  `Zotero.Items.getAll` ou uma colecao), pesquisa e "Juntar a colecao toda" (`_addWholeCollection`).
-  As escolhas ficam ao mudar de pasta. Se a pasta aberta nao tem outros artigos, abre logo em toda
-  a biblioteca. Ja nao ha botao "+ Colecao" (o `_openCollectionPicker` fica para o menu das colecoes).
+  ids estaveis `custom:<nome>`). Botao "+ Artigos" (so na janela) abre o seletor (ver acima:
+  `pickableItems(limit, source)`, toda a biblioteca `Zotero.Items.getAll` ou uma colecao, "Juntar a colecao
+  toda" `_addWholeCollection`). Ja nao ha botao "+ Colecao" (o `_openCollectionPicker` fica para o menu das colecoes).
   Uma acao que precisa de mais PDFs (Comparar) abre o seletor.
 - **Enviar so com o botao:** Enter na caixa de texto muda de linha, nunca envia.
   Enviar com a caixa vazia mostra um aviso. O seletor "+ Artigos" ordena por data de

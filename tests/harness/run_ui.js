@@ -38,8 +38,9 @@ async function main() {
 	const addAll = async page => {
 		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
 		await page.waitForSelector(".zia-picker-row");
-		for (const cb of await page.$$(".zia-picker-row input")) await cb.check();
-		await page.click(".zia-picker button:has-text(\"Juntar\")");
+		await page.check(".zia-picker-all input");
+		await page.uncheck(".zia-picker-row:has-text(\"Outra pasta\") >> input");
+		await page.click(".zia-picker button.zia-btn-primary");
 	};
 	// Escolher uma ação e depois pedir (clicar numa ação já não envia logo)
 	// Na janela, as comparações estão dentro de "Comparar artigos" (modelos)
@@ -159,28 +160,43 @@ async function main() {
 		assert.equal(await page.locator("button:has-text(\"+ Coleção\")").count(), 0, "um só botão para juntar artigos");
 		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
 		await page.waitForSelector(".zia-picker-row");
-		assert.equal(await page.locator(".zia-picker-row").count(), 2);
-		// procurar noutra pasta: toda a biblioteca e uma coleção (com "Juntar a coleção toda")
-		await dd(page, ".zia-picker-srcsel", "library");
-		await page.waitForSelector(".zia-picker-row:has-text(\"Outra pasta\")");
+		// abre em toda a biblioteca (3 artigos), sem a opção "Pasta aberta"
 		assert.equal(await page.locator(".zia-picker-row").count(), 3, "toda a biblioteca");
-		await page.check(".zia-picker-row:has-text(\"Outra pasta\") >> input");
-		await dd(page, ".zia-picker-srcsel", "col:8");
-		await page.waitForSelector(".zia-picker-none");
-		assert.equal(await page.isHidden(".zia-picker-whole"), true, "coleção vazia: sem Juntar a coleção toda");
-		await dd(page, ".zia-picker-srcsel", "view");
-		await page.waitForSelector(".zia-picker-row");
-		assert.match(await page.textContent(".zia-picker button.zia-btn-primary"), /Juntar \(1\)/, "a escolha de outra pasta fica");
-		await dd(page, ".zia-picker-srcsel", "library");
-		await page.waitForSelector(".zia-picker-row:has-text(\"Outra pasta\")");
-		await page.uncheck(".zia-picker-row:has-text(\"Outra pasta\") >> input");
-		await dd(page, ".zia-picker-srcsel", "view");
-		await page.waitForSelector(".zia-picker-row >> nth=1");
+		assert.equal(await page.locator(".zia-picker-segbtn").count(), 2, "Toda a biblioteca e Coleção");
+		assert.equal(await page.locator(".zia-picker-seg").textContent().then(t => /Pasta aberta/.test(t)), false, "sem Pasta aberta");
+		assert.equal(await page.locator(".zia-picker-row .zia-picker-ref").first().isVisible(), true, "autor e ano a negrito, título por baixo");
+		// Marcar todos: uma caixa por cima do primeiro artigo
+		assert.match(await page.textContent(".zia-picker-all"), /Marcar todos \(3\)/);
+		await page.check(".zia-picker-all input");
+		assert.equal(await page.locator(".zia-picker-row input:checked").count(), 3, "marca todos");
+		assert.match(await page.textContent(".zia-picker button.zia-btn-primary"), /Juntar \(3\)/);
+		await page.uncheck(".zia-picker-all input");
+		assert.equal(await page.locator(".zia-picker-row input:checked").count(), 0, "desmarca todos");
+		// a pesquisa conta: só marca os artigos que aparecem; a caixa fica mista com só alguns
 		await page.fill(".zia-picker-search", "garcía");
 		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 1);
+		await page.check(".zia-picker-all input");
+		assert.equal(await page.locator(".zia-picker-row input:checked").count(), 1);
+		await page.fill(".zia-picker-search", "");
+		assert.equal(await page.$eval(".zia-picker-all input", el => el.indeterminate), true, "caixa mista");
+		await page.uncheck(".zia-picker-row:has-text(\"García\") >> input");
 		await page.fill(".zia-picker-search", "xyz");
 		assert.equal(await page.locator(".zia-picker-row:not([hidden])").count(), 0, "pesquisa filtra a lista");
 		await page.fill(".zia-picker-search", "");
+		// coleção: escolher uma coleção vazia não mostra "Juntar a coleção toda", a escolha de antes fica
+		await page.check(".zia-picker-row:has-text(\"Outra pasta\") >> input");
+		await page.click(".zia-picker-segbtn:has-text(\"Coleção\")");
+		await dd(page, ".zia-picker-colsel", "8");
+		await page.waitForSelector(".zia-picker-none");
+		assert.equal(await page.isHidden(".zia-picker-whole"), true, "coleção vazia: sem Juntar a coleção toda");
+		assert.match(await page.textContent(".zia-picker button.zia-btn-primary"), /Juntar \(1\)/, "a escolha de outra coleção fica");
+		await page.click(".zia-picker-segbtn:has-text(\"Toda a biblioteca\")");
+		await page.waitForSelector(".zia-picker-row:has-text(\"Outra pasta\")");
+		assert.equal(await page.locator(".zia-picker-row input:checked").count(), 1, "o artigo marcado continua marcado");
+		await page.uncheck(".zia-picker-row:has-text(\"Outra pasta\") >> input");
+		// ordenar por título
+		await dd(page, ".zia-picker-sortsel", "title");
+		assert.match(await page.textContent(".zia-picker-row >> nth=0"), /Assistentes|Library|Outra/);
 		await page.check(".zia-picker-row >> nth=0 >> input");
 		await page.screenshot({ path: path.join(OUT, "ui_janela_seletor.png") });
 		await page.click(".zia-picker button:has-text(\"Juntar (1)\")");
@@ -881,7 +897,8 @@ async function main() {
 		// escolhe a coleção em "Procurar em", sem ter de a selecionar antes no Zotero, e junta-a toda
 		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
 		await page.waitForSelector(".zia-picker-row");
-		await dd(page, ".zia-picker-srcsel", "col:7");
+		await page.click(".zia-picker-segbtn:has-text(\"Coleção\")");
+		await dd(page, ".zia-picker-colsel", "7");
 		await page.click(".zia-picker-whole:has-text(\"Juntar a coleção toda (2)\")");
 		await page.waitForSelector(".zia-chip-col:has-text(\"Coleção: Tese\")");
 		await page.waitForSelector("text=Coleção «Tese» selecionada");
