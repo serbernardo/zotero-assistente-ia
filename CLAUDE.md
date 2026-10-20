@@ -461,8 +461,16 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.4.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.5.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
+
+## Licenca e documentacao publica
+
+Licenca AGPL-3.0 (`LICENSE`, titular Sergio Bernardo). `README.md` (ingles, para quem vai usar o plugin) e
+`GUIA.md` (guia rapido em portugues) sao publicos e nao mencionam a Anthropic nem o Claude, a pedido. O
+`CLAUDE.md` e so de trabalho. A descricao do `manifest.json` tambem nao menciona o Claude. Os motores do
+Claude continuam no plugin (definicoes e lista de motores). A descricao e as etiquetas (topics) do
+repositorio no GitHub mudam-se na pagina do repositorio (esta sessao nao tem permissao).
 
 ## Creditos
 

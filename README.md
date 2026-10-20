@@ -88,6 +88,10 @@ To answer, the plugin sends the text of the selected PDFs (and your question) to
 
 Conversations are stored only on your computer, in the Zotero data folder, and can be deleted in the settings.
 
+## License
+
+Copyright (C) 2026 Sérgio Bernardo. Licensed under the **GNU Affero General Public License v3.0** (see [LICENSE](LICENSE)). You can use, study, share and modify the plugin. If you distribute a modified version, you must share its source code under the same license.
+
 ## Feedback
 
 Found a problem or have an idea? Open an [issue](https://github.com/serbernardo/zotero-assistente-ia/issues).
