@@ -513,10 +513,12 @@ var ZoteroIA = {
 		return new Promise(resolve => {
 			addon.findUpdates({
 				onUpdateAvailable: (a, install) => {
+					// O código do erro diz porquê (transferência, ficheiro danificado, ficheiro em uso…)
 					install.addListener({
 						onInstallEnded: () => resolve({ status: "installed", version: install.version }),
-						onInstallFailed: () => resolve({ status: "failed", version: install.version }),
-						onDownloadFailed: () => resolve({ status: "failed", version: install.version }),
+						onInstallPostponed: () => resolve({ status: "restart", version: install.version }),
+						onInstallFailed: () => resolve({ status: "failed", version: install.version, error: install.error }),
+						onDownloadFailed: () => resolve({ status: "failed", version: install.version, error: install.error }),
 					});
 					install.install();
 				},

@@ -247,6 +247,26 @@ async function main() {
 		await pg.close();
 	}
 	console.log("OK Buy me a coffee nos créditos: escondido por omissão; ligado, abre a página de apoio");
+
+	// 1d. Atualização que falha: diz o motivo e mostra o botão para instalar à mão (que abre a página da versão)
+	{
+		const pg = await open();
+		await pg.evaluate(() => { ZoteroIA.checkForUpdates = async () => ({ status: "failed", version: "9.9.9", error: -4 }); });
+		await pg.click("#zia-update-check");
+		const manual = pg.locator("#zia-update-manual");
+		await manual.waitFor({ state: "visible" });
+		const msg = await pg.textContent("#zia-update-result");
+		assert.match(msg, /9\.9\.9/);
+		assert.match(msg, /em uso|in use/, "diz o motivo: " + msg);
+		await manual.click();
+		assert.ok((await pg.evaluate(() => window.opened)).includes("https://github.com/serbernardo/zotero-assistente-ia/releases/latest"));
+		await pg.evaluate(() => { ZoteroIA.checkForUpdates = async () => ({ status: "restart", version: "9.9.9" }); });
+		await pg.click("#zia-update-check");
+		await pg.waitForFunction(() => /9\.9\.9/.test(document.getElementById("zia-update-result").textContent) && document.getElementById("zia-update-manual").hidden);
+		assert.match(await pg.textContent("#zia-update-result"), /Reinicia|Restart/);
+		await pg.close();
+	}
+	console.log("OK atualização que falha: motivo e botão para instalar à mão; pronta a reiniciar sem o botão");
 	console.log("OK instruções dos motores: custo, passos com ligações e comandos, texto selecionável, Copiar só nos comandos");
 
 	// 1c. IAEdu: só a chave chega (agente por omissão), os campos de outro agente são opcionais e validados

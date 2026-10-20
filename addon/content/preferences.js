@@ -694,12 +694,38 @@ window.ZIAPrefs = {
 		this.refresh();
 	},
 
+	/** Quando a atualização automática falha: botão para abrir a página da versão e instalar à mão. */
+	showManualUpdate(show) {
+		const res = this.$("zia-update-result");
+		if (!res) return;
+		let b = this.$("zia-update-manual");
+		if (!show) {
+			if (b) b.hidden = true;
+			return;
+		}
+		if (!b) {
+			b = document.createElementNS("http://www.w3.org/1999/xhtml", "button");
+			b.id = "zia-update-manual";
+			b.className = "zia-btn zia-btn-small";
+			b.addEventListener("click", () => Zotero.launchURL("https://github.com/serbernardo/zotero-assistente-ia/releases/latest"));
+			res.parentNode.insertBefore(b, res.nextSibling);
+		}
+		b.textContent = this.T("prefs.update.manual");
+		b.hidden = false;
+	},
+
 	async checkUpdates() {
 		const out = "zia-update-result";
 		this.setText(out, this.T("prefs.update.checking"));
 		try {
 			const r = await this.core().checkForUpdates();
-			this.setText(out, this.T("prefs.update." + r.status, { v: r.version || "" }), r.status === "failed" || r.status === "error");
+			let msg = this.T("prefs.update." + r.status, { v: r.version || "" });
+			if (r.status === "failed") {
+				const why = { "-1": "network", "-2": "hash", "-3": "corrupt", "-4": "access" }[String(r.error)];
+				msg += " " + (why ? this.T("prefs.update.why." + why) : this.T("prefs.update.why.code", { c: r.error == null ? "?" : r.error }));
+			}
+			this.setText(out, msg, r.status === "failed" || r.status === "error");
+			this.showManualUpdate(r.status === "failed" || r.status === "error");
 		}
 		catch (e) {
 			this.setText(out, this.T("prefs.update.error") + "\n" + (e.message || String(e)), true);
