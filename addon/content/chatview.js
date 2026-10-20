@@ -247,8 +247,8 @@ var ZIAChatView = class {
 		this.engineSel = this._select("zia-engine", this.T("chat.engine.tip"));
 		this.engineSel.title = this.T("chat.engine.tip");
 		this.engineSel.addEventListener("change", () => this._setEngine(this.engineSel.value));
-		// No modo simples usa-se o motor escolhido nas definições
-		this.engineSel.hidden = this.simple;
+		// No painel (Simples e Avançado) usa-se o motor escolhido nas definições
+		this.engineSel.hidden = this.mode === "section";
 		tools.appendChild(this.engineSel);
 		// No painel o ⚙ está na linha do título
 		if (this.mode === "window") tools.appendChild(this._iconButton("sliders", "", () => this._openPrefs(), this.T("chat.settings.tip")));
@@ -321,9 +321,8 @@ var ZIAChatView = class {
 		const tail = this._el("div", "zia-footer");
 		const coffee = this.core.coffeeButton && this.core.coffeeButton(this.doc);
 		if (coffee) tail.appendChild(coffee);
+		// Sem "Nova conversa": cada pergunta e cada ação abrem o seu separador
 		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.newConversation(), this.T("chat.new.tip"));
-		// Painel Avançado: cada pergunta já abre o seu separador, por isso não há "Nova conversa" no rodapé
-		if (!(this.mode === "section" && !this.simple)) tail.appendChild(this.newBtn);
 		// No painel, a janela abre-se pela faixa "Vários artigos" do topo
 		if (tail.firstChild) root.appendChild(tail);
 
@@ -550,6 +549,20 @@ var ZIAChatView = class {
 				}));
 			}
 			if (this._customForm) box.appendChild(this._customFormEl());
+			// Perguntas de exemplo: um clique escreve a pergunta na caixa
+			if (!this._customForm && !this._editCustom && this.state.docs.length) {
+				const ex = this._el("div", "zia-examples");
+				ex.appendChild(this._el("div", "zia-examples-title", this.T("chat.meus.examples")));
+				for (const q of this._suggestions()) {
+					ex.appendChild(this._button(q, "zia-suggestion", () => {
+						this.textarea.value = q;
+						this._autoGrow();
+						this.textarea.focus();
+						this._setStatus(this.T("chat.suggestionReady"));
+					}));
+				}
+				box.appendChild(ex);
+			}
 		}
 		if (this.group !== "compreender" && !custom) {
 			box.appendChild(this.fichasLabel);
@@ -1122,6 +1135,29 @@ var ZIAChatView = class {
 			if (a && this.state.docs.length >= a.minDocs) this._setStatus(this.T("chat.picker.ready", { label: a.label }));
 		});
 		addBtn.disabled = true;
+		// Marcar todos / Desmarcar todos: só os artigos que aparecem (a pesquisa conta)
+		const many = this._el("div", "zia-picker-many");
+		many.hidden = true;
+		const refresh = () => {
+			addBtn.textContent = this.T("chat.picker.add", { n: chosen.size });
+			addBtn.disabled = !chosen.size;
+			many.hidden = chosen.size <= 50;
+			many.textContent = this.T("chat.picker.many", { n: chosen.size });
+		};
+		const setAll = on => {
+			for (const r of rows) {
+				if (r.row.hidden) continue;
+				r.cb.checked = on;
+				if (on) chosen.set(r.x.item.id, r.x.item);
+				else chosen.delete(r.x.item.id);
+			}
+			refresh();
+		};
+		const bulk = this._el("div", "zia-picker-bulk");
+		bulk.append(
+			this._button(this.T("chat.picker.selectAll"), "zia-btn-small", () => setAll(true)),
+			this._button(this.T("chat.picker.clearAll"), "zia-btn-small", () => setAll(false)),
+		);
 		// Numa coleção: juntar todos os artigos dela de uma vez (fica indicada como "Coleção: X")
 		const wholeBtn = this._button("", "zia-btn-small zia-picker-whole", () => {
 			const c = cols.find(x => "col:" + x.id === srcSel.value);
@@ -1131,6 +1167,8 @@ var ZIAChatView = class {
 		const btns = this._el("div", "zia-custom-btns");
 		btns.append(addBtn, wholeBtn, this._button(this.T("chat.meus.cancel"), "zia-btn-small", () => this._closePicker()));
 		box.appendChild(btns);
+		box.insertBefore(bulk, ul);
+		box.insertBefore(many, btns);
 		const cmp = {
 			added: (a, b) => (b.added || "").localeCompare(a.added || ""),
 			author: (a, b) => (a.author || "").localeCompare(b.author || "", undefined, { sensitivity: "base" }) || (b.date || "").localeCompare(a.date || ""),
@@ -1166,11 +1204,10 @@ var ZIAChatView = class {
 				cb.addEventListener("change", () => {
 					if (cb.checked) chosen.set(x.item.id, x.item);
 					else chosen.delete(x.item.id);
-					addBtn.textContent = this.T("chat.picker.add", { n: chosen.size });
-					addBtn.disabled = !chosen.size;
+					refresh();
 				});
 				row.append(cb, this._el("span", null, x.label));
-				rows.push({ row, text: x.label.toLowerCase(), x });
+				rows.push({ row, cb, text: x.label.toLowerCase(), x });
 				ul.appendChild(row);
 			}
 			filter();
@@ -2197,26 +2234,10 @@ var ZIAChatView = class {
 				box.appendChild(card);
 				return;
 			}
+			// No painel não há texto de ajuda (as perguntas de exemplo estão em "Pers."). Na janela, os passos
+			if (this.mode !== "window") return;
 			const help = this._el("div", "zia-empty");
-			// Na janela, os passos ficam um por linha. No Avançado as sugestões chegam (sem texto a repetir)
-			if (!this._isAdv()) {
-				for (const t of this.T(this.mode === "window" ? "chat.empty.window" : "chat.empty.section").split(/\s(?=\d\. )/)) {
-					help.appendChild(this._el("p", null, t));
-				}
-			}
-			if (this.state.docs.length) {
-				const sug = this._el("div", "zia-suggestions");
-				for (const q of this._suggestions()) {
-					const s = this._button(q, "zia-suggestion", () => {
-						this.textarea.value = q;
-						this._autoGrow();
-						this.textarea.focus();
-						this._setStatus(this.T("chat.suggestionReady"));
-					});
-					sug.appendChild(s);
-				}
-				help.appendChild(sug);
-			}
+			for (const t of this.T("chat.empty.window").split(/\s(?=\d\. )/)) help.appendChild(this._el("p", null, t));
 			help.appendChild(this._el("p", "zia-tip", this.T("chat.tip")));
 			box.appendChild(help);
 			return;
@@ -2348,30 +2369,27 @@ var ZIAChatView = class {
 			}
 		}
 		if (isMap && !m.pending) this._mindmapNodes(body);
-		// Mapa mental (Mapa ou Lista) e mapa de temas (Constelação ou Árvore): a vista desenhada é interativa
+		// Mapa mental: ramos com cor (cada ramo abre e fecha). Mapa de temas: Constelação ou Árvore
 		let graph = null;
 		if (isMap && !m.pending && m.text) {
-			const isThemes = m.actionID === "temas";
-			// Mapa mental: "map" = diagrama com curvas (M2), "list" = ramos com cor (M1). Fica a última escolha
-			const kinds = isThemes ? ["graph", "tree"] : ["map", "list"];
-			const saved = !isThemes && this.core.pref("mindmap.view");
-			const cur = kinds.includes(m.view) ? m.view : kinds.includes(saved) ? saved : kinds[0];
-			const views = this._el("div", "zia-viewswitch");
-			for (const v of kinds) {
-				const on = cur === v;
-				const b = this._button(this.T((isThemes ? "temas.view." : "map.view.") + v), "zia-mode-btn" + (on ? " on" : ""), () => {
-					m.view = v;
-					if (!isThemes) this.core.setPref("mindmap.view", v);
-					this._renderMessage(m);
-				});
-				b.dataset.view = v;
-				b.setAttribute("aria-pressed", on ? "true" : "false");
-				views.appendChild(b);
+			if (m.actionID === "temas") {
+				const kinds = ["graph", "tree"];
+				const cur = kinds.includes(m.view) ? m.view : "graph";
+				const views = this._el("div", "zia-viewswitch");
+				for (const v of kinds) {
+					const on = cur === v;
+					const b = this._button(this.T("temas.view." + v), "zia-mode-btn" + (on ? " on" : ""), () => {
+						m.view = v;
+						this._renderMessage(m);
+					});
+					b.dataset.view = v;
+					b.setAttribute("aria-pressed", on ? "true" : "false");
+					views.appendChild(b);
+				}
+				el.appendChild(views);
+				if (cur === "graph") graph = this._themeGraph(body, m);
 			}
-			el.appendChild(views);
-			if (cur === "graph") graph = this._themeGraph(body, m);
-			if (cur === "map") graph = this._mindmapSVG(body, m);
-			if (cur === "list" && !isThemes) this._mindmapBranches(body);
+			else this._mindmapBranches(body);
 		}
 		if (m.pending) {
 			body.appendChild(this._el("span", "zia-typing", m.text ? " ▍" : this.T("chat.preparing")));
@@ -2420,7 +2438,7 @@ var ZIAChatView = class {
 
 	/** Cores dos ramos e dos temas (a primeira é o azul petróleo da app). */
 	get MAP_COLORS() {
-		return ["#1f5f66", "#c2410c", "#6d4bb3", "#2f7d4f", "#b45309", "#2563eb", "#be185d", "#0e7490", "#4d7c0f", "#9333ea"];
+		return ["#1f5fbf", "#c2410c", "#6d4bb3", "#2f7d4f", "#b45309", "#2563eb", "#be185d", "#0e7490", "#4d7c0f", "#9333ea"];
 	}
 
 	_svg(tag, attrs, parent) {
@@ -2537,126 +2555,6 @@ var ZIAChatView = class {
 	}
 
 	/**
-	 * Mapa mental desenhado: o tema ao centro à esquerda, os ramos com cor e as ideias à direita,
-	 * ligados por curvas. Clicar num ramo abre ou fecha as suas ideias. A página de cada ideia abre o PDF.
-	 */
-	_mindmapSVG(body, m) {
-		const rootLi = body.querySelector("ul > li");
-		if (!rootLi) return null;
-		const COLORS = this.MAP_COLORS.slice(1);
-		const pageOf = t => {
-			const x = String(t).match(/(pp?\.\s*[\d\s,–-]+)\s*$/);
-			return x ? x[1].trim() : String(t).trim();
-		};
-		const root = this._mmInfo(rootLi);
-		const branches = [...rootLi.querySelectorAll(":scope > ul > li, :scope > ol > li")].map((li, i) => {
-			const leaves = [];
-			const walk = (l, level) => {
-				for (const k of l.querySelectorAll(":scope > ul > li, :scope > ol > li")) {
-					leaves.push(Object.assign(this._mmInfo(k), { level }));
-					walk(k, level + 1);
-				}
-			};
-			walk(li, 0);
-			return Object.assign(this._mmInfo(li), { leaves, color: COLORS[i % COLORS.length], i });
-		});
-		if (!m.mmClosed) m.mmClosed = [];
-		const closed = new Set(m.mmClosed);
-		// No painel (estreito) o desenho é mais compacto e a letra maior, para se ler depois de encolhido
-		const narrow = this.mode === "section";
-		const CH = narrow ? 7 : 6.4, LH = narrow ? 16 : 15;
-		const rootLines = this._wrap(root.text, narrow ? 16 : 22);
-		const rootW = narrow ? 128 : 170, rootH = rootLines.length * 17 + (root.cites.length ? 16 : 0) + 18;
-		const brLines = branches.map(b => this._wrap(b.text, narrow ? 14 : 18));
-		const brW = Math.min(narrow ? 128 : 170, Math.max(84, ...brLines.map(ls => Math.max(...ls.map(l => l.length)) * 7.2 + 44)));
-		const leafChars = narrow ? 24 : 34, leafW = leafChars * CH + 30;
-		const x0 = 10, xB = x0 + rootW + (narrow ? 30 : 48), xL = xB + brW + (narrow ? 24 : 36);
-		// alturas
-		let y = 10;
-		const anyOpen = branches.some(b => b.leaves.length && !closed.has(b.i));
-		for (const [bi, b] of branches.entries()) {
-			b.lines = brLines[bi];
-			b.h = b.lines.length * LH + 12;
-			b.open = b.leaves.length && !closed.has(b.i);
-			let ly = y;
-			if (b.open) {
-				for (const l of b.leaves) {
-					const pages = l.cites.map(c => pageOf(c.textContent));
-					l.lines = this._wrap(l.text, leafChars - l.level * 3);
-					l.pages = pages;
-					l.h = l.lines.length * LH + (pages.length ? LH : 0) + 8;
-					l.y = ly;
-					ly += l.h;
-				}
-			}
-			const block = Math.max(b.h + 6, b.open ? ly - y : 0) + 10;
-			b.y = y + block / 2 - b.h / 2;
-			y += block;
-		}
-		const totalH = Math.max(y, rootH + 20);
-		const rootY = totalH / 2 - rootH / 2;
-		const cw = (anyOpen ? xL + leafW : xB + brW) + 10, ch = totalH + 10;
-		const svg = this._svg("svg", { class: "zia-mm-svg" + (narrow ? " zia-mm-narrow" : ""), role: "img", "aria-label": this.T("action.mapa.label") });
-		const world = this._svg("g", { class: "zia-map-world" }, svg);
-		const links = this._svg("g", { fill: "none", "stroke-linecap": "round" }, world);
-		const curve = (xa, ya, xb, yb) => `M${xa} ${ya} C ${(xa + xb) / 2} ${ya}, ${(xa + xb) / 2} ${yb}, ${xb} ${yb}`;
-		// raiz (azul petróleo)
-		const rg = this._svg("g", { class: "zia-mm-root" }, world);
-		this._svg("rect", { x: x0, y: rootY, width: rootW, height: rootH, rx: 14, fill: this.MAP_COLORS[0] }, rg);
-		rootLines.forEach((t, k) => {
-			const tx = this._svg("text", { x: x0 + rootW / 2, y: rootY + 22 + k * 17, "text-anchor": "middle", class: "zia-mm-roottext" }, rg);
-			tx.textContent = t;
-		});
-		if (root.cites.length) this._mmPages(rg, x0 + rootW / 2, rootY + rootH - 10, root.cites.map(c => pageOf(c.textContent)), root.cites, "middle", true);
-		// ramos e ideias
-		for (const b of branches) {
-			const cy = b.y + b.h / 2;
-			this._svg("path", { d: curve(x0 + rootW, rootY + rootH / 2, xB, cy), stroke: b.color, "stroke-width": 2.4, class: "zia-mm-link" }, links);
-			const g = this._svg("g", { class: "zia-mm-branch zia-map-hit" + (b.open ? " open" : ""), tabindex: "0", role: "button", "aria-expanded": b.open ? "true" : "false" }, world);
-			this._svg("rect", { x: xB, y: b.y, width: brW, height: b.h, rx: b.h / 2 > 14 ? 12 : b.h / 2, fill: b.color, "fill-opacity": 0.12, stroke: b.color, "stroke-width": 1.4 }, g);
-			b.lines.forEach((t, k) => {
-				const tx = this._svg("text", { x: xB + 12, y: b.y + 17 + k * LH, fill: b.color, class: "zia-mm-brtext" }, g);
-				tx.textContent = t;
-			});
-			if (b.leaves.length) {
-				const badge = this._svg("text", { x: xB + brW - 10, y: b.y + b.h / 2 + 4, "text-anchor": "end", fill: b.color, class: "zia-mm-count" }, g);
-				badge.textContent = b.open ? "−" : "+" + b.leaves.length;
-			}
-			const tip = this._svg("title", {}, g);
-			tip.textContent = this.T(b.open ? "map.close" : "map.open");
-			const toggle = () => {
-				const set = new Set(m.mmClosed);
-				if (set.has(b.i)) set.delete(b.i); else set.add(b.i);
-				m.mmClosed = [...set];
-				this._renderMessage(m);
-			};
-			g.addEventListener("click", toggle);
-			g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); } });
-			if (!b.open) continue;
-			for (const l of b.leaves) {
-				const ly = l.y + 4 + LH / 2;
-				const lx = xL + l.level * 14;
-				this._svg("path", { d: curve(xB + brW, cy, lx - 4, ly), stroke: b.color, "stroke-width": 1.3, "stroke-opacity": 0.55, class: "zia-mm-link" }, links);
-				const lg = this._svg("g", { class: "zia-mm-leaf" }, world);
-				this._svg("circle", { cx: lx, cy: ly, r: 3.2, fill: b.color }, lg);
-				l.lines.forEach((t, k) => {
-					const tx = this._svg("text", { x: lx + 9, y: ly + 4 + k * LH, class: "zia-mm-leaftext" }, lg);
-					tx.textContent = t;
-				});
-				if (l.pages.length) this._mmPages(lg, lx + 9, ly + 4 + l.lines.length * LH, l.pages, l.cites, "start");
-			}
-		}
-		const all = branches.filter(b => b.leaves.length).map(b => b.i);
-		return this._mapCanvas(svg, world, cw, ch, m, {
-			startScale: 0.75, left: true,
-			extra: all.length ? [
-				[this.T("map.expandAll"), () => { m.mmClosed = []; this._renderMessage(m); }],
-				[this.T("map.collapseAll"), () => { m.mmClosed = all; this._renderMessage(m); }],
-			] : [],
-		});
-	}
-
-	/**
 	 * Mapa mental em ramos com cor (M1): a lista encaixada com a raiz a azul petróleo, cada ramo com a
 	 * sua cor e, com um só artigo, só a página nas citações (o título da citação tem a referência inteira).
 	 */
@@ -2674,23 +2572,23 @@ var ZIAChatView = class {
 				c.textContent = x[1].trim();
 			}
 		}
-	}
-
-	/** Páginas de uma ideia do mapa: pequenas, clicáveis (abrem o PDF nessa página). */
-	_mmPages(parent, x, y, pages, cites, anchor, light) {
-		const t = this._svg("text", { x, y, "text-anchor": anchor, class: "zia-mm-pages" + (light ? " light" : "") }, parent);
-		pages.forEach((pg, k) => {
-			if (k) t.appendChild(this.doc.createTextNode(" · "));
-			const s = this._svg("tspan", { class: "zia-mm-pg zia-map-hit" }, t);
-			s.textContent = pg;
-			const c = cites[k];
-			if (c) {
-				s.addEventListener("click", ev => { ev.stopPropagation(); c.click(); });
-				const tip = this._svg("title", {}, s);
-				tip.textContent = c.title || c.textContent;
-			}
-		});
-		return t;
+		// Clicar no nome de um ramo esconde ou mostra as suas ideias
+		for (const li of rootLi.querySelectorAll(":scope > ul > li, :scope > ol > li")) {
+			const node = li.querySelector(":scope > .zia-mm-node");
+			if (!node || !li.querySelector(":scope > ul, :scope > ol")) continue;
+			node.classList.add("zia-mm-fold");
+			node.setAttribute("role", "button");
+			node.setAttribute("tabindex", "0");
+			node.setAttribute("aria-expanded", "true");
+			node.title = this.T("map.fold");
+			const toggle = ev => {
+				if (ev.target.closest && ev.target.closest(".zia-cite")) return;
+				const folded = li.classList.toggle("zia-folded");
+				node.setAttribute("aria-expanded", folded ? "false" : "true");
+			};
+			node.addEventListener("click", toggle);
+			node.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(ev); } });
+		}
 	}
 
 	/**
