@@ -119,8 +119,17 @@ async function main() {
 		await page.screenshot({ path: path.join(OUT, "ui_painel_vazio.png") });
 		// no painel, Comparar já não é separador: o atalho do rodapé leva à janela grande com os PDFs da conversa
 		assert.equal(await page.locator('.zia-tab[data-group="comparar"]').count(), 0, "sem separador Comparar no painel");
-		await page.click(".zia-footer .zia-link-btn:has-text('Comparar')");
-		assert.equal(await page.evaluate(() => window.openedWindow && window.openedWindow.group), "comparar", "abre a janela em Comparar");
+		// título, PT/EN e definições numa linha, e a faixa "Vários artigos" abre a janela
+		assert.equal(await page.textContent(".zia-top-title"), "Assistente IA");
+		assert.equal(await page.locator(".zia-top .zia-btn-icon").count(), 1, "definições na linha do título");
+		await page.click(".zia-multi-strip");
+		assert.ok(await page.evaluate(() => !!window.openedWindow), "a faixa abre a janela do assistente");
+		// PT/EN no painel muda a língua de tudo
+		await page.click('.zia-langswitch [data-lang="en"]');
+		await page.waitForSelector(".zia-top-title:has-text(\"AI Assistant\")");
+		assert.equal(await page.textContent(".zia-multi-text b"), "Several articles");
+		await page.click('.zia-langswitch [data-lang="pt-PT"]');
+		await page.waitForSelector(".zia-top-title:has-text(\"Assistente IA\")");
 		// o painel é para o artigo selecionado: sem "+ PDF" (vários PDFs só na janela)
 		assert.equal(await page.locator(".zia-chip-add").count(), 0, "sem + PDF no painel");
 		assert.doesNotMatch(await page.textContent(".zia-docs"), /D1/, "sem D1 nos chips");
@@ -190,7 +199,7 @@ async function main() {
 			const r = await page.evaluate(() => {
 				const box = document.querySelector("collapsible-section").getBoundingClientRect();
 				const inside = sel => { const b = document.querySelector(sel).getBoundingClientRect(); return b.left >= box.left && b.right <= box.right + 0.5 && b.width > 0; };
-				return { gear: inside(".zia-bar-tools .zia-btn-icon"), engine: inside(".zia-engine"), send: inside(".zia-send") };
+				return { gear: inside(".zia-top .zia-btn-icon"), engine: inside(".zia-engine"), send: inside(".zia-send") };
 			});
 			assert.ok(r.gear && r.engine && r.send, `largura ${w}: ⚙, motor e Enviar visíveis ${JSON.stringify(r)}`);
 		}
@@ -250,7 +259,7 @@ async function main() {
 	// ---------- Modo Simples (licenciatura) ----------
 	{
 		const page = await open("?mode=section&uimode=simple", { width: 300, height: 900 });
-		const pressed = () => page.$$eval(".zia-mode-btn", bs => bs.map(b => b.dataset.uimode + ":" + b.getAttribute("aria-pressed")));
+		const pressed = () => page.$$eval(".zia-modeswitch .zia-mode-btn", bs => bs.map(b => b.dataset.uimode + ":" + b.getAttribute("aria-pressed")));
 		assert.deepEqual(await pressed(), ["simple:true", "advanced:false"]);
 		assert.ok(!(await page.isVisible(".zia-tabs")), "sem separadores no simples");
 		assert.ok(!(await page.isVisible(".zia-engine")), "sem lista de motores no simples");
@@ -365,7 +374,7 @@ async function main() {
 		const page = await open("?mode=section&uimode=simple&ui=en", { width: 300, height: 800 });
 		const labels = await page.$$eval(".zia-simple-btn .zia-simple-label", ls => ls.map(l => l.textContent));
 		assert.deepEqual(labels, ["Summarise", "Plain-language summary", "Key concepts", "Mind map", "Test my understanding", "Relevance to my topic"]);
-		assert.deepEqual(await page.$$eval(".zia-mode-btn", bs => bs.map(b => b.textContent)), ["Simple", "Advanced"]);
+		assert.deepEqual(await page.$$eval(".zia-modeswitch .zia-mode-btn", bs => bs.map(b => b.textContent)), ["Simple", "Advanced"]);
 		await page.close();
 		const win = await open("?mode=window&uimode=simple", { width: 820, height: 800 });
 		assert.equal(await win.locator(".zia-modeswitch").count(), 0, "a janela é sempre avançada");
@@ -630,21 +639,19 @@ async function main() {
 	{
 		const page = await open("?mode=section", { width: 420, height: 900 });
 		await page.evaluate(a => { window.MOCK.answer = a; }, pontos);
-		// Avançado: a caixa é só para perguntas e um clique numa ação envia logo, com as indicações escritas antes
+		// Avançado: a caixa é só para perguntas e um clique numa ação envia logo (sem "+ indicações")
 		assert.equal(await page.getAttribute(".zia-textarea", "placeholder"), "Ou pergunta algo sobre o artigo…");
-		assert.equal(await page.isHidden(".zia-hints"), true, "indicações fechadas por omissão");
-		await page.click(".zia-hints-toggle");
-		await page.fill(".zia-hints-input", "foca a metodologia");
+		assert.equal(await page.locator(".zia-hints-toggle").count(), 0, "sem + indicações");
+		assert.equal(await page.isHidden(".zia-hints"), true);
+		await page.fill(".zia-textarea", "foca a metodologia");
 		await page.keyboard.press("Enter");
 		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "Enter não envia");
+		await page.fill(".zia-textarea", "");
 		await page.click('button[data-action="resumo"]');
 		await page.waitForSelector("text=Guardar como nota");
-		assert.equal(await page.isHidden(".zia-hints"), true, "as indicações fecham depois de usadas");
-		assert.match(await page.evaluate(() => window.lastPrompt), /Indicações adicionais do utilizador: foca a metodologia/);
 		assert.equal(await page.locator('button[data-action="resumo"].zia-done').count(), 1, "ação já pedida fica marcada");
 		// sem título repetido: a bolha do pedido some e as indicações ficam ao lado do nome da ação
 		assert.equal(await page.locator(".zia-msg-user:visible").count(), 0, "ação sem bolha repetida");
-		assert.equal(await page.textContent(".zia-msg-assistant .zia-action-extra"), "foca a metodologia");
 		// cada ação tem o seu separador
 		await act(page, "pontos");
 		await page.waitForFunction(() => document.querySelectorAll(".zia-conv-tab").length === 2 && !document.querySelector(".zia-send.zia-stop"));

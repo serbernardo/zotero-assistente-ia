@@ -1785,3 +1785,29 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-mm-narrow .zia-mm-brtext { font-size: 13px; }
 .zia-mm-narrow .zia-mm-roottext { font-size: 13.5px; }
 .zia-mm-narrow .zia-mm-pages { font-size: 11.5px; }
+
+/* Painel: linha do título (PT/EN e definições) e faixa "Vários artigos" */
+.zia-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.zia-top-title { font-weight: 700; font-size: 13px; color: var(--zia-fg); margin-inline-end: auto; }
+.zia-langswitch { display: inline-flex; border: 1px solid var(--zia-border); border-radius: 14px; overflow: hidden; }
+.zia-langswitch .zia-mode-btn { border: none; border-radius: 0; margin: 0; padding: 2px 8px; font-size: 11px; font-weight: 700; background: var(--zia-bg); color: var(--zia-fg2); min-height: 0; }
+.zia-langswitch .zia-mode-btn.on { background: var(--zia-accent); color: var(--zia-on-accent, #fff); }
+.zia-multi-strip { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: var(--zia-bg); border: 1px solid var(--zia-border); border-radius: 10px; padding: 6px 9px; margin: 0 0 8px; cursor: pointer; font: inherit; color: var(--zia-fg); height: auto; }
+.zia-multi-strip:hover:not(:disabled) { border-color: var(--zia-accent); background: var(--zia-accent-soft); }
+.zia-multi-icon { width: 24px; height: 24px; border-radius: 7px; background: var(--zia-accent-soft); display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 13px; }
+.zia-multi-text { display: flex; flex-direction: column; min-width: 0; }
+.zia-multi-text b { font-size: 12px; }
+.zia-multi-text small { font-size: 11px; color: var(--zia-fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zia-multi-go { margin-inline-start: auto; color: var(--zia-accent); font-weight: 800; font-size: 16px; flex: none; }
+
+/* Ícones em linha fina */
+.zia-icon { display: inline-block; vertical-align: -3px; flex: none; }
+.zia-top-title { display: inline-flex; align-items: center; gap: 6px; }
+.zia-icon-spark { color: var(--zia-gold); }
+.zia-btn-icon .zia-icon { vertical-align: middle; }
+.zia-btn-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; color: var(--zia-fg2); }
+.zia-btn-icon:hover:not(:disabled) { color: var(--zia-accent); }
+.zia-multi-icon { color: var(--zia-accent); }
+.zia-multi-go { display: inline-flex; }
+.zia-simple .zia-bar-tools { flex: 0 0 auto; margin-inline-start: auto; }
+.zia-simple .zia-bar { align-items: center; }

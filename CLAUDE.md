@@ -190,9 +190,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   separadores de conversa visiveis o nome nao se repete na resposta (so o x no canto, `.zia-head-x`).
   O tempo fica na linha por baixo da resposta (`m.secs`), nao no estado. Com 2 ou mais motores
   prontos, "Repetir com" e uma lista (`.zia-retry-sel`). Rodape sem "Nova conversa".
-  Opcao B: um clique numa acao envia logo (`_runAdvanced`, `_isAdv`). Indicacoes opcionais num campo
-  que abre com "+ indicacoes" (`_renderHints`, `.zia-hints`), usado e limpo na acao seguinte. A
-  Relevancia abre esse campo com o pedido do tema e um botao "Pedir: X" (`_hintsFor`). Linha "ou"
+  Opcao B: um clique numa acao envia logo (`_runAdvanced`, `_isAdv`). Sem "+ indicacoes" (retirado a
+  pedido). So a Relevancia abre um campo (`_renderHints`, `.zia-hints`) com o pedido do tema e um
+  botao "Pedir: X" (`_hintsFor`). Linha "ou"
   (`.zia-or`) antes da caixa, que e so para perguntas ("Ou pergunta algo sobre o artigo…").
   Sugestoes em pastilhas, sem texto de ajuda repetido.
 - **Repetir com:** so aparecem os motores "Prontos" (`<motor>.lastTest` = ok, `_otherReadyEngines`).
@@ -204,6 +204,10 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   as comparacoes.
 - **Simples por omissao:** `simpleModeOnce` no `bootstrap.js` poe `ui.mode` = simple uma so vez (pref
   `ui.simpleApplied`), depois fica a escolha da pessoa.
+- **Linha do titulo do painel** (`.zia-top`): "✦ Assistente IA", PT/EN (`.zia-langswitch`, muda `ui.lang`
+  e redesenha) e ⚙. Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
+  (`.zia-multi-strip`) abre a janela com o artigo. Sem botoes no titulo da seccao do Zotero (sem
+  `sectionButtons`) e sem "Abrir em janela" nem "Comparar artigos ↗" no rodape.
 - **Painel = um artigo:** no painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
   so na janela (com "+ Artigos" na barra de cima). O cartao "sem PDF" tem
   "Abrir a janela do assistente" e "Comparar uma colecao". Na janela, o "i" das

@@ -150,11 +150,71 @@ var ZIAChatView = class {
 		return root;
 	}
 
+	/** Ícones em linha fina (SVG desenhado aqui, sem ficheiros nem bibliotecas), na cor do texto. */
+	_icon(name, cls) {
+		const P = {
+			spark: [["path", { d: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5Z", fill: "currentColor", stroke: "none" }]],
+			sliders: [["path", { d: "M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6" }], ["circle", { cx: 10, cy: 4.5, r: 1.6 }], ["circle", { cx: 6, cy: 11.5, r: 1.6 }]],
+			docs: [["rect", { x: 5, y: 1.8, width: 8.5, height: 10.5, rx: 1.6 }], ["path", { d: "M2.5 5v8a1.7 1.7 0 0 0 1.7 1.7H10" }], ["path", { d: "M7.3 5.3h4M7.3 7.8h4M7.3 10.2h2.4" }]],
+			chevron: [["path", { d: "M6 3.5 10.5 8 6 12.5" }]],
+		}[name] || [];
+		const svg = this._svg("svg", { viewBox: "0 0 16 16", width: 16, height: 16, fill: "none", stroke: "currentColor", "stroke-width": 1.5, "stroke-linecap": "round", "stroke-linejoin": "round", class: "zia-icon " + (cls || ""), "aria-hidden": "true" });
+		for (const [tag, attrs] of P) this._svg(tag, attrs, svg);
+		return svg;
+	}
+
+	/** Botão só com ícone (com a dica para quem passa o rato e para leitores de ecrã). */
+	_iconButton(name, cls, onClick, title) {
+		const b = this._button("", "zia-btn-small zia-btn-icon " + (cls || ""), onClick, title);
+		b.setAttribute("aria-label", title || name);
+		b.appendChild(this._icon(name));
+		return b;
+	}
+
 	_build() {
 		this.simple = this.mode === "section" && (this.core.pref("ui.mode") || "simple") !== "advanced";
 		const root = this._el("div", `zia-root zia-mode-${this.mode}` + (this.simple ? " zia-simple" : ""));
 		this.root = root;
 		this._modeSwitch = null;
+
+		// Painel lateral: título, língua (PT/EN) e definições numa linha, e a faixa "Vários artigos"
+		if (this.mode === "section") {
+			const top = this._el("div", "zia-top");
+			const title = this._el("span", "zia-top-title");
+			title.append(this._icon("spark", "zia-icon-spark"), this.doc.createTextNode(this.T("app.name")));
+			top.appendChild(title);
+			const lang = this._el("div", "zia-langswitch");
+			lang.setAttribute("role", "group");
+			lang.title = this.T("ui.lang.tip");
+			const cur = this.L.I18N.getLang() === "en" ? "en" : "pt-PT";
+			for (const [code, label] of [["pt-PT", "PT"], ["en", "EN"]]) {
+				const on = code === cur;
+				const b = this._button(label, "zia-mode-btn" + (on ? " on" : ""), () => {
+					if (this.busy || on) return;
+					this.core.setPref("ui.lang", code);
+					this.core.applyLanguage();
+					this._rebuild();
+				});
+				b.dataset.lang = code;
+				b.setAttribute("aria-pressed", on ? "true" : "false");
+				lang.appendChild(b);
+			}
+			top.appendChild(lang);
+			top.appendChild(this._iconButton("sliders", "", () => this._openPrefs(), this.T("chat.settings.tip")));
+			root.appendChild(top);
+			const strip = this._button("", "zia-multi-strip", () => this.openInWindow(), this.T("multi.tip"));
+			const ic = this._el("span", "zia-multi-icon");
+			ic.appendChild(this._icon("docs"));
+			strip.appendChild(ic);
+			const txt = this._el("span", "zia-multi-text");
+			txt.appendChild(this._el("b", null, this.T("multi.title")));
+			txt.appendChild(this._el("small", null, this.T("multi.sub")));
+			strip.appendChild(txt);
+			const go = this._el("span", "zia-multi-go");
+			go.appendChild(this._icon("chevron"));
+			strip.appendChild(go);
+			root.appendChild(strip);
+		}
 
 		// Simples / Avançado (só no painel lateral: a janela é sempre avançada)
 		if (this.mode === "section") {
@@ -172,9 +232,8 @@ var ZIAChatView = class {
 				b.setAttribute("aria-pressed", on ? "true" : "false");
 				sw.appendChild(b);
 			}
-			// No Avançado o interruptor vai para a barra do motor (uma linha só); no Simples fica sozinho
-			if (this.simple) root.appendChild(sw);
-			else this._modeSwitch = sw;
+			// O interruptor fica na barra de baixo do título (com o motor no Avançado, com o artigo no Simples)
+			this._modeSwitch = sw;
 		}
 
 		// Barra superior: documentos, motor e definições
@@ -192,7 +251,8 @@ var ZIAChatView = class {
 		// No modo simples usa-se o motor escolhido nas definições
 		this.engineSel.hidden = this.simple;
 		tools.appendChild(this.engineSel);
-		tools.appendChild(this._button("⚙", "zia-btn-small zia-btn-icon", () => this._openPrefs(), this.T("chat.settings.tip")));
+		// No painel o ⚙ está na linha do título
+		if (this.mode === "window") tools.appendChild(this._iconButton("sliders", "", () => this._openPrefs(), this.T("chat.settings.tip")));
 		if (this._modeSwitch) tools.appendChild(this._modeSwitch);
 		bar.appendChild(tools);
 		root.appendChild(bar);
@@ -265,15 +325,8 @@ var ZIAChatView = class {
 		this.newBtn = this._button(this.T("chat.new"), "zia-link-btn", () => this.newConversation(), this.T("chat.new.tip"));
 		// Painel Avançado: cada pergunta já abre o seu separador, por isso não há "Nova conversa" no rodapé
 		if (!(this.mode === "section" && !this.simple)) tail.appendChild(this.newBtn);
-		if (this.mode === "section") {
-			if (!this.simple) {
-				tail.appendChild(this._button(this.T("chat.compareLink"), "zia-link-btn", () => this.openInWindow({ group: "comparar" }),
-					this.T("chat.compareInWindow")));
-			}
-			tail.appendChild(this._button(this.T("chat.openWindow"), "zia-link-btn", () => this.openInWindow(),
-				this.T("chat.openWindow.tip")));
-		}
-		root.appendChild(tail);
+		// No painel, a janela abre-se pela faixa "Vários artigos" do topo
+		if (tail.firstChild) root.appendChild(tail);
 
 		this.container.appendChild(root);
 		this._renderPending();
@@ -475,19 +528,6 @@ var ZIAChatView = class {
 				info.setAttribute("aria-expanded", this._triagemInfoOpen ? "true" : "false");
 				box.appendChild(info);
 			}
-		}
-		// Painel Avançado: as ações enviam logo, as indicações (opcionais) escrevem-se antes
-		if (this._isAdv() && list.length && !(custom && this._editCustom)) {
-			const open = this._hintsOpen || !!this._hintsFor;
-			const t = this._button(this.T(open ? "chat.hints.close" : "chat.hints.open"), "zia-link-btn zia-hints-toggle", () => {
-				this._hintsOpen = !open;
-				this._hintsFor = null;
-				this._renderHints();
-				this._renderActions();
-				if (this._hintsOpen && this.hintsInput) this.hintsInput.focus();
-			}, this.T("chat.hints.tip"));
-			t.setAttribute("aria-expanded", open ? "true" : "false");
-			box.appendChild(t);
 		}
 		if (this.group === "comparar" && this._triagemInfoOpen) box.appendChild(this._triagemInfoEl());
 		// Na janela, a lista das fichas aparece também em Comparar (onde se usam)
@@ -1408,7 +1448,8 @@ var ZIAChatView = class {
 		const box = this.hintsEl;
 		if (!box) return;
 		const a = this._hintsFor && this._action(this._hintsFor);
-		const open = this._isAdv() && (this._hintsOpen || !!a);
+		// Só a Relevância abre este campo (precisa do tema)
+		const open = this._isAdv() && !!a;
 		box.hidden = !open;
 		while (box.firstChild) box.removeChild(box.firstChild);
 		if (!open) return;
@@ -1427,7 +1468,7 @@ var ZIAChatView = class {
 		if (this.busy) return;
 		const a = this._action(id);
 		if (!a) return;
-		const extra = this.hintsInput ? this.hintsInput.value.trim() : "";
+		const extra = this.hintsInput && this._hintsFor === id ? this.hintsInput.value.trim() : "";
 		if (a.needsCriteria && !extra) {
 			this._hintsFor = id;
 			this._renderHints();
@@ -1447,7 +1488,6 @@ var ZIAChatView = class {
 		}
 		if (this._engineReady() && this.hintsInput) this.hintsInput.value = "";
 		this._hintsFor = null;
-		this._hintsOpen = false;
 		this._renderHints();
 		this._renderActions();
 		this.runAction(id, { extra });

@@ -119,19 +119,13 @@ assert.ok(Zotero.ZoteroIA && Zotero.ZoteroIA.ChatView, "núcleo exposto");
 	assert.equal(zprefs["extensions.zoteroia.ui.mode"], "advanced", "a escolha da pessoa fica");
 }
 
-// Botão PT/EN no título do painel: troca a língua e mostra a sigla certa
+// A língua troca-se no painel (sem botões no título da secção)
 {
-	const style = {};
-	const btn = { style: { setProperty: (k, v) => { style[k] = v; } } };
-	const body = { closest: () => ({ querySelector: q => (q === ".zoteroia-lang" ? btn : null) }) };
 	const ZIA = Zotero.ZoteroIA;
 	ZIA.lib.I18N.setLang("pt-PT");
-	vm.runInContext("showLang", scopeCtx)(body, rootURI);
-	assert.match(style["--custom-button-icon-light"], /lang-pt16\.svg/);
 	assert.equal(ZIA.toggleLanguage(), "en");
-	vm.runInContext("showLang", scopeCtx)(body, rootURI);
-	assert.match(style["--custom-button-icon-dark"], /lang-en16\.svg/);
 	assert.equal(ZIA.toggleLanguage(), "pt-PT");
+	assert.ok(!/sectionButtons/.test(fs.readFileSync(path.join(ADDON, "bootstrap.js"), "utf8")), "sem botões no título da secção");
 }
 
 // Ícones e textos de interface existem
