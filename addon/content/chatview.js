@@ -1165,9 +1165,8 @@ var ZIAChatView = class {
 		const libBtn = this._button("", "zia-picker-segbtn on", () => setSource("library"));
 		libBtn.append(this._icon("shelf"), this.doc.createTextNode(this.T("chat.picker.source.library")));
 		seg.appendChild(libBtn);
-		const colBtn = this._button("", "zia-picker-segbtn", () => setSource("col:" + colSel.value));
+		const colBtn = this._button("", "zia-picker-segbtn", () => setSource("col:" + (colSel.value || "")));
 		colBtn.append(this._icon("folder"), this.doc.createTextNode(this.T("chat.picker.collection")));
-		colBtn.hidden = !cols.length;
 		seg.appendChild(colBtn);
 		bar.appendChild(seg);
 		const colSel = this._select("zia-picker-colsel", this.T("chat.picker.collection"));
@@ -1209,11 +1208,16 @@ var ZIAChatView = class {
 			if (c) this._addWholeCollection(c);
 		});
 		wholeBtn.hidden = true;
-		const addBtn = this._button(this.T("chat.picker.add", { n: 0 }), "zia-btn-small zia-btn-primary", async () => {
+		// Junta os artigos marcados (usado por Juntar e por Enviar com o seletor aberto)
+		this._pickerCommit = async () => {
 			const items = [...chosen.values()];
+			if (!items.length) return false;
 			this._closePicker();
-			if (!items.length) return;
 			await this._addItems(items, {});
+			return true;
+		};
+		const addBtn = this._button(this.T("chat.picker.add", { n: 0 }), "zia-btn-small zia-btn-primary", async () => {
+			if (!this._pickerCommit || !(await this._pickerCommit())) return this._closePicker();
 			const a = this.selectedAction && this._action(this.selectedAction);
 			if (a && this.state.docs.length >= a.minDocs) this._setStatus(this.T("chat.picker.ready", { label: a.label }));
 		});
@@ -1228,7 +1232,8 @@ var ZIAChatView = class {
 			title: (a, b) => (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" }),
 		};
 		let rows = [];
-		const visible = () => rows.filter(r => !r.row.hidden);
+		// Os artigos que já estão na conversa aparecem marcados e não se podem desmarcar aqui
+		const visible = () => rows.filter(r => !r.row.hidden && !r.inConv);
 		// Estado da caixa "Marcar todos": marcada se todos os visíveis estão escolhidos, mista se só alguns
 		const refresh = () => {
 			const vis = visible();
@@ -1266,18 +1271,22 @@ var ZIAChatView = class {
 			try { list = await this.core.pickableItems(400, source.startsWith("col:") ? Number(source.slice(4)) : source); }
 			catch (e) { this.core.log("pickableItems: " + e); }
 			if (my !== loadID) return;
-			list = list.filter(x => !inConv.has(x.item.id));
 			while (ul.firstChild) ul.removeChild(ul.firstChild);
-			wholeBtn.hidden = !source.startsWith("col:") || !list.length;
+			wholeBtn.hidden = !source.startsWith("col:") || !list.some(x => !inConv.has(x.item.id));
 			wholeBtn.textContent = this.T("chat.picker.whole", { n: list.length });
-			if (!list.length) ul.appendChild(this._el("div", "zia-muted zia-picker-none", this.T("chat.picker.empty")));
+			if (!list.length) {
+				const noCols = source.startsWith("col:") && !cols.length;
+				ul.appendChild(this._el("div", "zia-muted zia-picker-none", this.T(noCols ? "chat.picker.noCols" : "chat.picker.empty")));
+			}
 			list.sort(cmp[sortSel.value]);
 			rows = [];
 			for (const x of list) {
-				const row = this._el("label", "zia-picker-row" + (chosen.has(x.item.id) ? " on" : ""));
+				const already = inConv.has(x.item.id);
+				const row = this._el("label", "zia-picker-row" + (chosen.has(x.item.id) || already ? " on" : "") + (already ? " zia-picker-in" : ""));
 				const cb = this._el("input");
 				cb.setAttribute("type", "checkbox");
-				cb.checked = chosen.has(x.item.id);
+				cb.checked = already || chosen.has(x.item.id);
+				if (already) cb.disabled = true;
 				cb.addEventListener("change", () => {
 					if (cb.checked) chosen.set(x.item.id, x.item);
 					else chosen.delete(x.item.id);
@@ -1285,11 +1294,13 @@ var ZIAChatView = class {
 					refresh();
 				});
 				const meta = this._el("span", "zia-picker-meta");
-				meta.appendChild(this._el("span", "zia-picker-ref", x.ref || x.label));
+				const refEl = this._el("span", "zia-picker-ref", x.ref || x.label);
+				if (already) refEl.appendChild(this._el("span", "zia-picker-badge", this.T("chat.picker.inConv")));
+				meta.appendChild(refEl);
 				if (x.title) meta.appendChild(this._el("span", "zia-picker-ttl", x.title));
 				row.append(cb, meta);
 				row.title = x.label;
-				rows.push({ row, cb, text: x.label.toLowerCase(), x });
+				rows.push({ row, cb, text: x.label.toLowerCase(), x, inConv: already });
 				ul.appendChild(row);
 			}
 			filter();
@@ -1298,7 +1309,7 @@ var ZIAChatView = class {
 			source = v;
 			libBtn.classList.toggle("on", v === "library");
 			colBtn.classList.toggle("on", v !== "library");
-			colSel.hidden = v === "library";
+			colSel.hidden = v === "library" || !cols.length;
 			load();
 		};
 		colSel.addEventListener("change", () => setSource("col:" + colSel.value));
@@ -1376,6 +1387,7 @@ var ZIAChatView = class {
 	}
 
 	_closePicker() {
+		this._pickerCommit = null;
 		const box = this.pickerEl;
 		box.hidden = true;
 		delete box.dataset.kind;
@@ -1836,10 +1848,18 @@ var ZIAChatView = class {
 			this.textarea.focus();
 			return;
 		}
-		const docs = this.state.docs.slice();
+		let docs = this.state.docs.slice();
+		// Artigos marcados no seletor ainda aberto: juntam-se logo (Enviar faz o mesmo que Juntar e pedir)
+		if (docs.length < a.minDocs && this._pickerCommit && await this._pickerCommit()) docs = this.state.docs.slice();
 		if (docs.length < a.minDocs) {
-			this._setStatus(this.T("chat.actionNeeds", { label: a.label, n: a.minDocs }), "warn");
-			if (this.core.pickableItems) this._openPicker(this.T("chat.picker.need", { label: base.label, n: a.minDocs - docs.length }));
+			this._setStatus(this.T("chat.actionNeeds", { label: base.label, n: a.minDocs - docs.length }), "warn");
+			// A ação fica escolhida (na janela, a caixa e o Enviar continuam à vista)
+			if (this.mode === "window") {
+				this.selectedAction = actionID;
+				this._renderActions();
+				this._renderPending();
+			}
+			if (this.core.pickableItems && this.pickerEl.hidden) this._openPicker(this.T("chat.picker.need", { label: base.label, n: a.minDocs - docs.length }));
 			return;
 		}
 		if (!this._engineReady()) {

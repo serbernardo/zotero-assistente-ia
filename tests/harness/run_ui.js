@@ -799,6 +799,36 @@ async function main() {
 		console.log("OK Avançado: relevância pede o tema, Repetir com só para motores prontos, listas da janela funcionam");
 	}
 
+	// ---------- Janela aberta com um artigo: o caso real do Mapa de temas ----------
+	{
+		const page = await open("?mode=window", { width: 900, height: 900 });
+		await page.evaluate(async () => { await view.setItems([window.ITEM_A]); });
+		await page.waitForSelector(".zia-chip");
+		await page.evaluate(() => { window.MOCK.answer = "- Bibliotecas\n  - Assistentes (2)\n    - Chatbots [D1]\n    - Depois da implementação [D2]\n"; window.engineCalls = 0; });
+		await page.click('button[data-action="temas"]');
+		// precisa de mais artigos: abre o seletor com o artigo da conversa à vista, marcado e com "na conversa"
+		await page.click(".zia-send");
+		await page.waitForSelector(".zia-picker-row");
+		assert.equal(await page.locator(".zia-picker-row").count(), 3, "os 3 artigos da biblioteca aparecem");
+		assert.equal(await page.locator(".zia-picker-in input:checked:disabled").count(), 1, "o artigo da conversa aparece marcado");
+		assert.match(await page.textContent(".zia-picker-in"), /na conversa/);
+		assert.match(await page.textContent(".zia-picker-all"), /Marcar todos \(2\)/, "Marcar todos conta só os que se podem juntar");
+		assert.equal(await page.isVisible(".zia-send"), true, "a ação continua escolhida e o Enviar à vista");
+		// marcar e carregar logo em Enviar (sem Juntar): junta os artigos e faz o mapa
+		await page.check(".zia-picker-row:has-text(\"García\") >> input");
+		await page.click(".zia-send");
+		await page.waitForSelector("svg.zia-graph");
+		assert.equal(await page.evaluate(() => view.state.docs.length), 2);
+		assert.equal(await page.evaluate(() => window.engineCalls), 1);
+		// Coleção sem coleções: o botão aparece e explica como criar uma
+		await page.evaluate(() => { ZoteroIA.listCollections = () => []; });
+		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.click(".zia-picker-segbtn:has-text(\"Coleção\")");
+		await page.waitForSelector("text=Ainda não tens coleções");
+		await page.close();
+		console.log("OK janela com um artigo: seletor mostra todos (o da conversa marcado), Enviar junta os marcados, Coleção sem coleções explica");
+	}
+
 	// ---------- Janela: triagem por critérios ----------
 	{
 		const page = await open("?mode=window", { width: 820, height: 900 });

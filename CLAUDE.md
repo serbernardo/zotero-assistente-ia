@@ -215,7 +215,10 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   de `pickableItems`). Uma caixa "Marcar todos (N)" por cima do primeiro artigo marca e desmarca os artigos
   visiveis (a pesquisa conta, fica mista com so alguns). Rodape: "Escolhidos: N", "Juntar a colecao toda"
   numa colecao, Cancelar e Juntar. Aviso com mais de 50 escolhidos (`chat.picker.many`). As escolhas ficam ao
-  mudar de colecao.
+  mudar de colecao. Os artigos ja na conversa aparecem marcados e bloqueados ("na conversa", `.zia-picker-in`)
+  e nao contam no "Marcar todos". "Colecao" aparece sempre: sem colecoes explica como criar uma
+  (`chat.picker.noCols`). Enviar com o seletor aberto junta os marcados e faz o pedido (`_pickerCommit`
+  chamado em `runAction`). Faltando artigos, a acao fica escolhida na janela e a mensagem diz quantos faltam.
 - **Linha de cima do painel** (`.zia-top`): sem titulo (o Zotero ja mostra "Assistente IA" no cabecalho),
   PT/EN (`.zia-langswitch`, muda `ui.lang` e redesenha) e definicoes (icone `sliders`). Icones em linha
   fina desenhados em SVG (`_icon`, `_iconButton`). Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
@@ -469,7 +472,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.7.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.8.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica
