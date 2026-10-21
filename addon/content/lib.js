@@ -24,7 +24,15 @@ var ZIALib = (function () {
 				+ "Nunca uses o travessão (—) nem o meia-risca (–) como pontuação: usa vírgulas, dois pontos ou frases separadas.",
 		},
 		{ id: "pt-BR", label: "Português (Brasil)", notReported: "Não relatado", instr: "Escreves sempre em português do Brasil, com tom académico e frases curtas." },
-		{ id: "en", label: "English", notReported: "Not reported", instr: "Escreves sempre em inglês académico, com frases curtas." },
+		{
+			id: "en", label: "English", notReported: "Not reported",
+			instr: "Escreves sempre em inglês académico, com frases curtas.",
+			// Lembrete no fim do pedido, na própria língua: as instruções das ações estão em
+			// português e os modelos mais pequenos tendem a responder na língua que leem
+			remind: "Reminder: write the entire answer in English, including every heading, table header and field name. "
+				+ "The instructions above are written in Portuguese, but the answer must be in English. "
+				+ "Only excerpts quoted from the documents stay in their original language.",
+		},
 		{ id: "es", label: "Español", notReported: "No reportado", instr: "Escreves sempre em espanhol académico, com frases curtas." },
 		{ id: "fr", label: "Français", notReported: "Non rapporté", instr: "Escreves sempre em francês académico, com frases curtas." },
 		{ id: "de", label: "Deutsch", notReported: "Nicht berichtet", instr: "Escreves sempre em alemão académico, com frases curtas." },
@@ -35,6 +43,15 @@ var ZIALib = (function () {
 	LANGUAGES.unshift({ id: "ui" });
 	for (const l of LANGUAGES) {
 		Object.defineProperty(l, "label", { get() { return t("lang." + this.id); }, enumerable: true, configurable: true });
+	}
+
+	/**
+	 * Lembrete da língua da resposta, escrito na própria língua, para o fim do pedido.
+	 * Em português não é preciso: as instruções já estão em português.
+	 */
+	function answerReminder(id) {
+		const lang = languageInfo(id);
+		return (lang && lang.remind) || null;
 	}
 
 	function languageInfo(id) {
@@ -730,6 +747,15 @@ var ZIALib = (function () {
 		return best;
 	}
 
+	/** Ordinal na língua da app: 3.ª em português, 3rd em inglês. */
+	function ordinal(n) {
+		const v = Number(n);
+		if (I.getLang() !== "en") return `${v}.ª`;
+		const c = v % 100, u = v % 10;
+		const suf = (c >= 11 && c <= 13) ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th";
+		return `${v}${suf}`;
+	}
+
 	/** Número da página como está impresso no PDF (ou a posição no ficheiro, se não se souber). */
 	function pageLabel(doc, page) {
 		const n = Number(page);
@@ -1030,6 +1056,9 @@ var ZIALib = (function () {
 		rest.push("<pedido>");
 		rest.push(neutralizeTags(userText));
 		rest.push("</pedido>");
+		// A última coisa que o modelo lê é a língua em que tem de responder
+		const remind = answerReminder();
+		if (remind) rest.push("", remind);
 		return { docs: docs.join("\n"), rest: rest.join("\n") };
 	}
 
@@ -1625,7 +1654,7 @@ var ZIALib = (function () {
 							const shown = pageLabel(known, c.page);
 							a.title = t("cite.open", { what: known.title || known.ref, n: shown })
 								// O número impresso não é a posição no ficheiro: dizer qual é
-								+ (shown !== c.page ? " · " + t("cite.pdfPage", { n: c.page }) : "");
+								+ (shown !== c.page ? " " + t("cite.pdfPage", { o: ordinal(c.page) }) : "");
 						}
 						if (!known) a.classList.add("zia-cite-unknown");
 						a.addEventListener("click", ev => { ev.preventDefault(); ctx.onCite && ctx.onCite(c); });
@@ -2381,7 +2410,7 @@ var ZIALib = (function () {
 	}
 
 	return {
-		SYSTEM_PROMPT, LANGUAGES, languageInfo, buildSystemPrompt,
+		SYSTEM_PROMPT, LANGUAGES, languageInfo, buildSystemPrompt, answerReminder, ordinal,
 		ACTIONS, ACTION_ORDER, ACTION_GROUPS, FICHA_NOTE_PREFIX, FICHA_NOTE_PREFIXES, fichaPrefix, FICHA_TEMPLATE, I18N: I,
 		parseCustomPrompts, setCustomPrompt, removeCustomPrompt, cleanCustomPrompt, parseTagLine, removeTagLine, parseScreening, removeScreeningLine, screeningSummary,
 		escapeHTML, escapeXMLAttr, cleanPageText, splitPages, detectPageOffset, pageLabel, shortAuthor, yearFrom,

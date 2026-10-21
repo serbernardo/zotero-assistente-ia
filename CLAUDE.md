@@ -110,6 +110,13 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   reiniciar o Zotero sem voltar a ler o PDF.
 - **Lingua das respostas:** `buildSystemPrompt` diz que a lingua escolhida vale sempre, mesmo que os
   documentos ou a pergunta estejam noutra lingua (so os excertos entre aspas ficam na lingua do PDF).
+  As instrucoes das acoes estao em portugues, por isso `buildRequestParts` acrescenta no fim do
+  pedido, depois de `</pedido>`, um lembrete escrito na propria lingua da resposta
+  (`answerReminder`, campo `remind` em `LANGUAGES`, so para linguas que nao o portugues): e a
+  ultima coisa que o modelo le e e o que mais ajuda os modelos pequenos. Teste de paridade confirma
+  que nenhum texto ingles ficou em portugues (menos os nomes das linguas). `UI_LANG=en
+  tests/harness/run_ai_real.js` corre tudo com a app em ingles e marca as respostas que saiam em
+  portugues (`wrongLanguage`, excertos entre aspas excluidos).
 - **Verificacao automatica** (`verifyAnswer` em `lib.js`): cada resposta e
   confirmada contra o texto dos PDFs. Excertos entre aspas seguidos de citacao
   (literal, com palavras alteradas, noutra pagina ou inexistente), paginas

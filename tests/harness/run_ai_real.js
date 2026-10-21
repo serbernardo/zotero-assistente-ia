@@ -20,6 +20,8 @@ if (ENGINE === "gemini" && !GKEY) {
 	process.exit(2);
 }
 const MODEL = process.argv[3] || (ENGINE === "gemini" ? "gemini-3.5-flash-lite" : "sonnet");
+// UI_LANG=en corre tudo com a app em inglês e confirma que as respostas saem em inglês
+const UI_LANG = process.env.UI_LANG === "en" ? "en" : "pt-PT";
 const OUT = path.join(__dirname, "out", "ia_real_" + ENGINE);
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -36,7 +38,7 @@ async function pool(tasks, n) {
 }
 
 async function main() {
-	const env = createEnv({ prefs: { "claude.path": CLAUDE || "", "claude.model": MODEL, "gemini.model": MODEL, "gemini.defaultApplied": true, "gemini.modelStrong": "auto" } });
+	const env = createEnv({ prefs: { "ui.lang": UI_LANG, "claude.path": CLAUDE || "", "claude.model": MODEL, "gemini.model": MODEL, "gemini.defaultApplied": true, "gemini.modelStrong": "auto" } });
 	const { core } = env;
 	if (ENGINE === "gemini") await core.setSecret("gemini", GKEY);
 	const win = { fetch, AbortController };
@@ -73,9 +75,23 @@ async function main() {
 		r.secs = Math.round((Date.now() - t0) / 1000);
 		return r;
 	};
+	// A resposta tem de sair na língua da app. Os excertos entre aspas ficam na língua do PDF,
+	// por isso são retirados antes de contar as palavras.
+	const wrongLanguage = text => {
+		const fora = String(text).replace(/["\u201c\u00ab][^"\u201d\u00bb\n]{10,500}["\u201d\u00bb]/g, " ");
+		const conta = re => (fora.match(re) || []).length;
+		const pt = conta(/(^|[^\wÀ-ÿ])(não|são|também|está|estão|foram|pelos|pelas|dos|das|uma|como|mais|entre|sobre|página|estudo|resultados|autores|artigo)([^\wÀ-ÿ]|$)/gi);
+		const en = conta(/(^|[^\w])(the|and|of|that|with|were|was|this|from|their|study|results|authors|page|between|about)([^\w]|$)/gi);
+		if (UI_LANG === "en" && pt > 3 && pt > en) return `resposta em português (app em inglês): ${pt} palavras PT, ${en} EN`;
+		if (UI_LANG === "pt-PT" && en > 3 && en > pt) return `resposta em inglês (app em português): ${en} palavras EN, ${pt} PT`;
+		return null;
+	};
+
 	// Usa a mesma verificação automática que o addon mostra por baixo de cada resposta
 	const check = (id, text, { needCites = true } = {}) => {
 		const problems = [];
+		const lang = wrongLanguage(text);
+		if (lang) problems.push(lang);
 		const cites = [...text.matchAll(L.CITE_GROUP_RE)];
 		if (needCites && !cites.length) problems.push("sem citações");
 		const v = L.verifyAnswer(text, { D1: { pages: d1.pages }, D2: { pages: d2.pages } }) || {};
@@ -142,7 +158,7 @@ async function main() {
 	});
 
 	const par = ENGINE === "gemini" ? 2 : 4;
-	console.log(`A correr ${tasks.length} pedidos reais: ${ENGINE}, modelo "${MODEL}" (${par} de cada vez)…`);
+	console.log(`A correr ${tasks.length} pedidos reais: ${ENGINE}, modelo "${MODEL}", app em ${UI_LANG} (${par} de cada vez)…`);
 	const results = await pool(tasks, par);
 	let fails = 0;
 	const lines = [];

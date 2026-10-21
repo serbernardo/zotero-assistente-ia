@@ -327,6 +327,14 @@ test("textos: PT-PT e inglês completos e sem travessões", () => {
 		const vars = s => (s.match(/\{\w+\}/g) || []).sort().join();
 		assert.equal(vars(v), vars(en[k]), "variáveis de " + k);
 	}
+	// Nenhum texto inglês ficou em português (menos os nomes das línguas, escritos na própria língua)
+	const marcas = /(^|[^\w])(não|são|página|páginas|ficheiro|ficheiros|utilizador|conversa|pedido|resposta|respostas|guardar|artigo|artigos|coleção|coleções|definições|apagar|também|até|já|só|está|estão|tens|podes|escolhe|clica|carrega)([^\w]|$)/i;
+	const acentos = /[ãõçáéíóúâêôà]/i;
+	const emPortugues = Object.entries(en)
+		.filter(([k, v]) => !k.startsWith("lang.") && (marcas.test(v) || acentos.test(v)))
+		.map(([k]) => k);
+	assert.deepEqual(emPortugues, [], "textos ingleses ainda em português");
+
 	for (const g of L.ACTION_GROUPS) assert.ok(I.has("group." + g.id));
 	for (const id of L.ACTION_ORDER) for (const f of ["label", "title", "hint"]) assert.ok(I.has(`action.${id}.${f}`), id + f);
 });
@@ -345,6 +353,15 @@ test("textos: troca de língua e resolução automática", () => {
 		assert.equal(L.yearFrom(""), "n.d.");
 		assert.equal(L.fichaPrefix(), "AI Sheet");
 		assert.match(L.buildSystemPrompt("ui"), /inglês/, "respostas na língua da interface");
+		// O pedido acaba com um lembrete em inglês: é a última coisa que o modelo lê
+		const f = L.fitDocuments([{ id: "D1", ref: "A", pagesReliable: true, pages: ["texto"] }], 0);
+		const parts = L.buildRequestParts({ fitted: f, history: [], userText: "Resume" });
+		assert.match(parts.rest, /<\/pedido>\n\nReminder: write the entire answer in English/);
+		assert.match(parts.rest, /Only excerpts quoted from the documents stay in their original language\.$/);
+		assert.equal(L.ordinal(3), "3rd");
+		assert.equal(L.ordinal(1), "1st");
+		assert.equal(L.ordinal(11), "11th");
+		assert.equal(L.ordinal(22), "22nd");
 		assert.equal(I.t("chat.retryWith", { engine: "Gemini" }), "Retry with Gemini");
 		assert.equal(L.classifyCodexError("Not logged in").kind, "auth");
 		assert.match(L.classifyCodexError("Not logged in").message, /Codex is not signed in/);
@@ -354,6 +371,9 @@ test("textos: troca de língua e resolução automática", () => {
 	}
 	assert.equal(L.ACTIONS.resumo.label, "Resumo");
 	assert.equal(L.buildSystemPrompt("ui"), L.SYSTEM_PROMPT);
+	// Em português não há lembrete: as instruções já estão em português
+	assert.equal(L.answerReminder(), null);
+	assert.equal(L.ordinal(3), "3.ª");
 	assert.deepEqual(L.FICHA_NOTE_PREFIXES, ["Ficha IA", "AI Sheet"]);
 });
 
