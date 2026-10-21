@@ -112,5 +112,15 @@ function engineFor(file) {
 	console.log("Nota HTML:", html);
 	assert.match(html, /<a href="zotero:\/\/x\/D2\?page=4">\(García &amp; Ortega, 2023, p\. 4\)<\/a>/);
 	assert.match(html, /<a href="zotero:\/\/x\/D1\?page=3">\(Silva et al\., 2021b, p\. 3\)<\/a>/);
+	// Artigo que começa na página 145 da revista: a citação leva a página impressa,
+	// mas a ligação continua a abrir a página do ficheiro PDF
+	const comDesvio = Object.assign({}, docsMap, { D1: Object.assign({}, docsMap.D1, { pageOffset: 144 }) });
+	const desvio = L.citesToText("[D1:p3]", comDesvio);
+	console.log("Página impressa:", desvio);
+	assert.equal(desvio, "(Silva et al., 2021b, p. 147)");
+	const htmlDesvio = L.markdownToHTML("Texto [D1:p3].", { docsMap: comDesvio, citeHref: c => `zotero://x/${c.doc}?page=${c.page}` });
+	assert.match(htmlDesvio, /<a href="zotero:\/\/x\/D1\?page=3">\(Silva et al\., 2021b, p\. 147\)<\/a>/,
+		"a ligação usa a página do ficheiro, o texto mostra a impressa");
+
 	console.log("\nTodos os testes das citações em estilos passaram.");
 })().catch(e => { console.error("FALHOU:", e); process.exit(1); });

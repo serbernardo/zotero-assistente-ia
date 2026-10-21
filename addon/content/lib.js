@@ -684,6 +684,60 @@ var ZIALib = (function () {
 			.trim();
 	}
 
+	/** Números soltos no cabeçalho e no rodapé de uma página (candidatos a número impresso). */
+	function edgeNumbers(text) {
+		const lines = String(text || "").split("\n").map(s => s.trim()).filter(Boolean);
+		if (!lines.length) return [];
+		const out = [];
+		for (const line of lines.slice(0, 2).concat(lines.slice(-2))) {
+			// Linhas compridas são texto corrido, não cabeçalho nem rodapé
+			if (line.length > 120) continue;
+			for (const m of line.matchAll(/(?:^|[^\w.,/-])(\d{1,5})(?![\w.,/-])/g)) {
+				const n = parseInt(m[1], 10);
+				if (n >= 1) out.push(n);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Número impresso nas páginas do PDF. Muitos artigos começam numa página diferente
+	 * de 1 (a 1.ª página do ficheiro é a página 145 da revista) e outros têm uma capa
+	 * antes da primeira página numerada. Procura números no cabeçalho e no rodapé e só
+	 * aceita o resultado se a diferença para a posição no ficheiro for sempre a mesma,
+	 * em pelo menos metade das páginas. Um número fixo (ano, volume, intervalo de
+	 * páginas) nunca ganha, porque não aumenta de 1 em 1 ao virar a página.
+	 * Devolve o desvio (impresso = posição no ficheiro + desvio) ou null sem certeza.
+	 */
+	function detectPageOffset(pages) {
+		if (!Array.isArray(pages) || pages.length < 4) return null;
+		const votes = new Map();
+		for (let i = 0; i < pages.length; i++) {
+			for (const n of edgeNumbers(pages[i])) {
+				const off = n - (i + 1);
+				if (off < -20 || off > 100000) continue;
+				if (!votes.has(off)) votes.set(off, new Set());
+				votes.get(off).add(i);
+			}
+		}
+		let best = null, bestN = 0, secondN = 0;
+		for (const [off, set] of votes) {
+			if (set.size > bestN) { secondN = bestN; best = off; bestN = set.size; }
+			else if (set.size > secondN) secondN = set.size;
+		}
+		// Três páginas de acordo, metade do documento e uma margem clara sobre o segundo
+		if (best == null || bestN < 3 || bestN < pages.length * 0.5 || bestN < secondN + 2) return null;
+		return best;
+	}
+
+	/** Número da página como está impresso no PDF (ou a posição no ficheiro, se não se souber). */
+	function pageLabel(doc, page) {
+		const n = Number(page);
+		if (!isFinite(n)) return page;
+		const off = doc && typeof doc.pageOffset === "number" ? doc.pageOffset : 0;
+		return off && n + off >= 1 ? n + off : n;
+	}
+
 	/** Divide o texto devolvido pelo PDFWorker do Zotero (páginas separadas por \f). */
 	function splitPages(text, totalPages) {
 		const raw = String(text || "");
@@ -1029,11 +1083,15 @@ var ZIALib = (function () {
 		return out;
 	}
 
-	function citeLabel(c, docsMap) {
+	/** Citação curta. raw: true mostra o número tal como a IA o escreveu (avisos de verificação). */
+	function citeLabel(c, docsMap, opts) {
 		const d = docsMap && docsMap[c.doc];
 		const who = d ? d.ref : c.doc;
 		if (c.page == null) return who;
-		const pp = c.pageEnd && c.pageEnd !== c.page ? `pp. ${c.page}-${c.pageEnd}` : `p. ${c.page}`;
+		const lbl = p => ((opts && opts.raw) ? p : pageLabel(d, p));
+		const a = lbl(c.page);
+		const b = c.pageEnd && c.pageEnd !== c.page ? lbl(c.pageEnd) : null;
+		const pp = b && b !== a ? `pp. ${a}-${b}` : `p. ${a}`;
 		return `${who}, ${pp}`;
 	}
 
@@ -1060,7 +1118,11 @@ var ZIALib = (function () {
 			const list = byDoc.get(id);
 			const d = docsMap && docsMap[id];
 			const who = d ? d.ref : id;
-			const pages = list.filter(c => c.page != null).map(c => (c.pageEnd && c.pageEnd !== c.page ? `${c.page}-${c.pageEnd}` : String(c.page)));
+			const pages = list.filter(c => c.page != null).map(c => {
+				const a = pageLabel(d, c.page);
+				const b = c.pageEnd && c.pageEnd !== c.page ? pageLabel(d, c.pageEnd) : null;
+				return b && b !== a ? `${a}-${b}` : String(a);
+			});
 			if (!pages.length) return who;
 			const plural = pages.length > 1 || /-/.test(pages[0]);
 			return `${who}, ${plural ? "pp." : "p."} ${pages.join(", ")}`;
@@ -1557,9 +1619,14 @@ var ZIALib = (function () {
 						const a = el(doc, "a", "zia-cite", citeLabel(c, ctx.docsMap));
 						a.setAttribute("href", "#");
 						const known = ctx.docsMap && ctx.docsMap[c.doc];
-						a.title = known
-							? (c.page ? `Abrir ${known.title || known.ref} na página ${c.page}` : `Abrir ${known.title || known.ref}`)
-							: "Documento desconhecido";
+						if (!known) a.title = t("cite.unknown");
+						else if (!c.page) a.title = t("cite.openNoPage", { what: known.title || known.ref });
+						else {
+							const shown = pageLabel(known, c.page);
+							a.title = t("cite.open", { what: known.title || known.ref, n: shown })
+								// O número impresso não é a posição no ficheiro: dizer qual é
+								+ (shown !== c.page ? " · " + t("cite.pdfPage", { n: c.page }) : "");
+						}
 						if (!known) a.classList.add("zia-cite-unknown");
 						a.addEventListener("click", ev => { ev.preventDefault(); ctx.onCite && ctx.onCite(c); });
 						parent.appendChild(a);
@@ -2317,7 +2384,7 @@ var ZIALib = (function () {
 		SYSTEM_PROMPT, LANGUAGES, languageInfo, buildSystemPrompt,
 		ACTIONS, ACTION_ORDER, ACTION_GROUPS, FICHA_NOTE_PREFIX, FICHA_NOTE_PREFIXES, fichaPrefix, FICHA_TEMPLATE, I18N: I,
 		parseCustomPrompts, setCustomPrompt, removeCustomPrompt, cleanCustomPrompt, parseTagLine, removeTagLine, parseScreening, removeScreeningLine, screeningSummary,
-		escapeHTML, escapeXMLAttr, cleanPageText, splitPages, shortAuthor, yearFrom,
+		escapeHTML, escapeXMLAttr, cleanPageText, splitPages, detectPageOffset, pageLabel, shortAuthor, yearFrom,
 		stripReferences, choosePages, fitDocuments, omittedRanges, neutralizeTags, buildDocumentBlock,
 		buildRequestParts, buildRequest, actionPrompt,
 		parseCiteGroup, citeLabel, citesToText, CITE_GROUP_RE,

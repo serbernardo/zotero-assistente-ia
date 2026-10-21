@@ -539,3 +539,36 @@ test("perguntar à coleção, Anki e mapa de temas", () => {
 	assert.match(a.csv, /^#separator:Comma\n#html:false\n"O que mede\?","Mede X \(p\. 2\)\."\n"Porquê ""Y""\?","Porque Z\."\n$/);
 	assert.ok(L.ACTIONS.temas.metaOnly && L.ACTIONS.destaques.useAnnotations && L.ACTIONS.cmp_tabela.needsCriteria);
 });
+
+test("número impresso nas páginas: só com certeza", () => {
+	// Artigo de revista: o ficheiro começa na página 145 (rodapé com o número)
+	const revista = [145, 146, 147, 148, 149, 150].map(n =>
+		`J. Sci. 2021;45:145-160\nTexto do artigo sobre o tema.\n${n}`);
+	assert.equal(L.detectPageOffset(revista), 144);
+	// Capa antes da primeira página numerada
+	const capa = ["Capa da revista", ...[1, 2, 3, 4, 5].map(n => `Texto\n${n}`)];
+	assert.equal(L.detectPageOffset(capa), -1);
+	// Já numerado de 1: nada muda
+	assert.equal(L.detectPageOffset([1, 2, 3, 4, 5].map(n => `Texto\n${n}`)), 0);
+	// Sem números no cabeçalho nem no rodapé: não inventa
+	assert.equal(L.detectPageOffset(["a", "b", "c", "d", "e"].map(x => `Texto ${x} sem numeração`)), null);
+	// Ano e intervalo de páginas fixos no cabeçalho: não contam (não sobem de 1 em 1)
+	assert.equal(L.detectPageOffset(Array(6).fill("Revista 2021 pp 145-160\nTexto corrido do artigo.")), null);
+	// Poucas páginas com número: não chega
+	assert.equal(L.detectPageOffset(["Texto\n10", "Texto", "Texto", "Texto", "Texto", "Texto"]), null);
+	// PDF sem páginas separadas
+	assert.equal(L.detectPageOffset(["tudo junto"]), null);
+	assert.equal(L.detectPageOffset(null), null);
+
+	// Citações mostram o número impresso, e as ligações continuam a abrir a página do ficheiro
+	const dm = { D1: { ref: "Silva et al., 2021", pageOffset: 144 }, D2: { ref: "Costa, 2019" } };
+	assert.equal(L.pageLabel(dm.D1, 2), 146);
+	assert.equal(L.pageLabel(dm.D2, 2), 2);
+	assert.equal(L.citeLabel({ doc: "D1", page: 2 }, dm), "Silva et al., 2021, p. 146");
+	assert.equal(L.citeLabel({ doc: "D1", page: 2, pageEnd: 3 }, dm), "Silva et al., 2021, pp. 146-147");
+	assert.equal(L.citeLabel({ doc: "D1", page: 2 }, dm, { raw: true }), "Silva et al., 2021, p. 2",
+		"nos avisos da verificação fica o número que a IA escreveu");
+	assert.equal(L.citesToText("Resultado [D1:p2, D2:p3].", dm), "Resultado (Silva et al., 2021, p. 146; Costa, 2019, p. 3).");
+	// Capa: o desvio nunca dá uma página menor que 1
+	assert.equal(L.pageLabel({ pageOffset: -1 }, 1), 1);
+});

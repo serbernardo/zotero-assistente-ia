@@ -96,6 +96,20 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   conhecimento geral nem suposicoes. [Inferencia] so para ligacoes diretas entre
   factos citados. Contas so se forem exatas e escritas por inteiro
   (100% - 47% = 53%). Texto entre aspas e copia exata do PDF.
+- **Numero impresso nas paginas** (`detectPageOffset` e `pageLabel` em `lib.js`): o texto do PDF vem
+  por posicao no ficheiro (1, 2, 3...), que muitas vezes nao e o numero impresso no artigo (a 1.a
+  pagina do ficheiro pode ser a pagina 145 da revista, ou haver uma capa antes). O addon procura
+  numeros no cabecalho e no rodape de cada pagina e so aceita um desvio constante confirmado em
+  3 paginas, em pelo menos metade do documento e com margem clara sobre o segundo candidato. Um
+  numero fixo (ano, volume, intervalo de paginas) nunca ganha, porque nao sobe de 1 em 1. Sem
+  certeza, fica a posicao no ficheiro. As citacoes, as notas e o `locator` do estilo do Zotero
+  mostram o numero impresso, as ligacoes continuam a abrir a pagina do ficheiro (`citeHref`) e o
+  tooltip diz qual e ("· pagina 1 do ficheiro PDF"). Os avisos da verificacao usam
+  `citeLabel(..., { raw: true })`, para mostrar o numero que a IA escreveu. O desvio fica guardado
+  na resposta (`m.pageOffsets`, `_docsMap(m)`), para as citacoes continuarem certas depois de
+  reiniciar o Zotero sem voltar a ler o PDF.
+- **Lingua das respostas:** `buildSystemPrompt` diz que a lingua escolhida vale sempre, mesmo que os
+  documentos ou a pergunta estejam noutra lingua (so os excertos entre aspas ficam na lingua do PDF).
 - **Verificacao automatica** (`verifyAnswer` em `lib.js`): cada resposta e
   confirmada contra o texto dos PDFs. Excertos entre aspas seguidos de citacao
   (literal, com palavras alteradas, noutra pagina ou inexistente), paginas
@@ -426,7 +440,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (38), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (39), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves

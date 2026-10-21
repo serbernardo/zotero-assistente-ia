@@ -2089,10 +2089,14 @@ var ZIAChatView = class {
 			// Verificação automática contra o texto dos PDFs: excertos, páginas e números
 			try {
 				const pool = {};
+				const offs = {};
 				for (const d of docs) {
 					const src = d.pages ? d : this.state.allDocs[d.id];
 					if (src && src.pages) pool[d.id] = { pages: src.pages };
+					// O número impresso das páginas fica na resposta, para as citações o manterem
+					if (src && typeof src.pageOffset === "number" && src.pageOffset !== 0) offs[d.id] = src.pageOffset;
 				}
+				if (Object.keys(offs).length) botMsg.pageOffsets = offs;
 				botMsg.check = this.L.verifyAnswer(botMsg.text, pool);
 			}
 			catch (e) { this.core.log("Verificação: " + e); }
@@ -2314,8 +2318,20 @@ var ZIAChatView = class {
 	// Mensagens
 	// ------------------------------------------------------------------
 
-	_docsMap() {
-		return this.state.allDocs;
+	/**
+	 * Documentos da conversa. Com uma resposta (m), junta o número impresso das páginas
+	 * guardado nessa resposta: assim as citações continuam certas depois de reiniciar o
+	 * Zotero, sem voltar a ler o PDF.
+	 */
+	_docsMap(m) {
+		const base = this.state.allDocs;
+		const offs = m && m.pageOffsets;
+		if (!offs) return base;
+		const out = Object.assign({}, base);
+		for (const id of Object.keys(offs)) {
+			if (out[id] && out[id].pageOffset !== offs[id]) out[id] = Object.assign({}, out[id], { pageOffset: offs[id] });
+		}
+		return out;
 	}
 
 	_suggestions() {
@@ -2465,7 +2481,7 @@ var ZIAChatView = class {
 		const isMap = m.actionID === "mapa" || m.actionID === "temas";
 		const body = this._el("div", "zia-md" + (isMap ? " zia-mindmap" : ""));
 		const ctx = {
-			docsMap: this._docsMap(),
+			docsMap: this._docsMap(m),
 			onCite: c => this._openCite(c),
 			onLink: href => this._openLink(href),
 		};
@@ -2538,7 +2554,7 @@ var ZIAChatView = class {
 		else if (!m.pending && m.text) {
 			// Copiar, Guardar como nota e os outros botões ficam por cima do texto
 			el.insertBefore(this._messageTools(m), body);
-			if (m.check) el.appendChild(this._checkBox(m.check));
+			if (m.check) el.appendChild(this._checkBox(m.check, m));
 			if (m.tags && m.tags.length) el.appendChild(this._tagsRow(m));
 			const meta = [m.engine ? this.core.engineLabel(m.engine) + (m.model ? ` · ${m.model}` : "") : "", m.secs && this.mode === "section" ? `${m.secs} s` : "", m.usageNote, m.tokensNote].filter(Boolean);
 			if (meta.length && !this.simple) el.appendChild(this._el("div", "zia-msg-meta", meta.join(" · ")));
@@ -2917,8 +2933,8 @@ var ZIAChatView = class {
 	}
 
 	/** Resultado da verificação automática: tudo confirmado, ou o que não foi encontrado nos PDFs. */
-	_checkBox(c) {
-		const dm = this._docsMap();
+	_checkBox(c, m) {
+		const dm = this._docsMap(m);
 		const ref = cite => {
 			if (!cite) return "";
 			const cs = this.L.parseCiteGroup(cite);
@@ -2937,7 +2953,7 @@ var ZIAChatView = class {
 		for (const q of c.badQuotes.slice(0, 4)) add(this.T("check.badQuote", { q: q.quote }) + ref(q.cite));
 		for (const q of (c.changedQuotes || []).slice(0, 3)) add(this.T("check.changedQuote", { q: q.quote }) + ref(q.cite));
 		for (const q of c.wrongPage.slice(0, 3)) add(this.T("check.wrongPage", { q: q.quote }) + ref(q.cite));
-		for (const b of c.badCites.slice(0, 3)) add(this.T("check.badCite", { c: this.L.citeLabel(b, dm) }));
+		for (const b of c.badCites.slice(0, 3)) add(this.T("check.badCite", { c: this.L.citeLabel(b, dm, { raw: true }) }));
 		for (const e of (c.badCalcs || []).slice(0, 3)) add(this.T("check.badCalc", { e }));
 		if (c.unknownNumbers.length) add(this.T("check.numbers", { n: c.unknownNumbers.slice(0, 8).join(", ") }));
 		box.appendChild(ul);
@@ -2992,13 +3008,13 @@ var ZIAChatView = class {
 	_messageTools(m) {
 		const row = this._el("div", "zia-msg-tools");
 		row.appendChild(this._button(this.T("chat.copy"), "zia-btn-small", () => {
-			this.core.copyToClipboard(this.L.citesToText(m.text, this._docsMap()));
+			this.core.copyToClipboard(this.L.citesToText(m.text, this._docsMap(m)));
 			this._setStatus(this.T("chat.copied"));
 		}, this.T("chat.copy.tip")));
 		row.appendChild(this._saveNoteButton(m, "zia-btn-small"));
 		if (this.L.extractTables(m.text).length) {
 			row.appendChild(this._button(this.T("chat.exportCsv"), "zia-btn-small", async () => {
-				const csv = this.L.tablesToCSV(m.text, { docsMap: this._docsMap() });
+				const csv = this.L.tablesToCSV(m.text, { docsMap: this._docsMap(m) });
 				try {
 					const path = await this.core.saveCSV(this.win, csv, m.heading || "tabela");
 					if (path) this._setStatus(this.T("chat.exported", { path }));
@@ -3011,7 +3027,7 @@ var ZIAChatView = class {
 		// Testar o que percebi: perguntas e respostas para o Anki
 		if (m.actionID === "estudo") {
 			row.appendChild(this._button(this.T("chat.anki"), "zia-btn-small", async () => {
-				const r = this.L.studyToAnki(this.L.citesToText(m.text, this._docsMap()));
+				const r = this.L.studyToAnki(this.L.citesToText(m.text, this._docsMap(m)));
 				if (!r.count) {
 					this._setStatus(this.T("chat.anki.none"), "warn");
 					return;
@@ -3049,7 +3065,7 @@ var ZIAChatView = class {
 	}
 
 	async _saveMessageNote(m, { quiet } = {}) {
-		const docsMap = this._docsMap();
+		const docsMap = this._docsMap(m);
 		const docs = (m.docIDs || []).map(id => docsMap[id]).filter(Boolean);
 		if (!docs.length) throw new Error("sem documentos associados");
 		const note = await this.core.saveNote({

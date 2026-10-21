@@ -265,6 +265,8 @@ var ZoteroIA = {
 				pages: split.pages,
 				pagesReliable: split.pagesReliable,
 				totalPages: (result && result.totalPages) || split.pages.length,
+				// Número impresso nas páginas, quando se consegue saber com certeza
+				pageOffset: split.pagesReliable ? this.lib.detectPageOffset(split.pages) : null,
 			};
 			this._textCache.set(cacheKey, cached);
 			if (this._textCache.size > 60) {
@@ -278,6 +280,7 @@ var ZoteroIA = {
 		doc.pages = cached.pages;
 		doc.pagesReliable = cached.pagesReliable;
 		doc.totalPages = cached.totalPages;
+		if (typeof cached.pageOffset === "number") doc.pageOffset = cached.pageOffset;
 		doc.chars = chars;
 		return doc;
 	},
@@ -456,8 +459,12 @@ var ZoteroIA = {
 				byDoc.get(c.doc).push(c);
 			}
 			const citationItems = order.map(id => {
-				const pages = byDoc.get(id).filter(c => c.page != null)
-					.map(c => (c.pageEnd && c.pageEnd !== c.page ? `${c.page}-${c.pageEnd}` : String(c.page)));
+				// Páginas como estão impressas no artigo (é isto que vai para a citação)
+				const pages = byDoc.get(id).filter(c => c.page != null).map(c => {
+					const a = this.lib.pageLabel(docsMap[id], c.page);
+					const b = c.pageEnd && c.pageEnd !== c.page ? this.lib.pageLabel(docsMap[id], c.pageEnd) : null;
+					return b && b !== a ? `${a}-${b}` : String(a);
+				});
 				const item = { id: itemOf(id).id };
 				if (pages.length) { item.locator = pages.join(", "); item.label = "page"; }
 				return item;
@@ -565,7 +572,7 @@ var ZoteroIA = {
 		let active = Array.isArray(data) ? 0 : ((data && data.active) || 0);
 		try {
 			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
-				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check", "stances", "warnings"];
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check", "stances", "warnings", "pageOffsets"];
 			const clean = msgs => msgs.filter(m => !m.pending).slice(-this.HISTORY_MAX)
 				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
 			const conversations = [];
