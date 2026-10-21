@@ -51,6 +51,10 @@ var ZIALib = (function () {
 			"Analisas apenas os documentos fornecidos entre as marcas <documento>.",
 			lang.instr,
 		];
+		if (lang.id !== "auto") {
+			lines.push("Esta é sempre a língua da resposta, mesmo que os documentos ou a pergunta do utilizador estejam escritos numa língua diferente. "
+				+ "Só os excertos curtos copiados entre aspas (citações literais do PDF) ficam na língua original do documento.");
+		}
 		if (lang.id !== "pt-PT") {
 			lines.push("As instruções abaixo estão em português, mas a resposta segue a língua indicada acima. "
 				+ "Traduz também os títulos, os nomes de campos e os rótulos pedidos, exceto as marcas técnicas [Declarado], [Inferência] e ETIQUETAS.");
