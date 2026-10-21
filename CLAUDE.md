@@ -104,7 +104,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   numero fixo (ano, volume, intervalo de paginas) nunca ganha, porque nao sobe de 1 em 1. Sem
   certeza, fica a posicao no ficheiro. As citacoes, as notas e o `locator` do estilo do Zotero
   mostram o numero impresso, as ligacoes continuam a abrir a pagina do ficheiro (`citeHref`) e o
-  tooltip diz qual e ("· pagina 1 do ficheiro PDF"). Os avisos da verificacao usam
+  tooltip diz qual e ("(1.a pagina do PDF)", "(1st page of the PDF)", `ordinal`). Os avisos da verificacao usam
   `citeLabel(..., { raw: true })`, para mostrar o numero que a IA escreveu. O desvio fica guardado
   na resposta (`m.pageOffsets`, `_docsMap(m)`), para as citacoes continuarem certas depois de
   reiniciar o Zotero sem voltar a ler o PDF.
@@ -493,7 +493,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.8.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.9.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica
