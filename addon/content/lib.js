@@ -450,6 +450,9 @@ var ZIALib = (function () {
 				+ "## Decisão: Incluir (cumpre todos os critérios), Excluir (falha claramente pelo menos um critério) ou "
 				+ "Duvidoso (falta informação para decidir), com uma frase sobre o motivo, baseada na tabela. Se for "
 				+ "Duvidoso, diz que informação faltou.\n"
+				+ "Se a decisão for Excluir, escreve na penúltima linha MOTIVO: seguido do critério que não se cumpre, com "
+				+ "as mesmas palavras que usaste para esse critério na tabela (no máximo 8 palavras, sem citação). Se falharem "
+				+ "vários, indica só o primeiro da tabela. A palavra MOTIVO não se traduz.\n"
 				+ "Na última linha da resposta, escreve exatamente uma destas três linhas, sem traduzir: "
 				+ "TRIAGEM: INCLUIR, TRIAGEM: EXCLUIR ou TRIAGEM: DUVIDOSO",
 		},
@@ -630,6 +633,81 @@ var ZIALib = (function () {
 	}
 
 	/** Retira a linha técnica da triagem (a decisão aparece no resumo). */
+	const REASON_LINE_RE = /^[\s>*_-]*(?:MOTIVO|REASON)[\s*_]*:[\s*_]*(.+?)[\s*_]*$/gim;
+
+	/** Triagem: o critério que falhou, da linha "MOTIVO: …" (só conta nas exclusões). */
+	function parseExclusionReason(text) {
+		const re = new RegExp(REASON_LINE_RE.source, "gim");
+		let m, last = null;
+		while ((m = re.exec(String(text || "")))) last = m[1];
+		if (!last) return null;
+		const v = last.replace(/\[[^\]]*\]/g, "").replace(/[*_`"«»“”]/g, "").replace(/[.;:]+$/, "").replace(/\s+/g, " ").trim();
+		return v ? (v.length > 80 ? v.slice(0, 77) + "…" : v) : null;
+	}
+
+	function removeReasonLine(text) {
+		return String(text || "").replace(REASON_LINE_RE, "").replace(/\s+$/, "");
+	}
+
+	/**
+	 * Números do diagrama PRISMA 2020 a partir da triagem do texto completo.
+	 * rows: [{ decision, label, notRetrieved }]. pre: números das fases anteriores, escritos pela pessoa
+	 * (db, reg, dup, other, excludedTA), que vêm das bases de dados. Devolve todos os números, os motivos
+	 * de exclusão contados e se as contas batem certo.
+	 */
+	function prismaCounts(rows, pre) {
+		pre = pre || {};
+		const num = v => (v === "" || v == null || !isFinite(Number(v)) ? null : Math.max(0, Math.round(Number(v))));
+		const db = num(pre.db), reg = num(pre.reg), dup = num(pre.dup), other = num(pre.other), excludedTA = num(pre.excludedTA);
+		const sought = rows.length;
+		const notRetrieved = rows.filter(r => r.notRetrieved).length;
+		const assessed = sought - notRetrieved;
+		const included = rows.filter(r => r.decision === "incluir").length;
+		const excl = rows.filter(r => r.decision === "excluir");
+		// Motivos agrupados sem distinguir maiúsculas, acentos nem pontuação final
+		const norm = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+		const groups = new Map();
+		for (const r of excl) {
+			const label = r.label || t("prisma.noReason");
+			const k = norm(label) || "_";
+			if (!groups.has(k)) groups.set(k, { label, n: 0 });
+			groups.get(k).n++;
+		}
+		const reasons = [...groups.values()].sort((a, b) => b.n - a.n);
+		const pending = assessed - included - excl.length;
+		const identified = db == null && reg == null ? null : (db || 0) + (reg || 0);
+		const screened = identified == null ? null : identified - (dup || 0) - (other || 0);
+		const expectedSought = screened == null || excludedTA == null ? null : screened - excludedTA;
+		return {
+			db, reg, dup, other, excludedTA, identified, screened,
+			sought, notRetrieved, assessed, excluded: excl.length, reasons, included, pending,
+			expectedSought, matches: expectedSought == null ? null : expectedSought === sought,
+		};
+	}
+
+	/** Diagrama PRISMA 2020 em CSV (Excel): fase, caixa e número, pela ordem do diagrama. */
+	function prismaCSV(c, sep) {
+		sep = sep || ";";
+		const v = x => (x == null ? "" : String(x));
+		const rows = [
+			[t("prisma.phase"), t("prisma.box"), "n"],
+			[t("prisma.ident"), t("prisma.f.db"), v(c.db)],
+			[t("prisma.ident"), t("prisma.f.reg"), v(c.reg)],
+			[t("prisma.ident"), t("prisma.f.dup"), v(c.dup)],
+			[t("prisma.ident"), t("prisma.f.other"), v(c.other)],
+			[t("prisma.screen"), t("prisma.f.screened"), v(c.screened)],
+			[t("prisma.screen"), t("prisma.f.excludedTA"), v(c.excludedTA)],
+			[t("prisma.screen"), t("prisma.f.sought"), v(c.sought)],
+			[t("prisma.screen"), t("prisma.f.notRetrieved"), v(c.notRetrieved)],
+			[t("prisma.screen"), t("prisma.f.assessed"), v(c.assessed)],
+			[t("prisma.screen"), t("prisma.f.excluded"), v(c.excluded)],
+			...c.reasons.map(r => [t("prisma.screen"), "  " + r.label, v(r.n)]),
+			[t("prisma.screen"), t("prisma.f.pending"), v(c.pending)],
+			[t("prisma.incl"), t("prisma.f.included"), v(c.included)],
+		];
+		return "\ufeff" + rows.map(r => r.map(x => csvCell(x, sep)).join(sep)).join("\r\n") + "\r\n";
+	}
+
 	function removeScreeningLine(text) {
 		return String(text || "").replace(SCREEN_LINE_RE, "").replace(/\s+$/, "");
 	}
@@ -638,25 +716,34 @@ var ZIALib = (function () {
 	// Duvidosos primeiro (são os que pedem uma decisão), depois os que ficaram por fazer
 	const SCREEN_ORDER = ["duvidoso", null, "incluir", "excluir"];
 
-	function screeningSummary(rows, criteria) {
+	function screeningSummary(rows, criteria, meta) {
 		const label = d => t("triagem.decision." + (d || "none"));
 		const count = k => rows.filter(r => r.decision === k).length;
 		const rank = r => { const k = SCREEN_ORDER.indexOf(r.decision || null); return k < 0 ? 1 : k; };
 		const sorted = rows.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map(x => x.r);
 		const reasons = rows.some(r => r.reason);
+		const failed = rows.some(r => r.decision === "excluir" && r.label);
 		const cell = v => String(v || "").replace(/\|/g, "/").replace(/\n/g, " ");
+		const c = prismaCounts(rows);
+		const decided = r => (r.notRetrieved ? t("prisma.notRetrievedShort") : label(r.decision));
 		return [
 			t("triagem.summary.criteria") + " " + String(criteria || "").replace(/\s+/g, " ").trim(),
 			"",
-			"| " + t("triagem.summary.article") + " | " + t("triagem.summary.decision") + " |" + (reasons ? " " + t("triagem.summary.reason") + " |" : ""),
-			"|---|---|" + (reasons ? "---|" : ""),
-			...sorted.map(r => `| ${cell(r.ref)} | ${label(r.decision)} |` + (reasons ? ` ${cell(r.reason)} |` : "")),
+			"| " + t("triagem.summary.article") + " | " + t("triagem.summary.decision") + " |"
+				+ (failed ? " " + t("triagem.summary.failed") + " |" : "") + (reasons ? " " + t("triagem.summary.reason") + " |" : ""),
+			"|---|---|" + (failed ? "---|" : "") + (reasons ? "---|" : ""),
+			...sorted.map(r => `| ${cell(r.ref)} | ${decided(r)} |`
+				+ (failed ? ` ${r.decision === "excluir" ? cell(r.label) : ""} |` : "") + (reasons ? ` ${cell(r.reason)} |` : "")),
 			"",
 			`**${label("incluir")}: ${count("incluir")} · ${label("excluir")}: ${count("excluir")} · ${label("duvidoso")}: ${count("duvidoso")}**`,
 			"",
-			t("triagem.summary.prisma", { n: rows.length, inc: count("incluir"), exc: count("excluir"), dub: rows.length - count("incluir") - count("excluir") }),
+			t("triagem.summary.prisma", { sought: c.sought, nr: c.notRetrieved, as: c.assessed, exc: c.excluded, inc: c.included, pend: c.pending })
+				+ (c.reasons.length ? " (" + c.reasons.map(r => `${r.label}: ${r.n}`).join(", ") + ")" : ""),
 			"",
 			t("triagem.summary.note"),
+			...(meta && meta.engine ? ["", t("triagem.summary.methods", {
+				n: c.assessed, engine: meta.engine + (meta.model ? ", " + meta.model : ""), date: meta.date || "",
+			})] : []),
 		].join("\n");
 	}
 
@@ -2706,6 +2793,7 @@ var ZIALib = (function () {
 		escapeHTML, escapeXMLAttr, cleanPageText, splitPages, detectPageOffset, pageLabel, shortAuthor, yearFrom,
 		LARGE_DOCS, BATCH_SIZE, BATCH, splitBatches, largeMode, batchPrompt, synthPrompt, reviewPartPrompt, reviewEndPrompt,
 		rawTables, docIdOf, mergeTables, tableToMarkdown, rowsAsFichas, sortMergedRows, parseThemeList, themesToCSV, screeningReason,
+		parseExclusionReason, removeReasonLine, prismaCounts, prismaCSV,
 		stripReferences, choosePages, fitDocuments, omittedRanges, neutralizeTags, buildDocumentBlock,
 		buildRequestParts, buildRequest, actionPrompt,
 		parseCiteGroup, citeLabel, citesToText, CITE_GROUP_RE,

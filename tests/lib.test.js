@@ -547,7 +547,7 @@ test("nomes das ações, referências mantidas e números PRISMA", () => {
 	assert.equal(kept.refsFromPage, null);
 	assert.match(kept.usedPages.join("\n"), /Costa, 2019/);
 	const sum = L.screeningSummary([{ ref: "A", decision: "incluir" }, { ref: "B", decision: "excluir" }, { ref: "C", decision: "duvidoso" }, { ref: "D", decision: null }], "c");
-	assert.match(sum, /avaliados 4 · incluídos 1 · excluídos 1 · por decidir 2/);
+	assert.match(sum, /PRISMA 2020: relatórios procurados 4 · não obtidos 0 · avaliados 4 · excluídos 1 · incluídos 1 · por decidir 2/);
 });
 
 test("perguntar à coleção, Anki e mapa de temas", () => {
@@ -660,3 +660,48 @@ test("muitos artigos: lotes, tabelas juntas, temas e triagem", () => {
 	assert.equal(L.classifyIAEduError(429, "").kind, "limit");
 	assert.notEqual(L.classifyIAEduError(0, { detail: "Erro interno" }).kind, "limit");
 });
+
+test("PRISMA 2020: motivo por critério, números que batem certo e frase para os métodos", () => {
+	// O pedido da triagem pede o critério que falhou numa linha técnica
+	assert.match(L.ACTIONS.triagem.prompt, /MOTIVO: seguido do critério que não se cumpre/);
+	const txt = "## Decisão\nExcluir. Não é empírico [D1:p2].\n\n**MOTIVO: Não é estudo empírico.**\nTRIAGEM: EXCLUIR";
+	assert.equal(L.parseExclusionReason(txt), "Não é estudo empírico");
+	assert.equal(L.parseExclusionReason("sem linha"), null);
+	assert.doesNotMatch(L.removeReasonLine(L.removeScreeningLine(txt)), /MOTIVO|TRIAGEM/, "as linhas técnicas não aparecem");
+
+	const rows = [
+		{ ref: "A", decision: "incluir" },
+		{ ref: "B", decision: "excluir", label: "Não é estudo empírico" },
+		{ ref: "C", decision: "excluir", label: "não é estudo empírico." },
+		{ ref: "D", decision: "excluir", label: "Anterior a 2018" },
+		{ ref: "E", decision: null, notRetrieved: true },
+		{ ref: "F", decision: "duvidoso" },
+	];
+	const c = L.prismaCounts(rows, { db: "5042", reg: "", dup: "40", excludedTA: "4996" });
+	assert.equal(c.screened, 5002, "identificados menos duplicados");
+	assert.equal(c.sought, 6);
+	assert.equal(c.notRetrieved, 1, "PDF em falta: relatório não obtido, como manda o PRISMA 2020");
+	assert.equal(c.assessed, 5);
+	assert.equal(c.excluded, 3);
+	assert.deepEqual(c.reasons, [{ label: "Não é estudo empírico", n: 2 }, { label: "Anterior a 2018", n: 1 }], "motivos iguais juntam-se");
+	assert.equal(c.included, 1);
+	assert.equal(c.pending, 1);
+	assert.equal(c.matches, true, "5002 triados menos 4996 excluídos dão os 6 procurados");
+	assert.equal(L.prismaCounts(rows, { db: 100, excludedTA: 90 }).matches, false);
+	assert.equal(L.prismaCounts(rows).identified, null, "sem números de antes, não inventa");
+
+	const csv = L.prismaCSV(c);
+	assert.match(csv, /^\ufeffFase;Caixa;n\r\nIdentificação;Registos identificados em bases de dados;5042\r\n/);
+	assert.match(csv, /Relatórios não obtidos \(PDF em falta ou ilegível\);1\r\n/);
+	assert.match(csv, /Triagem;  Não é estudo empírico;2\r\n/);
+	assert.match(csv, /Incluídos;Estudos incluídos na revisão;1\r\n$/);
+
+	const sum = L.screeningSummary(rows, "c", { engine: "IAEdu", date: "22/10/2026" });
+	assert.deepEqual(L.rawTables(sum)[0].header, ["Artigo", "Decisão", "Critério não cumprido"]);
+	assert.match(sum, /\| E \| Não obtido \|/);
+	assert.match(sum, /Para a secção de métodos: a avaliação do texto completo de 5 relatórios foi apoiada pelo Assistente IA para Zotero \(IAEdu, 22\/10\/2026\)[\s\S]*decisão final foi tomada pelos autores/);
+	assert.doesNotMatch(L.screeningSummary(rows, "c"), /secção de métodos/, "sem motor, sem frase");
+	assert.match(I18N_COLS(), /^Título\. País ou região\. Área\./);
+});
+
+function I18N_COLS() { return L.I18N.t("prisma.data.cols"); }

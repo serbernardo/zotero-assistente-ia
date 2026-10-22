@@ -1498,20 +1498,23 @@ var ZIAChatView = class {
 	}
 
 	/** Resumo da triagem: tabela feita pela app com a decisão sugerida para cada artigo. */
-	_addScreeningSummary(rows, criteria, docs) {
+	_addScreeningSummary(rows, criteria, docs, last) {
+		const loc = this.L.I18N.getLang() === "en" ? "en-GB" : "pt-PT";
+		const meta = last ? { engine: this.core.engineLabel(last.engine), model: last.model || "", date: new Date().toLocaleDateString(loc) } : null;
+		const c = this.L.prismaCounts(rows);
 		const m = {
 			role: "assistant",
-			text: this.L.screeningSummary(rows, criteria),
+			text: this.L.screeningSummary(rows, criteria, meta),
 			actionID: "triagem",
 			actionLabel: this.T("triagem.summary.title"),
 			heading: this._heading({ title: this.T("triagem.summary.title") }, docs),
 			docIDs: docs.map(d => d.id),
 			time: Date.now(),
 			prisma: {
-				n: rows.length,
-				inc: rows.filter(r => r.decision === "incluir").length,
-				exc: rows.filter(r => r.decision === "excluir").length,
-				dub: rows.filter(r => r.decision !== "incluir" && r.decision !== "excluir").length,
+				n: c.assessed, inc: c.included, exc: c.excluded, dub: c.pending,
+				// Para o diagrama PRISMA 2020: as decisões ficam guardadas, os números de antes escreve-os a pessoa
+				rows: rows.map(r => ({ decision: r.decision, label: r.label || null, notRetrieved: !!r.notRetrieved })),
+				pre: {},
 			},
 		};
 		this.state.messages.push(m);
@@ -1577,6 +1580,12 @@ var ZIAChatView = class {
 				row.appendChild(p);
 			}
 			detail.appendChild(row);
+			if (sel === "cmp_tabela") {
+				detail.appendChild(this._button(this.T("prisma.data.btn"), "zia-btn-small zia-prisma-data", () => {
+					this.textarea.value = this.T("prisma.data.cols");
+					this.textarea.focus();
+				}, this.T("prisma.data.tip")));
+			}
 		}
 		if (sel === "triagem") {
 			const info = this._button("i", "zia-info-btn zia-triagem-info", () => {
@@ -1922,6 +1931,7 @@ var ZIAChatView = class {
 		// Um pedido por documento (cada resposta fica numa nota própria)
 		if (a.perDoc) {
 			const rows = [];
+			let last = null;
 			const falhados = [];
 			for (const d of docs) {
 				const req = {
@@ -1935,7 +1945,14 @@ var ZIAChatView = class {
 				};
 				const msg = await this._askWaiting(req);
 				if (!msg) break;
-				rows.push({ ref: d.ref || d.shortRef, decision: msg.screening || null, reason: msg.error ? "" : this.L.screeningReason(msg.text) });
+				rows.push({
+					ref: d.ref || d.shortRef,
+					decision: msg.error ? null : (msg.screening || null),
+					label: msg.error ? null : (msg.exclusion || null),
+					reason: msg.error ? "" : this.L.screeningReason(msg.text),
+					notRetrieved: !!(msg.error && this._skippableError(msg)),
+				});
+				if (!msg.error) last = msg;
 				// Um problema com este PDF (não está no computador, sem texto, com senha) salta o
 				// artigo e segue para o seguinte. Um problema do motor pára: ia repetir-se em todos
 				if (msg.error && !this._skippableError(msg)) break;
@@ -1945,7 +1962,7 @@ var ZIAChatView = class {
 			// Triagem: no fim, uma tabela com a decisão sugerida para cada artigo (os que ficaram por fazer aparecem sem resposta)
 			if (actionID === "triagem" && rows.length) {
 				for (const d of docs.slice(rows.length)) rows.push({ ref: d.ref || d.shortRef, decision: null });
-				this._addScreeningSummary(rows, extra, docs);
+				this._addScreeningSummary(rows, extra, docs, last);
 			}
 			return;
 		}
@@ -2510,7 +2527,8 @@ var ZIAChatView = class {
 			botMsg.tokensNote = this.L.formatUsage(res.usage, engine);
 			if (actionID === "triagem") {
 				botMsg.screening = this.L.parseScreening(botMsg.text);
-				botMsg.text = this.L.removeScreeningLine(botMsg.text);
+				botMsg.exclusion = botMsg.screening === "excluir" ? this.L.parseExclusionReason(botMsg.text) : null;
+				botMsg.text = this.L.removeReasonLine(this.L.removeScreeningLine(botMsg.text));
 			}
 			if (actionID === "pergunta") {
 				botMsg.stances = this.L.parseStances(botMsg.text);
@@ -2960,6 +2978,7 @@ var ZIAChatView = class {
 		else {
 			// Triagem: os números do diagrama PRISMA em caixas, antes da tabela
 			if (m.prisma) el.appendChild(this._prismaBoxes(m.prisma));
+			if (m.prisma && m.prisma.rows) el.appendChild(this._prismaFlow(m));
 			// Textos longos (revisão tema a tema): índice que salta para cada parte
 			const toc = m.actionID === "cmp_sintese" ? this._tocRow(body) : null;
 			if (toc) el.appendChild(toc);
@@ -3540,6 +3559,84 @@ var ZIAChatView = class {
 		return box;
 	}
 
+	/**
+	 * Diagrama PRISMA 2020: os números das fases anteriores (bases de dados, duplicados, triagem por título e
+	 * resumo) escrevem-se aqui. O resto vem desta triagem e as contas confirmam-se umas às outras.
+	 */
+	_prismaFlow(m) {
+		const p = m.prisma;
+		p.pre = p.pre || {};
+		const box = this._el("div", "zia-prisma-flow");
+		box.appendChild(this._el("div", "zia-prisma-flow-title", this.T("prisma.title")));
+		box.appendChild(this._el("div", "zia-prisma-flow-hint", this.T("prisma.fillHint")));
+		const table = this._el("table", "zia-table zia-prisma-table");
+		const tbody = this._el("tbody");
+		table.appendChild(tbody);
+		const cells = {};
+		const check = this._el("div", "zia-prisma-check");
+		const update = () => {
+			const c = this.L.prismaCounts(p.rows, p.pre);
+			for (const k of Object.keys(cells)) cells[k].textContent = c[k] == null ? "" : String(c[k]);
+			check.hidden = c.matches == null && !c.pending;
+			check.className = "zia-prisma-check" + (c.matches === false ? " bad" : "");
+			const notes = [];
+			if (c.matches === true) notes.push(this.T("prisma.check.ok", { n: c.sought }));
+			if (c.matches === false) notes.push(this.T("prisma.check.bad", { a: c.expectedSought, b: c.sought }));
+			if (c.pending) notes.push(this.T("prisma.pendingNote", { n: c.pending }));
+			check.textContent = notes.join(" ");
+		};
+		let phase = null;
+		const row = (ph, label, key, input) => {
+			const tr = this._el("tr");
+			tr.appendChild(this._el("td", "zia-prisma-phase", ph !== phase ? this.T(ph) : ""));
+			phase = ph;
+			tr.appendChild(this._el("td", null, this.T(label)));
+			const td = this._el("td", "zia-prisma-n");
+			if (input) {
+				const inp = this._el("input", "zia-prisma-in");
+				inp.type = "number";
+				inp.min = "0";
+				inp.placeholder = this.T("prisma.fill");
+				inp.setAttribute("aria-label", this.T(label));
+				inp.dataset.key = key;
+				if (p.pre[key] != null) inp.value = p.pre[key];
+				inp.addEventListener("input", () => {
+					p.pre[key] = inp.value === "" ? null : inp.value;
+					update();
+				});
+				inp.addEventListener("change", () => this._persist());
+				td.appendChild(inp);
+			}
+			else cells[key] = td;
+			tr.appendChild(td);
+			tbody.appendChild(tr);
+			return td;
+		};
+		row("prisma.ident", "prisma.f.db", "db", true);
+		row("prisma.ident", "prisma.f.reg", "reg", true);
+		row("prisma.ident", "prisma.f.dup", "dup", true);
+		row("prisma.ident", "prisma.f.other", "other", true);
+		row("prisma.screen", "prisma.f.screened", "screened");
+		row("prisma.screen", "prisma.f.excludedTA", "excludedTA", true);
+		row("prisma.screen", "prisma.f.sought", "sought");
+		row("prisma.screen", "prisma.f.notRetrieved", "notRetrieved");
+		row("prisma.screen", "prisma.f.assessed", "assessed");
+		row("prisma.screen", "prisma.f.excluded", "excluded");
+		for (const r of this.L.prismaCounts(p.rows).reasons) {
+			const tr = this._el("tr", "zia-prisma-sub");
+			tr.appendChild(this._el("td", "zia-prisma-phase", ""));
+			tr.appendChild(this._el("td", null, r.label));
+			tr.appendChild(this._el("td", "zia-prisma-n", String(r.n)));
+			tbody.appendChild(tr);
+		}
+		row("prisma.screen", "prisma.f.pending", "pending");
+		row("prisma.incl", "prisma.f.included", "included");
+		box.appendChild(table);
+		box.appendChild(check);
+		update();
+		return box;
+	}
+
 	_messageTools(m) {
 		const row = this._el("div", "zia-msg-tools");
 		row.appendChild(this._button(this.T("chat.copy"), "zia-btn-small", () => {
@@ -3558,6 +3655,19 @@ var ZIAChatView = class {
 					this._setStatus(this.T("chat.exportError", { e: e.message || e }), "error");
 				}
 			}, this.T("chat.exportCsv.tip")));
+		}
+		// Triagem: o diagrama PRISMA 2020, caixa a caixa, para o Excel
+		if (m.prisma && m.prisma.rows) {
+			row.appendChild(this._button(this.T("prisma.export"), "zia-btn-small", async () => {
+				const csv = this.L.prismaCSV(this.L.prismaCounts(m.prisma.rows, m.prisma.pre));
+				try {
+					const path = await this.core.saveCSV(this.win, csv, "PRISMA 2020");
+					if (path) this._setStatus(this.T("chat.exported", { path }));
+				}
+				catch (e) {
+					this._setStatus(this.T("chat.exportError", { e: e.message || e }), "error");
+				}
+			}, this.T("prisma.export.tip")));
 		}
 		// Mapa de temas: uma linha por artigo e tema, para o Excel
 		if (m.actionID === "temas" && !m.pending && this.L.parseThemeList(m.text).length) {

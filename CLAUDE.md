@@ -264,8 +264,18 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   linhas" e filtros por uma coluna de categorias (2 a 5 valores curtos, `_categoryColumn`: Resposta, Decisao). O CSV
   exporta sempre a tabela inteira. Botao "Exportar para Excel (CSV)" (`;` e BOM, abre em colunas no Excel portugues).
   Mapa de temas exporta uma linha por artigo e tema (`themesToCSV`). Revisao de literatura com indice (`_tocRow`).
-- **Triagem:** resumo com o motivo de cada artigo (`screeningReason`, da seccao Decisao), duvidosos primeiro e por
-  decidir a seguir (`SCREEN_ORDER`), e caixas com os numeros PRISMA (`m.prisma`, `_prismaBoxes`).
+- **Triagem e PRISMA 2020** (a pedido, a partir dos materiais de PRISMA usados na FEUP; segue o PRISMA 2020 e nao o
+  modelo 2009 adaptado da FEUP, que tira os duplicados depois da triagem e cujos exemplos nao batem certo). Cada
+  exclusao leva uma linha tecnica `MOTIVO: <criterio que falhou>` antes de `TRIAGEM:` (`parseExclusionReason`,
+  `removeReasonLine`, guardada em `m.exclusion`). Resumo com Artigo, Decisao, Criterio nao cumprido e Motivo
+  (`screeningReason`), duvidosos primeiro e por decidir a seguir (`SCREEN_ORDER`), caixas (`_prismaBoxes`) e o diagrama
+  PRISMA 2020 (`_prismaFlow`, `prismaCounts`): os numeros de antes (bases de dados, registos, duplicados, outros retirados,
+  excluidos no titulo e resumo) escrevem-se em campos e ficam em `m.prisma.pre`; o resto vem da triagem (procurados,
+  nao obtidos = PDF em falta ou ilegivel, avaliados, excluidos por motivo, juntos sem distinguir maiusculas nem acentos,
+  por decidir, incluidos). Confirma que triados menos excluidos dao os procurados. "Exportar diagrama (CSV)"
+  (`prismaCSV`, fase, caixa e n). Frase para a seccao de metodos com o motor e a data (o PRISMA 2020 pede que se declare
+  o uso de ferramentas automaticas). Em As minhas colunas, botao "Colunas da folha de dados PRISMA" (`prisma.data.cols`,
+  as colunas da folha Data da FEUP).
 - **Seletor + Artigos** (`_openPicker`): pesquisa com lupa, "Toda a biblioteca" e "Coleção" (lista das
   coleções ao lado) em botoes, "Ordenar" discreto a direita (Mais recentes, Autor, Ano, Titulo). Sem "Pasta
   aberta". Linhas compactas de duas linhas (autor e ano a negrito, titulo por baixo, `x.ref`/`x.title`
@@ -483,7 +493,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (40), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (41), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -529,7 +539,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.11.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.12.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica

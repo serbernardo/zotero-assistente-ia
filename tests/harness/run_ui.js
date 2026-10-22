@@ -853,9 +853,9 @@ async function main() {
 		assert.match(await page.evaluate(() => window.lastPrompt), /estudos empíricos, desde 2018/);
 		assert.equal(await page.locator("text=TRIAGEM: INCLUIR").count(), 0, "a linha técnica não aparece");
 		const summary = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
-		assert.equal(await summary.locator(".zia-table tbody tr").count(), 2, "uma linha por artigo");
+		assert.equal(await summary.locator(".zia-md .zia-table tbody tr").count(), 2, "uma linha por artigo");
 		assert.match(await summary.textContent(), /Incluir: 2 · Excluir: 0 · Duvidoso: 0/);
-		assert.match(await summary.textContent(), /diagrama PRISMA.*avaliados 2 · incluídos 2 · excluídos 0 · por decidir 0/, "números para o PRISMA");
+		assert.match(await summary.textContent(), /PRISMA 2020: relatórios procurados 2 · não obtidos 0 · avaliados 2 · excluídos 0 · incluídos 2 · por decidir 0/, "números para o PRISMA 2020");
 		assert.equal(await summary.locator("button:has-text(\"Exportar para Excel (CSV)\")").count(), 1);
 		assert.equal(await summary.locator("button:has-text(\"Repetir com\")").count(), 0, "o resumo é da app, não se repete");
 		await page.screenshot({ path: path.join(OUT, "ui_janela_triagem.png") });
@@ -1016,6 +1016,61 @@ async function main() {
 		console.log("OK mapa de temas: exporta uma linha por artigo e tema para o Excel");
 	}
 
+	// ---------- PRISMA 2020: motivo por critério, diagrama, exportar, frase de métodos, folha de dados ----------
+	{
+		const page = await open("?mode=window", { width: 900, height: 1000 });
+		await page.evaluate(async () => {
+			window.MOCK.delayMs = 0;
+			await view.setItems(Array.from({ length: 4 }, (_, i) => window.paper(`Artigo ${i + 1}`, 2010 + i, ["Autor" + i], "P" + i, ["Pagina um", "Pagina dois"])));
+			const r = [
+				["Incluir", "INCLUIR", ""],
+				["Excluir", "EXCLUIR", "MOTIVO: Não é estudo empírico"],
+				["Excluir", "EXCLUIR", "MOTIVO: não é estudo empírico."],
+				["Excluir", "EXCLUIR", "MOTIVO: Anterior a 2018"],
+			];
+			window.MOCK.fn = p => {
+				const i = +((p.match(/Documentos a analisar: D(\d+)/) || ["", "1"])[1]) - 1;
+				return `## Verificação dos critérios\n| Critério | Cumpre? |\n|---|---|\n| Estudo empírico | Sim |\n\n## Decisão\n${r[i][0]}. Motivo ${i + 1} [D${i + 1}:p1].\n\n${r[i][2]}\nTRIAGEM: ${r[i][1]}`;
+			};
+		});
+		await page.click('button[data-action="triagem"]');
+		await page.fill(".zia-textarea", "estudos empíricos, desde 2018");
+		await page.click(".zia-send");
+		await page.waitForSelector(".zia-prisma-flow", { timeout: 30000 });
+		await page.waitForFunction(() => !view.busy);
+		const resumo = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
+		assert.match(await resumo.textContent(), /Critério não cumprido/);
+		assert.equal(await page.locator("text=/MOTIVO:/").count(), 0, "a linha técnica do motivo não aparece");
+		const flow = page.locator(".zia-prisma-flow");
+		assert.match(await flow.textContent(), /Não é estudo empírico2/, "os motivos iguais juntam-se e contam-se");
+		assert.match(await flow.textContent(), /Anterior a 20181/);
+		// Números de antes: 1000 nas bases, 50 duplicados, 946 excluídos por título e resumo dão os 4 procurados
+		await flow.locator('input[data-key="db"]').fill("1000");
+		await flow.locator('input[data-key="dup"]').fill("50");
+		await flow.locator('input[data-key="excludedTA"]').fill("946");
+		assert.match(await page.textContent(".zia-prisma-check"), /As contas batem certo/);
+		await flow.locator('input[data-key="excludedTA"]').fill("900");
+		assert.match(await page.textContent(".zia-prisma-check"), /dão 50, mas esta triagem procurou 4/);
+		await flow.locator('input[data-key="excludedTA"]').fill("946");
+		await flow.locator('input[data-key="excludedTA"]').dispatchEvent("change");
+		await resumo.locator('button:has-text("Exportar diagrama (CSV)")').click();
+		const csv = await page.evaluate(() => window.lastCSV.csv);
+		assert.match(csv, /Registos triados \(título e resumo\);950/);
+		assert.match(csv, /Relatórios excluídos, com os motivos;3/);
+		assert.match(csv, /Estudos incluídos na revisão;1/);
+		assert.match(await resumo.textContent(), /Para a secção de métodos: a avaliação do texto completo de 4 relatórios foi apoiada pelo Assistente IA para Zotero/);
+		// os números escritos ficam guardados na resposta
+		assert.equal(await page.evaluate(() => view.state.messages.find(m => m.prisma).prisma.pre.db), "1000");
+		await page.screenshot({ path: path.join(OUT, "ui_janela_prisma.png"), fullPage: true });
+		// As minhas colunas: as colunas da folha de dados PRISMA com um clique
+		await page.click('[data-card="compare"]');
+		await page.click('.zia-preset[data-action="cmp_tabela"]');
+		await page.click(".zia-prisma-data");
+		assert.match(await page.inputValue(".zia-textarea"), /^Título\. País ou região\. Área\./);
+		await page.close();
+		console.log("OK PRISMA 2020: motivo por critério contado, diagrama com os números de antes e contas confirmadas, exportar, frase de métodos, colunas da folha de dados");
+	}
+
 	// ---------- Um PDF que não se consegue ler não pára os outros ----------
 	{
 		const page = await open("?mode=window", { width: 820, height: 900 });
@@ -1041,7 +1096,7 @@ async function main() {
 		assert.equal(await page.evaluate(() => window.engineCalls), 1, "o artigo bom foi mesmo pedido à IA");
 		assert.match(await page.textContent(".zia-status"), /ficaram de fora|left out/, "avisa quais ficaram de fora");
 		const resumo = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
-		assert.equal(await resumo.locator(".zia-table tbody tr").count(), 2, "o resumo tem os dois artigos, com e sem PDF");
+		assert.equal(await resumo.locator(".zia-md .zia-table tbody tr").count(), 2, "o resumo tem os dois artigos, com e sem PDF");
 		assert.match(await resumo.textContent(), /Incluir: 1/, "o que correu bem conta na decisão");
 		await page.close();
 		console.log("OK um PDF ilegível não pára os outros: salta, avisa e o resumo inclui os que correram");

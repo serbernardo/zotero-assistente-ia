@@ -1907,3 +1907,22 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 	.zia-prisma-exc b { color: #f0948a; }
 	.zia-prisma-dub b { color: #f0c46a; }
 }
+
+/* Diagrama PRISMA 2020 no resumo da triagem: fase, caixa e número; os números de antes escrevem-se */
+.zia-prisma-flow { border: 1px solid var(--zia-border); border-radius: 8px; padding: 8px 10px; margin: 0 0 8px; background: var(--zia-bg); }
+.zia-prisma-flow-title { font-weight: 700; font-size: 13px; }
+.zia-prisma-flow-hint { font-size: 12px; color: var(--zia-fg2); margin: 2px 0 6px; }
+.zia-prisma-table { width: 100%; }
+.zia-prisma-table td { min-width: 0; }
+.zia-prisma-table td.zia-prisma-phase { font-weight: 700; color: var(--zia-fg2); white-space: nowrap; width: 1%; }
+.zia-prisma-table td.zia-prisma-n { text-align: right; width: 1%; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.zia-prisma-table tr.zia-prisma-sub td:nth-child(2) { padding-left: 22px; color: var(--zia-fg2); }
+.zia-prisma-table tr.zia-prisma-sub td.zia-prisma-n { font-weight: 400; }
+.zia-prisma-in { width: 84px; text-align: right; border: 1px solid var(--zia-border); border-radius: 5px; padding: 2px 5px; font: inherit; background: var(--zia-bg); color: var(--zia-fg); }
+.zia-prisma-check { font-size: 12px; margin-top: 6px; color: #2c7a3f; }
+.zia-prisma-check.bad { color: #a8382c; }
+@media (prefers-color-scheme: dark) {
+	.zia-prisma-check { color: #7fcf95; }
+	.zia-prisma-check.bad { color: #f0948a; }
+}
+.zia-btn.zia-prisma-data { margin-top: 6px; }
