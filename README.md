@@ -72,7 +72,9 @@ Open it from the "Several articles" bar at the top of the panel, from the right-
 | **Ask the collection** | Each article's answer to one question, with evidence, page and a bar with the totals (yes, partly, no, not addressed) |
 | **Topic map** | The articles grouped by topic, as an interactive constellation. Hover to see the title, click to open the PDF, click a topic to highlight it |
 | **Literature review** | Flowing text by topic, with citations, ready to adapt |
-| **Screening** | Include, exclude or unsure for each article, based on your criteria, with the numbers for a PRISMA diagram |
+| **Screening** | Include, exclude or unsure for each article, based on your criteria, with the reason, the unsure ones first and the numbers for a PRISMA diagram |
+
+**Large collections (more than 12 articles).** Tables are built in batches of 10 articles and joined into one table, with the synthesis written from it at the end, so nothing is cut off. The literature review is written theme by theme. Long tables get their own scroll area with a fixed header, a search box and filters (for example, only the articles that answer "No"). An article whose PDF cannot be read is left out and listed, instead of stopping the rest. Every table, and the topic map, exports to Excel (CSV).
 
 ![Topic map](docs/screenshots/theme-map.png)
 

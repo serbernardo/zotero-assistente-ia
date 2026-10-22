@@ -238,6 +238,26 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   listas enchiam a janela (428px + 317px numa janela de 900px), a caixa de texto e o Enviar ficavam
   fora do ecra e a janela nao rola, por isso eram inalcancaveis. Teste "janela com 50 artigos" em
   `run_ui.js` mede que ficam dentro da janela, com as listas fechadas e abertas.
+- **Muitos artigos: lotes** (`largeMode`, `LARGE_DOCS` = 12, `BATCH_SIZE` = 10, `BATCH` em `lib.js`; `_runLarge`,
+  `_largeTables`, `_largeReview`, `_engineCall`, `_loadTextsTolerant` em `chatview.js`). Com mais de 12 artigos, Comparar
+  (os 5 modelos) e Perguntar a colecao fazem um pedido por lote de 10 so com a tabela (`batchPrompt`: colunas fixas, a
+  coluna Documento so com o id "D3", que o addon troca pelo autor e ano), juntam as linhas numa tabela (`rawTables`,
+  `mergeTables`, `sortMergedRows`) e no fim um pedido de sintese em que cada documento leva so as suas linhas
+  (`rowsAsFichas`, `synthPrompt`). Resultados e Conceitos passam a tabela longa (uma linha por resultado ou conceito de
+  cada documento, ordenada pelo tema), que se junta entre lotes e da para tabelas dinamicas no Excel. A Revisao de
+  literatura faz primeiro os temas so com os metadados (`parseThemeList`), depois uma parte por tema
+  (`reviewPartPrompt`, os artigos sem tema vao para "Outros") e o fecho (`reviewEndPrompt`). Uma so resposta na conversa,
+  a tabela vai crescendo a cada lote e o progresso aparece no estado; a nota por baixo diz "Feito em N lotes (M pedidos)".
+  Um PDF ilegivel fica de fora e avisado; um erro do motor para, mas o que ja veio fica na resposta, e "Tentar de novo"
+  refaz tudo (`request.large`, `_startLarge`). "Usar fichas" so se liga sozinho entre 6 e 12 artigos (`_fichasAuto`):
+  com mais, os lotes chegam e as fichas seriam um pedido a mais por artigo (56 pedidos em vez de 6 com 50 artigos).
+- **Tabelas grandes na janela** (`_enhanceTables`, `TABLE_TOOLS` = 8 linhas): altura propria (55vh) a deslizar por
+  dentro, cabecalho e 1.a coluna fixos (`position: sticky`), pesquisa sem acentos nem maiusculas, contagem "X de N
+  linhas" e filtros por uma coluna de categorias (2 a 5 valores curtos, `_categoryColumn`: Resposta, Decisao). O CSV
+  exporta sempre a tabela inteira. Botao "Exportar para Excel (CSV)" (`;` e BOM, abre em colunas no Excel portugues).
+  Mapa de temas exporta uma linha por artigo e tema (`themesToCSV`). Revisao de literatura com indice (`_tocRow`).
+- **Triagem:** resumo com o motivo de cada artigo (`screeningReason`, da seccao Decisao), duvidosos primeiro e por
+  decidir a seguir (`SCREEN_ORDER`), e caixas com os numeros PRISMA (`m.prisma`, `_prismaBoxes`).
 - **Seletor + Artigos** (`_openPicker`): pesquisa com lupa, "Toda a biblioteca" e "Coleção" (lista das
   coleções ao lado) em botoes, "Ordenar" discreto a direita (Mais recentes, Autor, Ano, Titulo). Sem "Pasta
   aberta". Linhas compactas de duas linhas (autor e ano a negrito, titulo por baixo, `x.ref`/`x.title`
@@ -455,7 +475,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (39), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (40), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -501,7 +521,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.10.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.11.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica

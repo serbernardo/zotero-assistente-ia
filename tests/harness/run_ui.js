@@ -71,7 +71,7 @@ async function main() {
 		await page.waitForSelector(".zia-send.zia-stop");
 		await page.waitForSelector(".zia-spinner");
 		if (!dark) await page.screenshot({ path: path.join(OUT, "ui_janela_fluxo.png") });
-		await page.waitForSelector("text=Exportar tabela (CSV)", { timeout: 30000 });
+		await page.waitForSelector("text=Exportar para Excel (CSV)", { timeout: 30000 });
 		const cites = await page.locator(".zia-cite").count();
 		assert.ok(cites > 20, "citações clicáveis: " + cites);
 		const label = await page.locator(".zia-cite").first().textContent();
@@ -515,7 +515,7 @@ async function main() {
 		await page.evaluate(() => { window.MOCK.answer = "| Documento | País | Amostra |\n|---|---|---|\n| D1 | Portugal [D1:p1] | 120 [D1:p2] |\n| D2 | Espanha [D2:p1] | Não reportado |"; });
 		await page.fill(".zia-textarea", "País. Amostra");
 		await page.click(".zia-send");
-		await page.waitForSelector("text=Exportar tabela (CSV)");
+		await page.waitForSelector("text=Exportar para Excel (CSV)");
 		assert.match(await page.evaluate(() => window.lastPrompt), /colunas que o utilizador escreveu[\s\S]*País\. Amostra/);
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
 		// mapa de temas: só título, resumo e palavras-chave, artigo esquecido avisado
@@ -856,11 +856,102 @@ async function main() {
 		assert.equal(await summary.locator(".zia-table tbody tr").count(), 2, "uma linha por artigo");
 		assert.match(await summary.textContent(), /Incluir: 2 · Excluir: 0 · Duvidoso: 0/);
 		assert.match(await summary.textContent(), /diagrama PRISMA.*avaliados 2 · incluídos 2 · excluídos 0 · por decidir 0/, "números para o PRISMA");
-		assert.equal(await summary.locator("button:has-text(\"Exportar tabela (CSV)\")").count(), 1);
+		assert.equal(await summary.locator("button:has-text(\"Exportar para Excel (CSV)\")").count(), 1);
 		assert.equal(await summary.locator("button:has-text(\"Repetir com\")").count(), 0, "o resumo é da app, não se repete");
 		await page.screenshot({ path: path.join(OUT, "ui_janela_triagem.png") });
 		console.log("OK triagem: pede os critérios, um pedido por artigo, resumo com a decisão de cada um e exportação CSV");
 		await page.close();
+	}
+
+	// ---------- Muitos artigos: por lotes, uma tabela só, filtros, Tentar de novo, revisão por temas ----------
+	{
+		const page = await open("?mode=window", { width: 900, height: 900 });
+		const fim = () => page.waitForFunction(() => !view.busy, null, { timeout: 30000 });
+		const ids = p => [...new Set(((p.match(/Documentos(?: a analisar)?: (.*)\./) || ["", ""])[1].match(/D\d+/g)) || [])];
+		await page.evaluate(async () => {
+			window.MOCK.delayMs = 0;
+			await view.setItems(Array.from({ length: 30 }, (_, i) => window.paper(`Artigo ${i + 1}`, 2000 + i, ["Autor" + i], "K" + i, ["Pagina um", "Pagina dois"])));
+		});
+		assert.equal(await page.evaluate(() => view.useFichas.checked), false, "com mais de 12 artigos não liga as fichas sozinho (seria um pedido a mais por artigo)");
+		// Perguntar à coleção: 3 lotes de 10 e a síntese, numa só resposta
+		await page.evaluate(src => {
+			const ids = new Function("return " + src)();
+			const A = ["Sim", "Em parte", "Não", "Não aborda"], T = ["SIM", "EM PARTE", "NAO", "NAO ABORDA"];
+			let n = 0;
+			window.MOCK.fn = p => {
+				n++;
+				// o segundo lote falha da primeira vez: o que já veio fica, e "Tentar de novo" refaz tudo
+				if (n === 2 && !window.retried) { window.retried = true; throw Object.assign(new Error("Limite atingido."), { kind: "limit" }); }
+				if (/Faz uma tabela/.test(p)) return "| Documento | Resposta | Evidência |\n|---|---|---|\n"
+					+ ids(p).map(id => `| ${id} | ${A[+id.slice(1) % 4]} | Diz isto [${id}:p1]. |`).join("\n") + "\n\n"
+					+ ids(p).map(id => `RESPOSTA ${id}: ${T[+id.slice(1) % 4]}`).join("\n");
+				return "## Síntese\nConcordam em parte [D1:p1].";
+			};
+			window.engineCalls = 0;
+		}, ids.toString());
+		await page.click('button[data-action="pergunta"]');
+		await page.fill(".zia-textarea", "Reduz o tempo?");
+		await page.click(".zia-send");
+		await fim();
+		assert.match(await page.textContent(".zia-error"), /Limite atingido/);
+		assert.equal(await page.locator(".zia-msg-assistant .zia-table tbody tr").count(), 10, "o primeiro lote fica na resposta");
+		await page.click('.zia-msg-assistant button:has-text("Tentar de novo")');
+		await fim();
+		assert.equal(await page.locator(".zia-msg-assistant").count(), 1, "uma só resposta, não uma por lote");
+		assert.equal(await page.locator(".zia-msg-assistant .zia-table tbody tr").count(), 30, "as 30 linhas numa tabela só");
+		assert.equal(await page.locator(".zia-error").count(), 0);
+		assert.match(await page.textContent(".zia-msg-meta"), /3 lotes \(4 pedidos\)/);
+		assert.doesNotMatch(await page.textContent(".zia-msg-assistant"), /RESPOSTA D\d/, "as linhas técnicas não aparecem");
+		// Pesquisa e filtro pela resposta
+		await page.fill(".zia-table-search", "Autor7");
+		assert.equal(await page.textContent(".zia-table-count"), "1 de 30 linhas");
+		await page.fill(".zia-table-search", "");
+		await page.click('.zia-table-chip:has-text("Não aborda")');
+		assert.equal(await page.textContent(".zia-table-count"), "7 de 30 linhas");
+		const fixo = await page.evaluate(() => getComputedStyle(document.querySelector(".zia-table-big thead th")).position);
+		assert.equal(fixo, "sticky", "o cabeçalho fica fixo ao deslizar");
+		await page.click('.zia-msg-assistant button:has-text("Exportar para Excel (CSV)")');
+		const csv = await page.evaluate(() => window.lastCSV.csv);
+		assert.equal(csv.trim().split("\r\n").length, 31, "exporta as 30 linhas, mesmo filtradas no ecrã");
+		await page.screenshot({ path: path.join(OUT, "ui_janela_lotes.png") });
+		// Revisão de literatura: temas, uma parte por tema, fecho e índice
+		await page.evaluate(src => {
+			const ids = new Function("return " + src)();
+			window.MOCK.fn = p => {
+				if (/Organiza os documentos por temas/.test(p)) {
+					const x = ids(p);
+					return "- Tudo\n" + [x.slice(0, 12), x.slice(12, 22), x.slice(22, 29)].map((g, i) => `  - Tema ${i + 1} (${g.length})\n` + g.map(id => `    - E [${id}]`).join("\n")).join("\n");
+				}
+				const t = /tema «([^»]+)»/.exec(p);
+				if (t) return `## ${t[1]}\n\nTexto [D1:p1].`;
+				return "## O que estes documentos não permitem concluir\nPouco.\n\n## Síntese\nFim.";
+			};
+			window.engineCalls = 0;
+		}, ids.toString());
+		await page.click('button[data-action="cmp_sintese"]');
+		await page.click(".zia-send");
+		await fim();
+		assert.equal(await page.evaluate(() => window.engineCalls), 6, "temas, 3 temas, Outros (o artigo sem tema) e o fecho");
+		assert.deepEqual(await page.locator(".zia-msg-assistant >> nth=-1").locator(".zia-toc-item").allTextContents(),
+			["Tema 1", "Tema 2", "Tema 3", "Outros", "O que estes documentos não permitem concluir", "Síntese"]);
+		await page.close();
+		console.log("OK muitos artigos: lotes numa só tabela, erro a meio guarda o feito, Tentar de novo, pesquisa, filtros, cabeçalho fixo, CSV inteiro, revisão por temas com índice");
+	}
+
+	// ---------- Mapa de temas: exportar para Excel (artigo e tema) ----------
+	{
+		const page = await open("?mode=window", { width: 900, height: 900 });
+		await addAll(page);
+		await page.waitForSelector(".zia-chip >> nth=1");
+		await page.evaluate(() => { window.MOCK.fn = null; window.MOCK.answer = "- Bibliotecas\n  - Atendimento (2)\n    - Chatbots [D1]\n    - Depois [D2]\n"; });
+		await page.click('button[data-action="temas"]');
+		await page.click(".zia-send");
+		await page.waitForSelector("svg.zia-graph");
+		await page.click('.zia-msg-assistant button:has-text("Exportar para Excel (CSV)")');
+		const csv = await page.evaluate(() => window.lastCSV.csv);
+		assert.match(csv, /Artigo;Tema;Subtema\r\nSilva et al\., 2021;Atendimento;\r\nGarcía e Ortega, 2023;Atendimento;/);
+		await page.close();
+		console.log("OK mapa de temas: exporta uma linha por artigo e tema para o Excel");
 	}
 
 	// ---------- Um PDF que não se consegue ler não pára os outros ----------

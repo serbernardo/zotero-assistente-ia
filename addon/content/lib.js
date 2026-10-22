@@ -635,15 +635,22 @@ var ZIALib = (function () {
 	}
 
 	/** Tabela de resumo da triagem, com uma linha por artigo, na língua da interface. */
+	// Duvidosos primeiro (são os que pedem uma decisão), depois os que ficaram por fazer
+	const SCREEN_ORDER = ["duvidoso", null, "incluir", "excluir"];
+
 	function screeningSummary(rows, criteria) {
 		const label = d => t("triagem.decision." + (d || "none"));
 		const count = k => rows.filter(r => r.decision === k).length;
+		const rank = r => { const k = SCREEN_ORDER.indexOf(r.decision || null); return k < 0 ? 1 : k; };
+		const sorted = rows.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map(x => x.r);
+		const reasons = rows.some(r => r.reason);
+		const cell = v => String(v || "").replace(/\|/g, "/").replace(/\n/g, " ");
 		return [
 			t("triagem.summary.criteria") + " " + String(criteria || "").replace(/\s+/g, " ").trim(),
 			"",
-			"| " + t("triagem.summary.article") + " | " + t("triagem.summary.decision") + " |",
-			"|---|---|",
-			...rows.map(r => `| ${String(r.ref).replace(/\|/g, "/")} | ${label(r.decision)} |`),
+			"| " + t("triagem.summary.article") + " | " + t("triagem.summary.decision") + " |" + (reasons ? " " + t("triagem.summary.reason") + " |" : ""),
+			"|---|---|" + (reasons ? "---|" : ""),
+			...sorted.map(r => `| ${cell(r.ref)} | ${label(r.decision)} |` + (reasons ? ` ${cell(r.reason)} |` : "")),
 			"",
 			`**${label("incluir")}: ${count("incluir")} · ${label("excluir")}: ${count("excluir")} · ${label("duvidoso")}: ${count("duvidoso")}**`,
 			"",
@@ -1077,6 +1084,286 @@ var ZIALib = (function () {
 		if (!a) throw new Error("Ação desconhecida: " + action);
 		const list = docs.map(d => `${d.id} (${d.ref})`).join(", ");
 		return `${a.prompt}\n\nDocumentos a analisar: ${list}.`;
+	}
+
+	// ------------------------------------------------------------------
+	// Muitos artigos: pedidos por lotes
+	// ------------------------------------------------------------------
+	// Com muitos artigos, um só pedido não cabe à entrada (cada artigo entra só com uma fatia) e a
+	// resposta passa o limite à saída (a tabela termina a meio). As tabelas fazem-se por lotes, o
+	// addon junta as linhas numa tabela única e um pedido final escreve a síntese a partir dela.
+
+	/** A partir de quantos artigos as ações de conjunto se fazem por lotes. */
+	const LARGE_DOCS = 12;
+	const BATCH_SIZE = 10;
+
+	function splitBatches(list, size) {
+		size = size || BATCH_SIZE;
+		const out = [];
+		for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+		return out;
+	}
+
+	const ROW_RULE = "Responde só com a tabela Markdown, sem texto antes nem depois. Na coluna Documento escreve só o "
+		+ "identificador do documento (por exemplo D3), sem o autor. Cada célula com conteúdo factual leva a citação com "
+		+ "a página. Se um documento não tiver a informação, escreve Não reportado.";
+
+	// cols: colunas pela ordem certa. docCol: coluna com o identificador do documento.
+	// perDoc: uma linha por documento (falso nas tabelas longas, com uma linha por resultado ou conceito).
+	const BATCH = {
+		comparar: {
+			cols: ["Documento", "Objetivo", "Método", "Amostra e contexto", "Resultados principais", "Limitações"],
+			docCol: 0, perDoc: true,
+			synth: "## Convergências: pontos em que os documentos concordam, com os documentos de cada ponto.\n"
+				+ "## Divergências: resultados ou interpretações em conflito e possíveis explicações (método, contexto, "
+				+ "amostra), marcadas como [Inferência].\n"
+				+ "## Leitura de conjunto: 3 a 5 frases.",
+		},
+		cmp_metodos: {
+			cols: ["Documento", "Tipo de estudo e desenho", "Amostra e contexto", "Dados e instrumentos", "Análise", "Limitações indicadas pelos autores"],
+			docCol: 0, perDoc: true,
+			synth: "## Padrões de método: 2 a 4 frases sobre os desenhos, contextos e instrumentos mais e menos frequentes.\n"
+				+ "## Diferenças de método que importam: só as que afetam a comparação dos resultados, cada uma com citações.",
+		},
+		cmp_resultados: {
+			cols: ["Tema ou variável", "Documento", "Resultado"],
+			docCol: 1, perDoc: false,
+			rows: "Uma linha por cada resultado principal de cada documento (tema ou variável, documento e o resultado com os "
+				+ "valores tal como aparecem). Usa nomes curtos e iguais para o mesmo tema ou variável.",
+			synth: "## Comparação por tema: para cada tema ou variável estudado em dois ou mais documentos, diz se os resultados "
+				+ "vão no mesmo sentido, no sentido oposto ou não são comparáveis, com citações.\n"
+				+ "## Resultados que só um documento estuda: lista curta, com citações.\n"
+				+ "Não compares o que os documentos não mediram.",
+		},
+		cmp_conceitos: {
+			cols: ["Conceito ou teoria", "Documento", "Definição, teoria de base ou forma de medir"],
+			docCol: 1, perDoc: false,
+			rows: "Uma linha por cada conceito ou teoria central de cada documento. Usa nomes curtos e iguais para o mesmo conceito.",
+			synth: "## Diferenças de definição: onde o mesmo termo significa coisas diferentes e isso impede comparar resultados "
+				+ "diretamente, com citações.\n"
+				+ "## Conceitos partilhados: 2 a 4 frases sobre os conceitos e as teorias mais usados.",
+		},
+		cmp_tabela: {
+			cols: null, docCol: 0, perDoc: true,
+			synth: "2 a 4 frases sobre os padrões e as diferenças mais visíveis, com citações.",
+		},
+		pergunta: {
+			cols: ["Documento", "Resposta", "Evidência"],
+			docCol: 0, perDoc: true,
+			rows: "Na coluna Resposta escreve só Sim, Em parte, Não ou Não aborda. Usa Não aborda quando o documento não trata "
+				+ "a pergunta, e não a deduzas de outros temas. Na coluna Evidência, uma frase com a citação com a página.",
+			after: "Depois da tabela, uma linha técnica por documento, sem traduzir, exatamente neste formato: "
+				+ "RESPOSTA D1: SIM, RESPOSTA D2: EM PARTE, RESPOSTA D3: NAO ou RESPOSTA D4: NAO ABORDA",
+			synth: "## Síntese: um parágrafo que junte as respostas, diga onde os documentos concordam e onde divergem e o que "
+				+ "limita a conclusão (por exemplo, poucos estudos ou contextos diferentes).",
+		},
+	};
+
+	/** Ação que se faz por lotes com muitos artigos (tabelas) ou tema a tema (revisão de literatura). */
+	function largeMode(actionID, n) {
+		if (n <= LARGE_DOCS) return null;
+		if (BATCH[actionID]) return "batch";
+		if (actionID === "cmp_sintese") return "themes";
+		return null;
+	}
+
+	const docList = docs => docs.map(d => `${d.id} (${d.ref})`).join(", ");
+
+	/** Pedido de um lote: só as linhas da tabela, com colunas fixas para se poderem juntar. */
+	function batchPrompt(actionID, docs, extra) {
+		const b = BATCH[actionID];
+		const cols = b.cols
+			? `exatamente estas colunas, por esta ordem: ${b.cols.join(" | ")}`
+			: "a primeira coluna Documento e depois exatamente as colunas que o utilizador escreveu nas indicações "
+				+ "adicionais, pela mesma ordem, sem acrescentar outras";
+		return [
+			`Faz uma tabela Markdown com ${b.perDoc ? "uma linha por documento, para todos os documentos desta lista" : "as linhas indicadas abaixo"} e ${cols}.`,
+			b.rows || "",
+			ROW_RULE,
+			b.after || "",
+			extra ? `Indicações adicionais do utilizador: ${extra}` : "",
+			`Documentos a analisar: ${docList(docs)}.`,
+		].filter(Boolean).join("\n");
+	}
+
+	/** Pedido final: a síntese a partir das linhas da tabela já montada (nas fichas de cada documento). */
+	function synthPrompt(actionID, docs, extra) {
+		return [
+			"Cada documento vem como uma ficha com as suas linhas da tabela de comparação, já feita a partir do PDF.",
+			"Escreve só o seguinte, sem repetir a tabela:",
+			BATCH[actionID].synth,
+			extra ? `Indicações adicionais do utilizador: ${extra}` : "",
+			`Documentos: ${docList(docs)}.`,
+		].filter(Boolean).join("\n");
+	}
+
+	/** Revisão de literatura: a parte de um tema, só com os documentos desse tema. */
+	function reviewPartPrompt(theme, docs, extra) {
+		return [
+			`Escreve a parte de uma revisão de literatura sobre o tema «${theme}», só com estes documentos.`,
+			`Começa pela linha ## ${theme}. Depois, parágrafos corridos organizados por ideias e não documento a documento, `
+				+ "cada frase com as citações dos documentos em que se apoia. Mostra onde os documentos concordam, onde divergem "
+				+ "e porquê. Não uses listas. Não escrevas introdução nem conclusão geral, que são feitas à parte.",
+			extra ? `Indicações adicionais do utilizador: ${extra}` : "",
+			`Documentos a analisar: ${docList(docs)}.`,
+		].filter(Boolean).join("\n");
+	}
+
+	/** Revisão de literatura: o fecho, a partir das partes já escritas. */
+	function reviewEndPrompt(parts, docs) {
+		return [
+			"As partes da revisão de literatura, tema a tema, já estão escritas (abaixo). Escreve só:",
+			"## O que estes documentos não permitem concluir: um parágrafo.",
+			"## Síntese: um parágrafo que junte os temas e prepare a justificação de um novo estudo.",
+			"Usa as citações que já estão nas partes. Não repitas as partes.",
+			`Documentos: ${docList(docs)}.`,
+			"",
+			"Partes já escritas:",
+			String(parts || "").slice(0, 60000),
+		].join("\n");
+	}
+
+	/** Tabelas Markdown do texto, com as células em texto simples (para juntar tabelas de vários lotes). */
+	function rawTables(md) {
+		const lines = String(md || "").split("\n");
+		const cells = l => {
+			let s = l.trim();
+			if (s.startsWith("|")) s = s.slice(1);
+			if (s.endsWith("|")) s = s.slice(0, -1);
+			return s.split("|").map(c => c.trim());
+		};
+		const isSep = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+		const out = [];
+		for (let i = 0; i + 1 < lines.length; i++) {
+			if (!/^\s*\|/.test(lines[i]) || !isSep(lines[i + 1])) continue;
+			const header = cells(lines[i]);
+			const rows = [];
+			let j = i + 2;
+			for (; j < lines.length && /^\s*\|/.test(lines[j]); j++) rows.push(cells(lines[j]));
+			out.push({ header, rows });
+			i = j - 1;
+		}
+		return out;
+	}
+
+	/** Identificador do documento numa célula ("D3", "[D3]", "[D3:p2]"). */
+	function docIdOf(cell) {
+		const m = /\bD(\d+)\b/.exec(String(cell || ""));
+		return m ? "D" + m[1] : null;
+	}
+
+	/** Junta as tabelas dos lotes numa só: o cabeçalho do primeiro lote, as linhas de todos. */
+	function mergeTables(tables) {
+		const ok = (tables || []).filter(t => t && t.header && t.header.length);
+		if (!ok.length) return null;
+		const header = ok[0].header;
+		const n = header.length;
+		const rows = [];
+		for (const t of ok) {
+			for (const r of t.rows) {
+				if (!r.some(c => c)) continue;
+				// Um lote com colunas a mais junta-as na última, um lote com colunas a menos fica com células vazias
+				const row = r.length > n ? r.slice(0, n - 1).concat(r.slice(n - 1).join(" · ")) : r.concat(Array(n - r.length).fill(""));
+				rows.push(row);
+			}
+		}
+		return { header, rows };
+	}
+
+	function tableToMarkdown(t) {
+		const line = r => "| " + r.map(c => String(c || "").replace(/\|/g, "/").replace(/\n/g, " ")).join(" | ") + " |";
+		return [line(t.header), "|" + t.header.map(() => "---").join("|") + "|", ...t.rows.map(line)].join("\n");
+	}
+
+	/** Linhas de cada documento, em texto, para a ficha do pedido de síntese. */
+	function rowsAsFichas(t, docCol) {
+		const out = {};
+		for (const r of t.rows) {
+			const id = docIdOf(r[docCol]);
+			if (!id) continue;
+			const lines = t.header.map((h, k) => (k === docCol ? null : `${h}: ${r[k] || ""}`)).filter(Boolean);
+			out[id] = (out[id] ? out[id] + "\n\n" : "") + lines.join("\n");
+		}
+		return out;
+	}
+
+	const STANCE_ORDER = ["sim", "parte", "nao", "naoaborda"];
+
+	/** Ordena as linhas: tabelas longas pelo tema (o mesmo tema fica junto), pergunta pela resposta. */
+	function sortMergedRows(actionID, t, stances) {
+		const b = BATCH[actionID];
+		const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+		const idx = r => parseInt((docIdOf(r[b.docCol]) || "D9999").slice(1), 10);
+		const rows = t.rows.slice();
+		if (!b.perDoc) rows.sort((x, y) => norm(x[0]).localeCompare(norm(y[0])) || idx(x) - idx(y));
+		else if (actionID === "pergunta" && stances) {
+			const rank = r => { const k = STANCE_ORDER.indexOf(stances[docIdOf(r[0])]); return k < 0 ? 9 : k; };
+			rows.sort((x, y) => rank(x) - rank(y) || idx(x) - idx(y));
+		}
+		else rows.sort((x, y) => idx(x) - idx(y));
+		return { header: t.header, rows };
+	}
+
+	/**
+	 * Lista de temas do Mapa de temas: [{ name, docs: [D1…], subs: [{ name, docs }] }].
+	 * O primeiro item é o tema geral, os seguintes os temas, as pontas os documentos com [Dn].
+	 */
+	function parseThemeList(md) {
+		const items = String(md || "").split("\n")
+			.filter(l => /^\s*[-*+]\s+/.test(l))
+			.map(l => ({ depth: Math.floor(l.match(/^\s*/)[0].replace(/\t/g, "  ").length / 2), text: l.replace(/^\s*[-*+]\s+/, "").trim() }));
+		if (!items.length) return [];
+		const clean = s => s.replace(/\[(D\d+)[^\]]*\]/g, "").replace(/[*_`]/g, "").replace(/\s*\(\d+\)\s*$/, "").trim();
+		const base = items[0].depth;
+		const themes = [];
+		const stack = [];
+		for (let i = 1; i < items.length; i++) {
+			const it = items[i];
+			const lvl = it.depth - base;
+			if (lvl < 1) continue;
+			const ids = [...it.text.matchAll(/\[(D\d+)(?::[^\]]*)?\]/g)].map(m => m[1]);
+			if (!ids.length) {
+				stack.length = lvl;
+				stack[lvl] = clean(it.text);
+				if (lvl === 1) themes.push({ name: stack[1], docs: [], subs: [] });
+				else if (themes.length && lvl === 2) themes[themes.length - 1].subs.push({ name: stack[2], docs: [] });
+				continue;
+			}
+			const th = themes[themes.length - 1];
+			if (!th) continue;
+			const sub = lvl > 2 && th.subs.length ? th.subs[th.subs.length - 1] : null;
+			for (const id of ids) {
+				if (!th.docs.includes(id)) th.docs.push(id);
+				if (sub && !sub.docs.includes(id)) sub.docs.push(id);
+			}
+		}
+		return themes.filter(t => t.docs.length);
+	}
+
+	/** Mapa de temas em CSV (Excel): uma linha por artigo e tema. */
+	function themesToCSV(md, ctx, sep) {
+		sep = sep || ";";
+		const themes = parseThemeList(md);
+		if (!themes.length) return null;
+		const map = (ctx && ctx.docsMap) || {};
+		const ref = id => (map[id] && (map[id].ref || map[id].shortRef)) || id;
+		const rows = [[t("csv.article"), t("csv.theme"), t("csv.subtheme")]];
+		for (const th of themes) {
+			for (const id of th.docs) {
+				const sub = th.subs.find(s => s.docs.includes(id));
+				rows.push([ref(id), th.name, sub ? sub.name : ""]);
+			}
+		}
+		return "﻿" + rows.map(r => r.map(c => csvCell(c, sep)).join(sep)).join("\r\n") + "\r\n";
+	}
+
+	/** Motivo da decisão da triagem: a frase da secção "Decisão" (para a tabela do resumo). */
+	function screeningReason(text) {
+		const m = /^#{1,4}\s*(?:Decis[aã]o|Decision)\b[^\n]*\n([\s\S]*?)(?=^#{1,4}\s|^TRIAGEM:|$(?![\s\S]))/im.exec(String(text || ""));
+		if (!m) return "";
+		let s = m[1].replace(/\s+/g, " ").replace(/[*_`]/g, "").trim();
+		s = s.replace(/^(Incluir|Excluir|Duvidoso|Include|Exclude|Unsure|Uncertain)\s*[.:,]?\s*/i, "");
+		return s.length > 180 ? s.slice(0, 177) + "…" : s;
 	}
 
 	// ------------------------------------------------------------------
@@ -2414,6 +2701,8 @@ var ZIALib = (function () {
 		ACTIONS, ACTION_ORDER, ACTION_GROUPS, FICHA_NOTE_PREFIX, FICHA_NOTE_PREFIXES, fichaPrefix, FICHA_TEMPLATE, I18N: I,
 		parseCustomPrompts, setCustomPrompt, removeCustomPrompt, cleanCustomPrompt, parseTagLine, removeTagLine, parseScreening, removeScreeningLine, screeningSummary,
 		escapeHTML, escapeXMLAttr, cleanPageText, splitPages, detectPageOffset, pageLabel, shortAuthor, yearFrom,
+		LARGE_DOCS, BATCH_SIZE, BATCH, splitBatches, largeMode, batchPrompt, synthPrompt, reviewPartPrompt, reviewEndPrompt,
+		rawTables, docIdOf, mergeTables, tableToMarkdown, rowsAsFichas, sortMergedRows, parseThemeList, themesToCSV, screeningReason,
 		stripReferences, choosePages, fitDocuments, omittedRanges, neutralizeTags, buildDocumentBlock,
 		buildRequestParts, buildRequest, actionPrompt,
 		parseCiteGroup, citeLabel, citesToText, CITE_GROUP_RE,

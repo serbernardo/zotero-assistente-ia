@@ -17,6 +17,9 @@ var ZIAChatView = class {
 	/** Acima deste número de artigos, a lista de cima encolhe (senão enche a janela). */
 	DOCS_INLINE = 12;
 
+	/** A partir de quantas linhas uma tabela da janela ganha pesquisa e altura própria. */
+	TABLE_TOOLS = 8;
+
 	constructor({ doc, win, container, mode, core }) {
 		this.doc = doc;
 		this.win = win;
@@ -325,6 +328,8 @@ var ZIAChatView = class {
 		const fichasLabel = this._el("label", "zia-fichas-toggle");
 		this.useFichas = this._el("input");
 		this.useFichas.setAttribute("type", "checkbox");
+		// Escolha da pessoa: deixa de mudar sozinha com o número de artigos
+		this.useFichas.addEventListener("change", () => { this._fichasAuto = false; });
 		fichasLabel.appendChild(this.useFichas);
 		fichasLabel.appendChild(this.doc.createTextNode(this.T("chat.fichas")));
 		fichasLabel.title = this.T("chat.fichas.tip");
@@ -1040,9 +1045,18 @@ var ZIAChatView = class {
 			this._renderTabs();
 		}
 		this._updateButtons();
-		if (this.state.docs.length >= 6 && !this.useFichas.checked) {
+		// "Usar fichas" liga-se sozinho entre 6 e 12 artigos (num só pedido o PDF inteiro não caberia).
+		// Com mais, os lotes já resolvem e as fichas seriam um pedido a mais por artigo: desliga-se,
+		// se tiver sido ligado sozinho
+		const n = this.state.docs.length;
+		if (n > this.L.LARGE_DOCS && this.useFichas.checked && this._fichasAuto) {
+			this.useFichas.checked = false;
+			this._fichasAuto = undefined;
+		}
+		else if (n >= 6 && n <= this.L.LARGE_DOCS && !this.useFichas.checked && this._fichasAuto !== false) {
 			this.useFichas.checked = true;
-			this._setStatus(this.T("chat.fichasAuto", { n: this.state.docs.length }));
+			this._fichasAuto = true;
+			this._setStatus(this.T("chat.fichasAuto", { n }));
 			return;
 		}
 		if (skipped.length && !quiet) {
@@ -1489,6 +1503,12 @@ var ZIAChatView = class {
 			heading: this._heading({ title: this.T("triagem.summary.title") }, docs),
 			docIDs: docs.map(d => d.id),
 			time: Date.now(),
+			prisma: {
+				n: rows.length,
+				inc: rows.filter(r => r.decision === "incluir").length,
+				exc: rows.filter(r => r.decision === "excluir").length,
+				dub: rows.filter(r => r.decision !== "incluir" && r.decision !== "excluir").length,
+			},
 		};
 		this.state.messages.push(m);
 		this._appendMessage(m);
@@ -1910,7 +1930,7 @@ var ZIAChatView = class {
 					returnMessage: true,
 				});
 				if (!msg) break;
-				rows.push({ ref: d.ref || d.shortRef, decision: msg.screening || null });
+				rows.push({ ref: d.ref || d.shortRef, decision: msg.screening || null, reason: msg.error ? "" : this.L.screeningReason(msg.text) });
 				// Um problema com este PDF (não está no computador, sem texto, com senha) salta o
 				// artigo e segue para o seguinte. Um problema do motor pára: ia repetir-se em todos
 				if (msg.error && !this._skippableError(msg)) break;
@@ -1949,8 +1969,18 @@ var ZIAChatView = class {
 			}
 			return;
 		}
+		// Muitos artigos: por lotes (tabelas) ou tema a tema (revisão), senão a resposta sai cortada
+		const large = this.L.largeMode(actionID, docs.length);
 		if (a.fichasOK && docs.length > 1 && this.useFichas.checked) {
-			await this._runWithFichas(a, docs);
+			if (large) {
+				const r = await this._collectFichas(base, docs);
+				if (r) await this._runLarge(base, r.fichaDocs, { extra, display: a.label, fichas: true, skipped: r.falhadas });
+			}
+			else await this._runWithFichas(a, docs);
+			return;
+		}
+		if (large) {
+			await this._runLarge(base, docs, { extra, display: a.label });
 			return;
 		}
 		await this._ask({
@@ -1969,6 +1999,19 @@ var ZIAChatView = class {
 	}
 
 	async _runWithFichas(a, docs) {
+		const r = await this._collectFichas(a, docs);
+		if (!r) return;
+		await this._ask({
+			promptText: this.L.actionPrompt(a, r.fichaDocs) + "\n\nTrabalha sobre as fichas de extração fornecidas.",
+			display: this.T("chat.viaFichas", { label: a.label, docs: r.ok.map(d => d.shortRef).join(", ") }),
+			heading: this._heading(a, r.ok),
+			actionID: a.id,
+			docs: r.fichaDocs,
+		});
+	}
+
+	/** Fichas dos artigos: reutiliza as notas "Ficha IA" e cria as que faltam. null se tiver de parar. */
+	async _collectFichas(a, docs) {
 		const fichaDocs = [];
 		const falhadas = [];
 		const autoSave = this.core.pref("fichas.autoSave") !== false;
@@ -2012,18 +2055,238 @@ var ZIAChatView = class {
 		if (falhadas.length) {
 			if (!ok.length) {
 				this._setStatus(this.T("chat.skippedAll", { list: falhadas.join(", ") }), "error");
-				return;
+				return null;
 			}
 			this._setStatus(this.T("chat.skipped", { n: falhadas.length, list: falhadas.join(", ") }), "warn");
 		}
 		else this._setStatus(this.T("chat.fichasDone", { reused, created }));
-		await this._ask({
-			promptText: this.L.actionPrompt(a, fichaDocs) + "\n\nTrabalha sobre as fichas de extração fornecidas.",
-			display: this.T("chat.viaFichas", { label: a.label, docs: ok.map(d => d.shortRef).join(", ") }),
-			heading: this._heading(a, ok),
-			actionID: a.id,
-			docs: fichaDocs,
+		return { fichaDocs, falhadas, ok };
+	}
+
+	/**
+	 * Muitos artigos (mais de LARGE_DOCS em lib.js): as tabelas fazem-se por lotes de BATCH_SIZE e juntam-se
+	 * numa tabela única, com uma síntese final escrita a partir dela. A revisão de literatura escreve-se tema
+	 * a tema. Fica uma só resposta na conversa e o progresso aparece no estado. Um PDF que não se consegue
+	 * ler fica de fora e avisado. docs: os artigos, ou as fichas se "Usar fichas" estiver ligado.
+	 */
+	async _runLarge(a, docs, { extra, display, engine, fichas, skipped } = {}) {
+		if (this.busy) return;
+		engine = engine || this.engine;
+		if (!this.core.isEngineReady(engine)) {
+			this._showSetupInline();
+			return;
+		}
+		if (!(await this._ensurePrivacy(engine))) {
+			this._setStatus(this.T("chat.notSent"));
+			return;
+		}
+		if (this.busy) return;
+		const actionID = a.id;
+		this._routeConversation(actionID);
+		const ids = docs.map(d => d.id);
+		const userMsg = { role: "user", promptText: "", display: display || a.label, docIDs: ids };
+		const botMsg = {
+			role: "assistant", text: "", pending: true, heading: this._heading(a, docs), actionID, engine,
+			actionLabel: a.label, docIDs: ids, asked: userMsg.display, time: Date.now(),
+			request: { large: true, actionID, extra: extra || "", docIDs: ids, fichas: !!fichas, display: userMsg.display },
+		};
+		this.state.messages.push(userMsg, botMsg);
+		this._appendMessage(userMsg);
+		this._appendMessage(botMsg);
+		this._hideRepeatedAsks();
+		this.busy = true;
+		this.abort = new this.win.AbortController();
+		this._updateButtons();
+		const t0 = Date.now();
+		const out = { requests: 0, models: new Set(), warnings: [] };
+		const left = (skipped || []).slice();
+		try {
+			const read = await this._loadTextsTolerant(docs);
+			left.push(...read.skipped.map(d => d.shortRef));
+			const ok = read.ok;
+			if (!ok.length) throw Object.assign(new Error(this.T("chat.skippedAll", { list: left.join(", ") })), { kind: "doc" });
+			if (this.L.BATCH[actionID]) await this._largeTables(a, ok, extra, engine, botMsg, out);
+			else await this._largeReview(a, ok, extra, engine, botMsg, out);
+			if (left.length) out.warnings.unshift(this.T("chat.skipped", { n: left.length, list: left.join(", ") }));
+			botMsg.warnings = out.warnings;
+			botMsg.model = [...out.models].join(", ") || null;
+			// Verificação contra os PDFs e número impresso das páginas, como numa resposta normal
+			try {
+				const pool = {}, offs = {};
+				for (const d of ok) {
+					const src = this.state.allDocs[d.id] || d;
+					if (src.pages) pool[d.id] = { pages: src.pages };
+					if (typeof src.pageOffset === "number" && src.pageOffset !== 0) offs[d.id] = src.pageOffset;
+				}
+				if (Object.keys(offs).length) botMsg.pageOffsets = offs;
+				botMsg.check = this.L.verifyAnswer(botMsg.text, pool);
+			}
+			catch (e) { this.core.log("Verificação: " + e); }
+			botMsg.pending = false;
+			this.core.setPref(engine + ".lastTest", "ok");
+			botMsg.secs = Math.round((Date.now() - t0) / 1000);
+			this._setStatus(this.T("chat.done", { s: botMsg.secs, engine: this.core.engineLabel(engine) }) + " " + (botMsg.usageNote || ""));
+		}
+		catch (e) {
+			// O que já estava feito fica na resposta, com o erro por cima
+			botMsg.pending = false;
+			botMsg.error = (e && e.message) || String(e);
+			botMsg.errorKind = (e && e.kind) || "other";
+			botMsg.errorDetail = (e && e.detail) || null;
+			if (botMsg.errorKind === "aborted") botMsg.error = this.T("err.aborted");
+			if (botMsg.errorKind === "notfound" || botMsg.errorKind === "auth") this.core.setPref(engine + ".lastTest", "fail");
+			if (out.warnings.length) botMsg.warnings = out.warnings;
+			this.core.log("Erro: " + botMsg.error);
+			this._setStatus(this.T(botMsg.errorKind === "aborted" ? "chat.cancelled" : "chat.error"), botMsg.errorKind === "aborted" ? null : "error");
+		}
+		finally {
+			this.busy = false;
+			this.abort = null;
+			this._cancelRender();
+			this._renderMessage(botMsg);
+			this._persist();
+			this._updateButtons();
+			this._saveSession();
+			if (this._rebuildLater) this._rebuild();
+		}
+	}
+
+	/** Lotes de tabela: cada lote devolve as suas linhas, o addon junta-as e pede a síntese no fim. */
+	async _largeTables(a, ok, extra, engine, botMsg, out) {
+		const actionID = a.id;
+		const b = this.L.BATCH[actionID];
+		const batches = this.L.splitBatches(ok, this.L.BATCH_SIZE);
+		const tables = [], stances = {}, missing = [];
+		let first = 1;
+		for (let i = 0; i < batches.length; i++) {
+			const batch = batches[i];
+			this._setStatus(this.T("large.batch", { i: i + 1, n: batches.length, a: first, b: first + batch.length - 1 }), null, true);
+			first += batch.length;
+			let text = await this._engineCall(engine, this.L.batchPrompt(actionID, batch, extra), batch, actionID, out);
+			if (actionID === "pergunta") {
+				Object.assign(stances, this.L.parseStances(text));
+				text = this.L.removeStanceLines(text);
+			}
+			const t = this.L.rawTables(text)[0];
+			if (t) tables.push(t);
+			const seen = new Set((t ? t.rows : []).map(r => this.L.docIdOf(r[b.docCol])));
+			for (const d of batch) if (!seen.has(d.id)) missing.push(d.shortRef);
+			// A tabela vai crescendo à medida que os lotes chegam
+			const partial = this.L.mergeTables(tables);
+			if (partial) {
+				botMsg.text = this.L.tableToMarkdown(this.L.sortMergedRows(actionID, partial, stances));
+				this._renderMessage(botMsg);
+			}
+		}
+		const merged = this.L.mergeTables(tables);
+		if (!merged) throw new Error(this.T("large.noTable"));
+		const table = this.L.tableToMarkdown(this.L.sortMergedRows(actionID, merged, stances));
+		// Síntese: cada documento leva só as suas linhas da tabela, em vez do PDF inteiro
+		const rows = this.L.rowsAsFichas(merged, b.docCol);
+		const synthDocs = ok.filter(d => rows[d.id]).map(d => Object.assign({}, d, { kind: "ficha", fichaText: rows[d.id] }));
+		this._setStatus(this.T("large.synth"), null, true);
+		let synth = await this._engineCall(engine, this.L.synthPrompt(actionID, synthDocs, extra), synthDocs, actionID, out);
+		if (actionID === "pergunta") synth = this.L.removeStanceLines(synth);
+		botMsg.text = table + "\n\n" + synth.trim();
+		if (Object.keys(stances).length) botMsg.stances = stances;
+		if (missing.length) out.warnings.push(this.T("large.missing", { list: missing.join(", ") }));
+		botMsg.usageNote = this.T("large.done", { b: batches.length, r: out.requests });
+	}
+
+	/** Revisão de literatura com muitos artigos: temas primeiro, uma parte por tema, depois o fecho. */
+	async _largeReview(a, ok, extra, engine, botMsg, out) {
+		const metaDocs = [];
+		for (const d of ok) {
+			const text = this.core.itemMetaText ? await this.core.itemMetaText(d) : (d.fullRef || d.ref);
+			metaDocs.push(Object.assign({}, d, { kind: "ficha", fichaText: text }));
+		}
+		this._setStatus(this.T("large.themes"), null, true);
+		const themesText = await this._engineCall(engine, this.L.actionPrompt("temas", metaDocs), metaDocs, "temas", out);
+		let groups = this.L.parseThemeList(themesText).map(t => ({ name: t.name, ids: t.docs }));
+		// Sem temas, grupos de artigos. Os artigos que ficaram sem tema vão para "Outros"
+		if (!groups.length) groups = this.L.splitBatches(ok, this.L.BATCH_SIZE).map((g, i) => ({ name: this.T("large.group", { i: i + 1 }), ids: g.map(d => d.id) }));
+		const placed = new Set([].concat(...groups.map(g => g.ids)));
+		const rest = ok.filter(d => !placed.has(d.id)).map(d => d.id);
+		if (rest.length) groups.push({ name: this.T("large.other"), ids: rest });
+		const byId = new Map(ok.map(d => [d.id, d]));
+		const parts = [];
+		for (let i = 0; i < groups.length; i++) {
+			const g = groups[i];
+			const gd = g.ids.map(id => byId.get(id)).filter(Boolean);
+			if (!gd.length) continue;
+			this._setStatus(this.T("large.part", { i: i + 1, n: groups.length, name: g.name }), null, true);
+			let txt = (await this._engineCall(engine, this.L.reviewPartPrompt(g.name, gd, extra), gd, a.id, out)).trim();
+			if (!/^#{1,3}\s/.test(txt)) txt = `## ${g.name}\n\n${txt}`;
+			parts.push(txt);
+			botMsg.text = parts.join("\n\n");
+			this._renderMessage(botMsg);
+		}
+		this._setStatus(this.T("large.end"), null, true);
+		const end = await this._engineCall(engine, this.L.reviewEndPrompt(parts.join("\n\n"), metaDocs), metaDocs, a.id, out);
+		botMsg.text = parts.join("\n\n") + "\n\n" + end.trim();
+		botMsg.usageNote = this.T("large.partsDone", { n: parts.length, r: out.requests });
+	}
+
+	/** Um pedido ao motor, sem mensagem própria na conversa (para os lotes). Devolve o texto. */
+	async _engineCall(engine, promptText, docs, actionID, out) {
+		if (this.abort.signal.aborted) throw Object.assign(new Error(this.T("err.aborted")), { kind: "aborted" });
+		const action = this._action(actionID);
+		const fitted = this.L.fitDocuments(docs, this.core.maxCharsFor(engine), { keepRefs: !!(action && action.keepRefs) });
+		for (const w of fitted.warnings) if (!out.warnings.includes(w)) out.warnings.push(w);
+		const promptParts = this.L.buildRequestParts({ fitted, history: [], userText: promptText });
+		const res = await this.core.runEngine(engine, {
+			system: this.L.buildSystemPrompt("ui"),
+			prompt: promptParts.docs + "\n\n" + promptParts.rest,
+			promptParts,
+			heavy: true,
+			noLite: true,
+			win: this.win,
+			signal: this.abort.signal,
+			onDelta: () => {},
+			onInfo: info => { if (info && info.notice) this._setStatus(info.notice, null, true); },
 		});
+		out.requests++;
+		if (res.model) out.models.add(res.model);
+		return res.text || "";
+	}
+
+	/** Lê os PDFs um a um. Um PDF que não se consegue ler fica de fora, um problema do motor pára. */
+	async _loadTextsTolerant(docs) {
+		const ok = [], skipped = [];
+		const toRead = docs.filter(d => d.kind !== "ficha" && !d.pages).length;
+		let k = 0;
+		for (const d of docs) {
+			if (this.abort.signal.aborted) throw Object.assign(new Error(this.T("err.aborted")), { kind: "aborted" });
+			if (d.kind === "ficha" || d.pages) {
+				ok.push(d);
+				continue;
+			}
+			k++;
+			this._setStatus(this.T("chat.reading", { i: k, n: toRead, ref: d.shortRef }), null, true);
+			try {
+				await this.core.loadText(d);
+				ok.push(d);
+			}
+			catch (e) {
+				if (e && e.kind === "doc") skipped.push(d);
+				else throw e;
+			}
+		}
+		return { ok, skipped };
+	}
+
+	/** Repetir uma resposta feita por lotes: volta a fazer tudo com os mesmos artigos e indicações. */
+	async _startLarge(req, engine) {
+		const a = this._action(req.actionID);
+		const docs = req.docIDs.map(id => this.state.allDocs[id]).filter(Boolean);
+		if (!a || !docs.length) return;
+		if (req.fichas) {
+			const r = await this._collectFichas(a, docs);
+			if (!r) return;
+			await this._runLarge(a, r.fichaDocs, { extra: req.extra, display: req.display, engine, fichas: true, skipped: r.falhadas });
+			return;
+		}
+		await this._runLarge(a, docs, { extra: req.extra, display: req.display, engine });
 	}
 
 	/**
@@ -2072,12 +2335,12 @@ var ZIAChatView = class {
 				await this.core.loadText(pdfDocs[i]);
 				// guarda o texto também no documento original do contexto
 				const orig = this.state.allDocs[pdfDocs[i].id];
-				if (orig && orig !== pdfDocs[i]) Object.assign(orig, { pages: pdfDocs[i].pages, pagesReliable: pdfDocs[i].pagesReliable, chars: pdfDocs[i].chars });
+				if (orig && orig !== pdfDocs[i]) Object.assign(orig, { pages: pdfDocs[i].pages, pagesReliable: pdfDocs[i].pagesReliable, chars: pdfDocs[i].chars, pageOffset: pdfDocs[i].pageOffset });
 			}
 			for (const d of docs) {
 				if (d.kind !== "ficha" && !d.pages) {
 					const orig = this.state.allDocs[d.id];
-					if (orig && orig.pages) Object.assign(d, { pages: orig.pages, pagesReliable: orig.pagesReliable });
+					if (orig && orig.pages) Object.assign(d, { pages: orig.pages, pagesReliable: orig.pagesReliable, pageOffset: orig.pageOffset });
 				}
 			}
 			// Anotações do utilizador (opcional)
@@ -2256,6 +2519,10 @@ var ZIAChatView = class {
 		const idx = this.state.messages.indexOf(msg);
 		if (idx > 0) this.state.messages.splice(idx - 1, 2);
 		this._renderMessages();
+		if (msg.request.large) {
+			await this._startLarge(msg.request, engine);
+			return;
+		}
 		await this._ask(Object.assign({}, msg.request, { engine, stay: true }));
 	}
 
@@ -2573,6 +2840,14 @@ var ZIAChatView = class {
 		}
 		if (m.pending) {
 			body.appendChild(this._el("span", "zia-typing", m.text ? " ▍" : this.T("chat.preparing")));
+		}
+		else {
+			// Triagem: os números do diagrama PRISMA em caixas, antes da tabela
+			if (m.prisma) el.appendChild(this._prismaBoxes(m.prisma));
+			// Textos longos (revisão tema a tema): índice que salta para cada parte
+			const toc = m.actionID === "cmp_sintese" ? this._tocRow(body) : null;
+			if (toc) el.appendChild(toc);
+			this._enhanceTables(body);
 		}
 		el.appendChild(body);
 		if (graph) {
@@ -3060,6 +3335,93 @@ var ZIAChatView = class {
 		return b;
 	}
 
+	/** Na janela, tabelas com muitas linhas: altura própria, cabeçalho e 1.ª coluna fixos, pesquisa e filtros. */
+	_enhanceTables(body) {
+		if (this.mode !== "window") return;
+		const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+		for (const wrap of body.querySelectorAll(".zia-table-wrap")) {
+			const rows = [...wrap.querySelectorAll("tbody tr")];
+			if (rows.length < this.TABLE_TOOLS) continue;
+			wrap.classList.add("zia-table-big");
+			const bar = this._el("div", "zia-table-bar");
+			const search = this._el("input", "zia-table-search");
+			search.type = "search";
+			search.placeholder = this.T("table.search");
+			search.setAttribute("aria-label", this.T("table.search"));
+			const count = this._el("span", "zia-table-count", this.T("table.rows", { n: rows.length }));
+			const texts = rows.map(r => norm(r.textContent));
+			const cat = this._categoryColumn(wrap, rows);
+			let catVal = null;
+			const apply = () => {
+				const q = norm(search.value.trim());
+				let n = 0;
+				rows.forEach((r, i) => {
+					const show = (!q || texts[i].includes(q)) && (catVal == null || cat.values[i] === catVal);
+					r.hidden = !show;
+					if (show) n++;
+				});
+				count.textContent = n === rows.length ? this.T("table.rows", { n }) : this.T("table.rowsOf", { k: n, n: rows.length });
+			};
+			search.addEventListener("input", apply);
+			bar.appendChild(search);
+			// Coluna de categorias (Resposta, Decisão…): um botão por valor, com quantos há
+			if (cat) {
+				const chips = this._el("div", "zia-table-chips");
+				const set = (v, btn) => {
+					catVal = v;
+					for (const c of chips.children) c.classList.toggle("on", c === btn);
+					apply();
+				};
+				const all = this._button(this.T("table.all", { n: rows.length }), "zia-table-chip on", ev => set(null, ev.currentTarget));
+				chips.appendChild(all);
+				for (const v of cat.distinct) {
+					const n = cat.values.filter(x => x === v).length;
+					chips.appendChild(this._button(`${v} ${n}`, "zia-table-chip", ev => set(v, ev.currentTarget)));
+				}
+				bar.appendChild(chips);
+			}
+			bar.appendChild(count);
+			wrap.parentNode.insertBefore(bar, wrap);
+		}
+	}
+
+	/** Coluna com poucos valores curtos (Sim, Não…; Incluir, Excluir…), boa para filtrar. */
+	_categoryColumn(wrap, rows) {
+		const head = wrap.querySelectorAll("thead th");
+		for (let c = 1; c < head.length; c++) {
+			const values = rows.map(r => (r.children[c] ? r.children[c].textContent.replace(/\s+/g, " ").trim() : ""));
+			const distinct = [...new Set(values)];
+			if (distinct.length >= 2 && distinct.length <= 5 && distinct.every(v => v && v.length <= 24)) return { values, distinct };
+		}
+		return null;
+	}
+
+	/** Índice da revisão de literatura (4 ou mais partes): um botão por parte, que salta para ela. */
+	_tocRow(body) {
+		if (this.mode !== "window") return null;
+		const heads = [...body.querySelectorAll("h3.zia-h")];
+		if (heads.length < 4) return null;
+		const row = this._el("div", "zia-toc");
+		row.appendChild(this._el("span", "zia-toc-label", this.T("toc.label")));
+		for (const h of heads) {
+			const b = this._button(h.textContent, "zia-toc-item", () => h.scrollIntoView({ block: "start", behavior: "smooth" }));
+			row.appendChild(b);
+		}
+		return row;
+	}
+
+	/** Triagem: avaliados, incluir, excluir e duvidosos, para o diagrama PRISMA. */
+	_prismaBoxes(p) {
+		const box = this._el("div", "zia-prisma");
+		for (const [k, v] of [["n", p.n], ["inc", p.inc], ["exc", p.exc], ["dub", p.dub]]) {
+			const c = this._el("div", "zia-prisma-" + k);
+			c.appendChild(this._el("b", null, String(v)));
+			c.appendChild(this._el("span", null, this.T("prisma." + k)));
+			box.appendChild(c);
+		}
+		return box;
+	}
+
 	_messageTools(m) {
 		const row = this._el("div", "zia-msg-tools");
 		row.appendChild(this._button(this.T("chat.copy"), "zia-btn-small", () => {
@@ -3078,6 +3440,19 @@ var ZIAChatView = class {
 					this._setStatus(this.T("chat.exportError", { e: e.message || e }), "error");
 				}
 			}, this.T("chat.exportCsv.tip")));
+		}
+		// Mapa de temas: uma linha por artigo e tema, para o Excel
+		if (m.actionID === "temas" && !m.pending && this.L.parseThemeList(m.text).length) {
+			row.appendChild(this._button(this.T("chat.exportCsv"), "zia-btn-small", async () => {
+				const csv = this.L.themesToCSV(m.text, { docsMap: this._docsMap(m) });
+				try {
+					const path = await this.core.saveCSV(this.win, csv, m.heading || "temas");
+					if (path) this._setStatus(this.T("chat.exported", { path }));
+				}
+				catch (e) {
+					this._setStatus(this.T("chat.exportError", { e: e.message || e }), "error");
+				}
+			}, this.T("chat.exportThemes.tip")));
 		}
 		// Testar o que percebi: perguntas e respostas para o Anki
 		if (m.actionID === "estudo") {

@@ -128,7 +128,10 @@
 			await new Promise(r => setTimeout(r, MOCK.noticeMs || 400));
 		}
 		let all = "";
-		const words = MOCK.answer.split(/(?<=\s)/);
+		// MOCK.fn: a resposta depende do pedido (como a IA nos lotes de muitos artigos)
+		window.prompts = (window.prompts || []).concat(prompt);
+		const answer = MOCK.fn ? await (async () => MOCK.fn(prompt))() : MOCK.answer;
+		const words = answer.split(/(?<=\s)/);
 		for (const w of words) {
 			if (signal && signal.aborted) { const e = new Error("x"); e.kind = "aborted"; throw e; }
 			all += w; onDelta(w, all);

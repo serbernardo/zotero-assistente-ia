@@ -592,3 +592,65 @@ test("número impresso nas páginas: só com certeza", () => {
 	// Capa: o desvio nunca dá uma página menor que 1
 	assert.equal(L.pageLabel({ pageOffset: -1 }, 1), 1);
 });
+
+test("muitos artigos: lotes, tabelas juntas, temas e triagem", () => {
+	// Só a partir de 13 artigos, e só nas ações de conjunto
+	assert.equal(L.largeMode("comparar", 12), null);
+	assert.equal(L.largeMode("comparar", 13), "batch");
+	assert.equal(L.largeMode("pergunta", 50), "batch");
+	assert.equal(L.largeMode("cmp_sintese", 50), "themes");
+	assert.equal(L.largeMode("temas", 50), null, "o mapa já só usa os metadados");
+	assert.deepEqual(L.splitBatches([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+	assert.equal(L.splitBatches(Array(48).fill(0)).length, 5);
+
+	// Pedido de um lote: colunas fixas, só a tabela, o identificador do documento
+	const docs = [{ id: "D11", ref: "Silva, 2021" }, { id: "D12", ref: "Costa, 2019" }];
+	const p = L.batchPrompt("comparar", docs);
+	assert.match(p, /Documento \| Objetivo \| Método/);
+	assert.match(p, /só com a tabela Markdown/);
+	assert.match(p, /D11 \(Silva, 2021\), D12 \(Costa, 2019\)/);
+	assert.match(L.batchPrompt("cmp_tabela", docs, "País. Amostra"), /colunas que o utilizador escreveu[\s\S]*País\. Amostra/);
+	assert.match(L.batchPrompt("pergunta", docs, "Reduz o tempo?"), /RESPOSTA D1: SIM[\s\S]*Reduz o tempo\?/);
+	assert.match(L.synthPrompt("comparar", docs), /sem repetir a tabela[\s\S]*## Convergências/);
+
+	// Juntar as tabelas dos lotes: cabeçalho do primeiro, linhas de todos, colunas acertadas
+	const t1 = L.rawTables("Texto\n\n| Documento | Objetivo | Método |\n|---|---|---|\n| D1 | A [D1:p2] | M |\n| D2 | B | N |\n\nfim");
+	assert.equal(t1.length, 1);
+	assert.deepEqual(t1[0].header, ["Documento", "Objetivo", "Método"]);
+	const t2 = L.rawTables("|Document|Aim|Method|Extra|\n|:--|--|--|--|\n|D3|C|O|x|\n|D4|D|\n");
+	const merged = L.mergeTables([t1[0], t2[0]]);
+	assert.deepEqual(merged.header, ["Documento", "Objetivo", "Método"]);
+	assert.equal(merged.rows.length, 4);
+	assert.deepEqual(merged.rows[2], ["D3", "C", "O · x"], "coluna a mais junta-se à última");
+	assert.deepEqual(merged.rows[3], ["D4", "D", ""], "coluna a menos fica vazia");
+	const md = L.tableToMarkdown(merged);
+	assert.equal(L.rawTables(md)[0].rows.length, 4, "a tabela junta volta a ler-se");
+	assert.equal(L.extractTables(md)[0].rows.length, 4, "e o leitor de Markdown do addon também a lê");
+	const fichas = L.rowsAsFichas(merged, 0);
+	assert.equal(fichas.D1, "Objetivo: A [D1:p2]\nMétodo: M");
+	assert.equal(L.docIdOf("[D12:p3]"), "D12");
+
+	// Pergunta: ordenada pela resposta. Resultados (tabela longa): pelo tema
+	const q = { header: ["Documento", "Resposta"], rows: [["D1", "Não"], ["D2", "Sim"], ["D3", "Em parte"]] };
+	assert.deepEqual(L.sortMergedRows("pergunta", q, { D1: "nao", D2: "sim", D3: "parte" }).rows.map(r => r[0]), ["D2", "D3", "D1"]);
+	const r = { header: ["Tema", "Documento", "Resultado"], rows: [["Tempo", "D2", "a"], ["Custo", "D1", "b"], ["Tempo", "D1", "c"]] };
+	assert.deepEqual(L.sortMergedRows("cmp_resultados", r).rows.map(x => x[0] + x[1]), ["CustoD1", "TempoD1", "TempoD2"]);
+
+	// Temas a partir da lista do Mapa de temas
+	const themes = L.parseThemeList("- Bibliotecas\n  - Atendimento (2)\n    - Chatbots [D1]\n    - Depois [D2]\n  - Ética (1)\n    - Privacidade\n      - Dados [D3]\n      - Outro [D1]\n");
+	assert.deepEqual(themes.map(x => x.name), ["Atendimento", "Ética"]);
+	assert.deepEqual(themes[0].docs, ["D1", "D2"]);
+	assert.deepEqual(themes[1].docs, ["D3", "D1"]);
+	assert.equal(themes[1].subs[0].name, "Privacidade");
+	const csv = L.themesToCSV("- B\n  - Atendimento (2)\n    - x [D1]\n    - y [D2]\n", { docsMap: { D1: { ref: "Silva, 2021" }, D2: { ref: "Costa; 2019" } } });
+	assert.match(csv, /^﻿Artigo;Tema;Subtema\r\nSilva, 2021;Atendimento;\r\n"Costa; 2019";Atendimento;\r\n$/);
+
+	// Triagem: motivo tirado da secção Decisão, duvidosos primeiro
+	assert.equal(L.screeningReason("## Verificação\n| a | b |\n\n## Decisão\n**Duvidoso**. A amostra não é descrita [D1:p2].\n\nTRIAGEM: DUVIDOSO"),
+		"A amostra não é descrita [D1:p2].");
+	assert.equal(L.screeningReason("sem secção"), "");
+	const sum = L.screeningSummary([{ ref: "A", decision: "incluir", reason: "ok" }, { ref: "B", decision: "duvidoso", reason: "falta" }, { ref: "C", decision: null }], "c");
+	const linhas = L.rawTables(sum)[0];
+	assert.deepEqual(linhas.header, ["Artigo", "Decisão", "Motivo"]);
+	assert.deepEqual(linhas.rows.map(x => x[0]), ["B", "C", "A"], "duvidosos, por decidir e só depois os decididos");
+});
