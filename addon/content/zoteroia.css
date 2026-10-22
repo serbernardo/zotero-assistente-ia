@@ -1859,3 +1859,14 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-picker-spacer { flex: 1; }
 .zia-picker-in { opacity: 0.75; cursor: default; }
 .zia-picker-badge { margin-inline-start: 6px; font-size: 10.5px; font-weight: 600; color: var(--zia-accent); background: var(--zia-accent-soft); border-radius: 8px; padding: 0 6px; vertical-align: 1px; }
+
+/* Muitos artigos na janela: a lista de cima e a das fichas encolhem para uma linha
+   com a contagem e um botão para a abrir. Aberta, tem altura máxima e desliza por
+   dentro, para a caixa de texto e o Enviar nunca saírem do ecrã. */
+.zia-docs-count { font-size: 12px; color: var(--zia-fg2); align-self: center; }
+.zia-docs-toggle, .zia-fichas-toggle-list { font-size: 12px; padding: 0 2px; }
+.zia-mode-window .zia-docs { max-height: 22vh; overflow-y: auto; align-content: flex-start; }
+.zia-mode-window .zia-docs.zia-docs-many { max-height: none; overflow: visible; flex-wrap: nowrap; }
+.zia-mode-window .zia-fichas-list.zia-fichas-scroll { max-height: 16vh; overflow-y: auto; align-content: flex-start; }
+/* Rede de segurança: mesmo com tudo aberto, as mensagens cedem espaço antes de a caixa sair */
+.zia-mode-window .zia-messages { min-height: 120px; }

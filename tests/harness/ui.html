@@ -48,6 +48,7 @@
 	const P = (n, s) => Array.from({ length: n }, (_, i) => `${s} página ${i + 1}. ` + "Texto de teste. ".repeat(40));
 	const A = paper("Assistentes conversacionais em bibliotecas universitárias portuguesas", 2021, ["Silva", "Costa", "Reis"], "SILVAPDF", P(6, "Silva"));
 	window.ITEM_A = A;
+	window.paper = paper;   // para testar com muitos artigos
 	const B = paper("Library chatbots after deployment: a qualitative study", 2023, ["García", "Ortega"], "GARCIAPDF", P(5, "García"));
 	const C = paper("Outra pasta: leitura digital", 2019, ["Reis"], "REISPDF", P(3, "Reis"));
 	window.opened = [];

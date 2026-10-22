@@ -14,6 +14,9 @@ var ZIAChatView = class {
 	 * @param {'section'|'window'} o.mode
 	 * @param {object} o.core   ZoteroIA
 	 */
+	/** Acima deste número de artigos, a lista de cima encolhe (senão enche a janela). */
+	DOCS_INLINE = 12;
+
 	constructor({ doc, win, container, mode, core }) {
 		this.doc = doc;
 		this.win = win;
@@ -31,6 +34,8 @@ var ZIAChatView = class {
 		this.sessionKey = null;
 		this._renderTimer = null;
 		this._pendingPrivacy = null;
+		// Com mais artigos do que isto, a lista fica encolhida numa linha com a contagem
+		this._docsOpen = false;
 		this._build();
 		this._observePrefs();
 	}
@@ -662,6 +667,16 @@ var ZIAChatView = class {
 		if (!docs.length || !this.core.findFichaNote) return null;
 		const box = this._el("div", "zia-fichas-list");
 		box.appendChild(this._el("span", "zia-fichas-label", this.T("ficha.list.label")));
+		// Com muitos artigos a lista das fichas também encolhe, pelo mesmo motivo
+		if (docs.length > this.DOCS_INLINE) {
+			box.appendChild(this._el("span", "zia-docs-count", this.T("ficha.list.count", { n: docs.length })));
+			box.appendChild(this._button(this.T(this._fichasOpen ? "chat.docsHide" : "chat.docsShow"), "zia-link-btn zia-fichas-toggle-list", () => {
+				this._fichasOpen = !this._fichasOpen;
+				this._renderActions();
+			}));
+			if (!this._fichasOpen) return box;
+			box.classList.add("zia-fichas-scroll");
+		}
 		for (const d of docs) {
 			let note = null;
 			try { note = this.core.findFichaNote(d.parentID); }
@@ -1110,6 +1125,20 @@ var ZIAChatView = class {
 			box.hidden = true;
 		}
 		else box.hidden = false;
+		// Muitos artigos: a lista encolhe para uma linha com a contagem, senão enche a janela
+		// e empurra a caixa de texto para fora do ecrã
+		const muitos = !box.hidden && this.state.docs.length > this.DOCS_INLINE;
+		if (muitos) {
+			const n = this._el("span", "zia-docs-count", this.T("chat.docsCount", { n: this.state.docs.length }));
+			box.appendChild(n);
+			box.appendChild(this._button(this.T(this._docsOpen ? "chat.docsHide" : "chat.docsShow"), "zia-link-btn zia-docs-toggle", () => {
+				this._docsOpen = !this._docsOpen;
+				this._renderDocs();
+			}));
+			box.classList.toggle("zia-docs-many", !this._docsOpen);
+			if (!this._docsOpen) return;
+		}
+		else box.classList.remove("zia-docs-many");
 		for (const d of box.hidden ? [] : this.state.docs) {
 			const chip = this._el("span", "zia-chip");
 			chip.title = d.fullRef;

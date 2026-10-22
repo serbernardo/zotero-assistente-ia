@@ -1068,6 +1068,43 @@ async function main() {
 		console.log(`OK ${uimode}: todos os ${labels.filter(l => l[0] !== "(").length} botões do painel respondem sem erros: ${labels.filter(l => l[0] !== "(").join(", ")}`);
 	}
 
+	// ---------- Janela com muitos artigos: a caixa e o Enviar nunca saem do ecrã ----------
+	{
+		const page = await open("?mode=window", { width: 834, height: 700 });
+		await page.evaluate(async () => {
+			await view.setItems(Array.from({ length: 50 }, (_, i) =>
+				window.paper(`Artigo ${i + 1} sobre leitura digital`, 2000 + (i % 25), ["Autor" + i, "Outro"], "K" + i, ["Uma pagina", "Outra"])));
+		});
+		await page.waitForSelector(".zia-docs-toggle");
+		// a lista de cima vem encolhida, com a contagem
+		assert.match(await page.textContent(".zia-docs-count"), /50 artigos/);
+		assert.equal(await page.locator(".zia-chip").count(), 0, "com muitos artigos a lista começa fechada");
+		await page.click('[data-card="compare"]');
+		await page.click('.zia-preset[data-action="cmp_tabela"]');
+		await page.waitForSelector(".zia-send");
+		const dentro = async sel => page.evaluate(s => {
+			const b = document.querySelector(s).getBoundingClientRect();
+			return b.top >= 0 && b.bottom <= window.innerHeight && b.height > 0;
+		}, sel);
+		assert.ok(await dentro(".zia-input"), "a caixa de texto fica dentro da janela");
+		assert.ok(await dentro(".zia-send"), "o Enviar fica dentro da janela");
+		// aberta a lista toda, com as fichas também abertas, continua tudo à vista
+		await page.click(".zia-fichas-toggle-list");
+		await page.click(".zia-docs-toggle");
+		await page.waitForSelector(".zia-chip");
+		assert.equal(await page.locator(".zia-chip").count(), 50, "aberta, mostra os 50");
+		const alturas = await page.evaluate(() => ({
+			docs: document.querySelector(".zia-docs").getBoundingClientRect().height,
+			janela: window.innerHeight,
+		}));
+		assert.ok(alturas.docs < alturas.janela * 0.35, `a lista não passa de um terço da janela (${Math.round(alturas.docs)}px)`);
+		assert.ok(await dentro(".zia-input"), "com a lista aberta a caixa continua dentro da janela");
+		assert.ok(await dentro(".zia-send"), "com a lista aberta o Enviar continua dentro da janela");
+		await page.screenshot({ path: path.join(OUT, "ui_janela_muitos_artigos.png") });
+		await page.close();
+		console.log("OK janela com 50 artigos: lista encolhida com a contagem, e a caixa e o Enviar sempre dentro da janela");
+	}
+
 	await browser.close();
 	if (errors.length) {
 		console.error("Erros na página:", errors);

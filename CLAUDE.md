@@ -230,6 +230,14 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Painel sem ajuda nem motor:** sem lista do motor no painel (Simples e Avancado, motor nas definicoes),
   sem perguntas por baixo da caixa e sem rodape ("Nova conversa" retirado). As perguntas de exemplo estao
   em Pers. (`.zia-examples`, um clique escreve a pergunta na caixa). A janela mantem os 3 passos.
+- **Muitos artigos na janela** (`DOCS_INLINE` = 12, `_docsOpen`, `_fichasOpen`): com mais de 12
+  artigos a lista de cima (`_renderDocs`) encolhe para "N artigos" mais "ver a lista"
+  (`.zia-docs-count`, `.zia-docs-toggle`), e a lista das fichas faz o mesmo
+  (`ficha.list.count`, `.zia-fichas-toggle-list`). Abertas, tem altura maxima em vh e deslizam por
+  dentro (`.zia-docs` 22vh, `.zia-fichas-scroll` 16vh). Sem isto, com uma colecao grande as duas
+  listas enchiam a janela (428px + 317px numa janela de 900px), a caixa de texto e o Enviar ficavam
+  fora do ecra e a janela nao rola, por isso eram inalcancaveis. Teste "janela com 50 artigos" em
+  `run_ui.js` mede que ficam dentro da janela, com as listas fechadas e abertas.
 - **Seletor + Artigos** (`_openPicker`): pesquisa com lupa, "Toda a biblioteca" e "Coleção" (lista das
   coleções ao lado) em botoes, "Ordenar" discreto a direita (Mais recentes, Autor, Ano, Titulo). Sem "Pasta
   aberta". Linhas compactas de duas linhas (autor e ano a negrito, titulo por baixo, `x.ref`/`x.title`
