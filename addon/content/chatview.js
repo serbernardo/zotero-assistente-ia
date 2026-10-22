@@ -1898,6 +1898,7 @@ var ZIAChatView = class {
 		// Um pedido por documento (cada resposta fica numa nota própria)
 		if (a.perDoc) {
 			const rows = [];
+			const falhados = [];
 			for (const d of docs) {
 				const msg = await this._ask({
 					promptText: this.L.actionPrompt(a, [d]),
@@ -1910,8 +1911,12 @@ var ZIAChatView = class {
 				});
 				if (!msg) break;
 				rows.push({ ref: d.ref || d.shortRef, decision: msg.screening || null });
-				if (msg.error) break;
+				// Um problema com este PDF (não está no computador, sem texto, com senha) salta o
+				// artigo e segue para o seguinte. Um problema do motor pára: ia repetir-se em todos
+				if (msg.error && !this._skippableError(msg)) break;
+				if (msg.error) falhados.push(d.shortRef);
 			}
+			if (falhados.length) this._setStatus(this.T("chat.skipped", { n: falhados.length, list: falhados.join(", ") }), "warn");
 			// Triagem: no fim, uma tabela com a decisão sugerida para cada artigo (os que ficaram por fazer aparecem sem resposta)
 			if (actionID === "triagem" && rows.length) {
 				for (const d of docs.slice(rows.length)) rows.push({ ref: d.ref || d.shortRef, decision: null });
@@ -1958,8 +1963,14 @@ var ZIAChatView = class {
 	}
 
 	/** Ação sobre fichas: reutiliza notas "Ficha IA" e cria as que faltam. */
+	/** Erro só deste PDF (não está no computador, sem texto, com senha): salta e segue. */
+	_skippableError(msg) {
+		return msg && msg.errorKind === "doc";
+	}
+
 	async _runWithFichas(a, docs) {
 		const fichaDocs = [];
+		const falhadas = [];
 		const autoSave = this.core.pref("fichas.autoSave") !== false;
 		let reused = 0, created = 0;
 		for (const d of docs) {
@@ -1978,7 +1989,13 @@ var ZIAChatView = class {
 				noHistory: true,
 				returnMessage: true,
 			});
-			if (!msg || msg.error) return;
+			// Um PDF com problema salta, para a comparação poder seguir com os outros
+			if (!msg) return;
+			if (msg.error) {
+				if (!this._skippableError(msg)) return;
+				falhadas.push(d.shortRef);
+				continue;
+			}
 			created++;
 			if (autoSave && d.parentID) {
 				try {
@@ -1990,11 +2007,20 @@ var ZIAChatView = class {
 			}
 			fichaDocs.push(Object.assign({}, d, { kind: "ficha", fichaText: msg.text }));
 		}
-		this._setStatus(this.T("chat.fichasDone", { reused, created }));
+		// A comparação segue só com os artigos que correram bem
+		const ok = docs.filter(d => fichaDocs.some(f => f.id === d.id));
+		if (falhadas.length) {
+			if (!ok.length) {
+				this._setStatus(this.T("chat.skippedAll", { list: falhadas.join(", ") }), "error");
+				return;
+			}
+			this._setStatus(this.T("chat.skipped", { n: falhadas.length, list: falhadas.join(", ") }), "warn");
+		}
+		else this._setStatus(this.T("chat.fichasDone", { reused, created }));
 		await this._ask({
-			promptText: this.L.actionPrompt(a, docs) + "\n\nTrabalha sobre as fichas de extração fornecidas.",
-			display: this.T("chat.viaFichas", { label: a.label, docs: docs.map(d => d.shortRef).join(", ") }),
-			heading: this._heading(a, docs),
+			promptText: this.L.actionPrompt(a, fichaDocs) + "\n\nTrabalha sobre as fichas de extração fornecidas.",
+			display: this.T("chat.viaFichas", { label: a.label, docs: ok.map(d => d.shortRef).join(", ") }),
+			heading: this._heading(a, ok),
 			actionID: a.id,
 			docs: fichaDocs,
 		});

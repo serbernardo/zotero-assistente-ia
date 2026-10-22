@@ -863,6 +863,37 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Um PDF que não se consegue ler não pára os outros ----------
+	{
+		const page = await open("?mode=window", { width: 820, height: 900 });
+		await addAll(page);
+		await page.waitForSelector(".zia-chip >> nth=1");
+		await page.evaluate(() => {
+			window.MOCK.answer = "## Verificação dos critérios\n- Estudo empírico: Sim [D1:p1].\n\n## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR";
+			// o PDF do García não está no computador (o caso real: está só na nuvem)
+			const original = ZoteroIA.loadText.bind(ZoteroIA);
+			ZoteroIA.loadText = async d => {
+				if (/García/.test(d.shortRef || "")) throw ZoteroIA.error("doc", "O PDF de García não está neste computador.");
+				return original(d);
+			};
+		});
+		await page.click('button[data-action="triagem"]');
+		await page.fill(".zia-textarea", "estudos empíricos");
+		await page.evaluate(() => { window.engineCalls = 0; });
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
+		// o artigo com problema mostra o erro, o outro foi analisado na mesma
+		assert.equal(await page.locator(".zia-error").count(), 1, "só o artigo com problema falha");
+		assert.equal(await page.evaluate(() => window.engineCalls), 1, "o artigo bom foi mesmo pedido à IA");
+		assert.match(await page.textContent(".zia-status"), /ficaram de fora|left out/, "avisa quais ficaram de fora");
+		const resumo = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
+		assert.equal(await resumo.locator(".zia-table tbody tr").count(), 2, "o resumo tem os dois artigos, com e sem PDF");
+		assert.match(await resumo.textContent(), /Incluir: 1/, "o que correu bem conta na decisão");
+		await page.close();
+		console.log("OK um PDF ilegível não pára os outros: salta, avisa e o resumo inclui os que correram");
+	}
+
 	// ---------- Gemini muda de modelo: não é um erro ----------
 	{
 		const page = await open("?mode=section", { width: 420, height: 800 });
