@@ -20,6 +20,10 @@ var ZIAChatView = class {
 	/** A partir de quantas linhas uma tabela da janela ganha pesquisa e altura própria. */
 	TABLE_TOOLS = 8;
 
+	/** Limite de pedidos por minuto: esperas antes de repetir o mesmo pedido (segundos), e a pausa entre lotes depois. */
+	LIMIT_WAITS = [30, 60, 90];
+	LIMIT_PACE = 15;
+
 	constructor({ doc, win, container, mode, core }) {
 		this.doc = doc;
 		this.win = win;
@@ -1920,7 +1924,7 @@ var ZIAChatView = class {
 			const rows = [];
 			const falhados = [];
 			for (const d of docs) {
-				const msg = await this._ask({
+				const req = {
 					promptText: this.L.actionPrompt(a, [d]),
 					display: `${a.label}: ${d.shortRef}`,
 					heading: actionID === "ficha" ? `${this.L.fichaPrefix()} · ${d.shortRef}` : `${a.title} · ${d.shortRef}`,
@@ -1928,7 +1932,8 @@ var ZIAChatView = class {
 					docs: [d],
 					noHistory: true,
 					returnMessage: true,
-				});
+				};
+				const msg = await this._askWaiting(req);
 				if (!msg) break;
 				rows.push({ ref: d.ref || d.shortRef, decision: msg.screening || null, reason: msg.error ? "" : this.L.screeningReason(msg.text) });
 				// Um problema com este PDF (não está no computador, sem texto, com senha) salta o
@@ -2010,6 +2015,20 @@ var ZIAChatView = class {
 		});
 	}
 
+	/** Um pedido de uma série (triagem, fichas): com limite por minuto, espera e repete o mesmo artigo. */
+	async _askWaiting(req) {
+		let msg = await this._ask(req);
+		for (let w = 0; msg && msg.error && this._waitsOnLimit(msg.engine || this.engine, { kind: msg.errorKind }) && w < this.LIMIT_WAITS.length; w++) {
+			this._dropFailed(msg);
+			if (!(await this._limitPause(this.LIMIT_WAITS[w], msg.engine || this.engine, "large.limitWait"))) {
+				this._setStatus(this.T("chat.cancelled"));
+				return null;
+			}
+			msg = await this._ask(req);
+		}
+		return msg;
+	}
+
 	/** Fichas dos artigos: reutiliza as notas "Ficha IA" e cria as que faltam. null se tiver de parar. */
 	async _collectFichas(a, docs) {
 		const fichaDocs = [];
@@ -2023,7 +2042,7 @@ var ZIAChatView = class {
 				reused++;
 				continue;
 			}
-			const msg = await this._ask({
+			const msg = await this._askWaiting({
 				promptText: this.L.actionPrompt("ficha", [d]),
 				display: this.T("chat.fichaFor", { doc: d.shortRef, action: a.label.toLowerCase() }),
 				heading: `${this.L.fichaPrefix()} · ${d.shortRef}`,
@@ -2069,7 +2088,7 @@ var ZIAChatView = class {
 	 * a tema. Fica uma só resposta na conversa e o progresso aparece no estado. Um PDF que não se consegue
 	 * ler fica de fora e avisado. docs: os artigos, ou as fichas se "Usar fichas" estiver ligado.
 	 */
-	async _runLarge(a, docs, { extra, display, engine, fichas, skipped } = {}) {
+	async _runLarge(a, docs, { extra, display, engine, fichas, skipped, resume } = {}) {
 		if (this.busy) return;
 		engine = engine || this.engine;
 		if (!this.core.isEngineReady(engine)) {
@@ -2105,8 +2124,11 @@ var ZIAChatView = class {
 			left.push(...read.skipped.map(d => d.shortRef));
 			const ok = read.ok;
 			if (!ok.length) throw Object.assign(new Error(this.T("chat.skippedAll", { list: left.join(", ") })), { kind: "doc" });
-			if (this.L.BATCH[actionID]) await this._largeTables(a, ok, extra, engine, botMsg, out);
-			else await this._largeReview(a, ok, extra, engine, botMsg, out);
+			// "Continuar de onde parou" só vale para os mesmos artigos
+			const sameDocs = resume && resume.ids === ok.map(d => d.id).join(",");
+			if (this.L.BATCH[actionID]) await this._largeTables(a, ok, extra, engine, botMsg, out, sameDocs ? resume : null);
+			else await this._largeReview(a, ok, extra, engine, botMsg, out, sameDocs ? resume : null);
+			delete botMsg.request.progress;
 			if (left.length) out.warnings.unshift(this.T("chat.skipped", { n: left.length, list: left.join(", ") }));
 			botMsg.warnings = out.warnings;
 			botMsg.model = [...out.models].join(", ") || null;
@@ -2152,15 +2174,24 @@ var ZIAChatView = class {
 	}
 
 	/** Lotes de tabela: cada lote devolve as suas linhas, o addon junta-as e pede a síntese no fim. */
-	async _largeTables(a, ok, extra, engine, botMsg, out) {
+	async _largeTables(a, ok, extra, engine, botMsg, out, resume) {
 		const actionID = a.id;
 		const b = this.L.BATCH[actionID];
 		const batches = this.L.splitBatches(ok, this.L.BATCH_SIZE);
-		const tables = [], stances = {}, missing = [];
-		let first = 1;
-		for (let i = 0; i < batches.length; i++) {
+		// O que já está feito fica guardado na resposta: se parar a meio, continua de onde parou
+		const st = resume || { ids: ok.map(d => d.id).join(","), next: 0, tables: [], stances: {}, missing: [], requests: 0 };
+		botMsg.request.progress = st;
+		out.requests += st.requests;
+		const { tables, stances, missing } = st;
+		if (tables.length) {
+			botMsg.text = this.L.tableToMarkdown(this.L.sortMergedRows(actionID, this.L.mergeTables(tables), stances));
+			this._renderMessage(botMsg);
+		}
+		let first = 1 + batches.slice(0, st.next).reduce((n, x) => n + x.length, 0);
+		for (let i = st.next; i < batches.length; i++) {
 			const batch = batches[i];
-			this._setStatus(this.T("large.batch", { i: i + 1, n: batches.length, a: first, b: first + batch.length - 1 }), null, true);
+			out.status = this.T("large.batch", { i: i + 1, n: batches.length, a: first, b: first + batch.length - 1 });
+			this._setStatus(out.status, null, true);
 			first += batch.length;
 			let text = await this._engineCall(engine, this.L.batchPrompt(actionID, batch, extra), batch, actionID, out);
 			if (actionID === "pergunta") {
@@ -2171,6 +2202,8 @@ var ZIAChatView = class {
 			if (t) tables.push(t);
 			const seen = new Set((t ? t.rows : []).map(r => this.L.docIdOf(r[b.docCol])));
 			for (const d of batch) if (!seen.has(d.id)) missing.push(d.shortRef);
+			st.next = i + 1;
+			st.requests = out.requests;
 			// A tabela vai crescendo à medida que os lotes chegam
 			const partial = this.L.mergeTables(tables);
 			if (partial) {
@@ -2184,7 +2217,8 @@ var ZIAChatView = class {
 		// Síntese: cada documento leva só as suas linhas da tabela, em vez do PDF inteiro
 		const rows = this.L.rowsAsFichas(merged, b.docCol);
 		const synthDocs = ok.filter(d => rows[d.id]).map(d => Object.assign({}, d, { kind: "ficha", fichaText: rows[d.id] }));
-		this._setStatus(this.T("large.synth"), null, true);
+		out.status = this.T("large.synth");
+		this._setStatus(out.status, null, true);
 		let synth = await this._engineCall(engine, this.L.synthPrompt(actionID, synthDocs, extra), synthDocs, actionID, out);
 		if (actionID === "pergunta") synth = this.L.removeStanceLines(synth);
 		botMsg.text = table + "\n\n" + synth.trim();
@@ -2194,34 +2228,59 @@ var ZIAChatView = class {
 	}
 
 	/** Revisão de literatura com muitos artigos: temas primeiro, uma parte por tema, depois o fecho. */
-	async _largeReview(a, ok, extra, engine, botMsg, out) {
+	async _largeReview(a, ok, extra, engine, botMsg, out, resume) {
 		const metaDocs = [];
 		for (const d of ok) {
 			const text = this.core.itemMetaText ? await this.core.itemMetaText(d) : (d.fullRef || d.ref);
 			metaDocs.push(Object.assign({}, d, { kind: "ficha", fichaText: text }));
 		}
-		this._setStatus(this.T("large.themes"), null, true);
-		const themesText = await this._engineCall(engine, this.L.actionPrompt("temas", metaDocs), metaDocs, "temas", out);
-		let groups = this.L.parseThemeList(themesText).map(t => ({ name: t.name, ids: t.docs }));
-		// Sem temas, grupos de artigos. Os artigos que ficaram sem tema vão para "Outros"
-		if (!groups.length) groups = this.L.splitBatches(ok, this.L.BATCH_SIZE).map((g, i) => ({ name: this.T("large.group", { i: i + 1 }), ids: g.map(d => d.id) }));
-		const placed = new Set([].concat(...groups.map(g => g.ids)));
-		const rest = ok.filter(d => !placed.has(d.id)).map(d => d.id);
-		if (rest.length) groups.push({ name: this.T("large.other"), ids: rest });
+		// O que já está feito fica guardado na resposta: se parar a meio, continua de onde parou
+		const st = resume || { ids: ok.map(d => d.id).join(","), groups: null, next: 0, parts: [], requests: 0 };
+		botMsg.request.progress = st;
+		out.requests += st.requests;
+		if (!st.groups) {
+			out.status = this.T("large.themes");
+			this._setStatus(out.status, null, true);
+			const themesText = await this._engineCall(engine, this.L.actionPrompt("temas", metaDocs), metaDocs, "temas", out);
+			let groups = this.L.parseThemeList(themesText).map(t => ({ name: t.name, ids: t.docs }));
+			// Sem temas, grupos de artigos. Os artigos que ficaram sem tema vão para "Outros"
+			if (!groups.length) groups = this.L.splitBatches(ok, this.L.BATCH_SIZE).map((g, i) => ({ name: this.T("large.group", { i: i + 1 }), ids: g.map(d => d.id) }));
+			const placed = new Set([].concat(...groups.map(g => g.ids)));
+			const rest = ok.filter(d => !placed.has(d.id)).map(d => d.id);
+			if (rest.length) groups.push({ name: this.T("large.other"), ids: rest });
+			st.groups = groups;
+			st.requests = out.requests;
+		}
+		const groups = st.groups;
 		const byId = new Map(ok.map(d => [d.id, d]));
-		const parts = [];
-		for (let i = 0; i < groups.length; i++) {
-			const g = groups[i];
-			const gd = g.ids.map(id => byId.get(id)).filter(Boolean);
-			if (!gd.length) continue;
-			this._setStatus(this.T("large.part", { i: i + 1, n: groups.length, name: g.name }), null, true);
-			let txt = (await this._engineCall(engine, this.L.reviewPartPrompt(g.name, gd, extra), gd, a.id, out)).trim();
-			if (!/^#{1,3}\s/.test(txt)) txt = `## ${g.name}\n\n${txt}`;
-			parts.push(txt);
+		const parts = st.parts;
+		if (parts.length) {
 			botMsg.text = parts.join("\n\n");
 			this._renderMessage(botMsg);
 		}
-		this._setStatus(this.T("large.end"), null, true);
+		for (let i = st.next; i < groups.length; i++) {
+			const g = groups[i];
+			const gd = g.ids.map(id => byId.get(id)).filter(Boolean);
+			st.next = i + 1;
+			if (!gd.length) continue;
+			out.status = this.T("large.part", { i: i + 1, n: groups.length, name: g.name });
+			this._setStatus(out.status, null, true);
+			let txt;
+			try {
+				txt = (await this._engineCall(engine, this.L.reviewPartPrompt(g.name, gd, extra), gd, a.id, out)).trim();
+			}
+			catch (e) {
+				st.next = i;
+				throw e;
+			}
+			if (!/^#{1,3}\s/.test(txt)) txt = `## ${g.name}\n\n${txt}`;
+			parts.push(txt);
+			st.requests = out.requests;
+			botMsg.text = parts.join("\n\n");
+			this._renderMessage(botMsg);
+		}
+		out.status = this.T("large.end");
+		this._setStatus(out.status, null, true);
 		const end = await this._engineCall(engine, this.L.reviewEndPrompt(parts.join("\n\n"), metaDocs), metaDocs, a.id, out);
 		botMsg.text = parts.join("\n\n") + "\n\n" + end.trim();
 		botMsg.usageNote = this.T("large.partsDone", { n: parts.length, r: out.requests });
@@ -2234,20 +2293,77 @@ var ZIAChatView = class {
 		const fitted = this.L.fitDocuments(docs, this.core.maxCharsFor(engine), { keepRefs: !!(action && action.keepRefs) });
 		for (const w of fitted.warnings) if (!out.warnings.includes(w)) out.warnings.push(w);
 		const promptParts = this.L.buildRequestParts({ fitted, history: [], userText: promptText });
-		const res = await this.core.runEngine(engine, {
-			system: this.L.buildSystemPrompt("ui"),
-			prompt: promptParts.docs + "\n\n" + promptParts.rest,
-			promptParts,
-			heavy: true,
-			noLite: true,
-			win: this.win,
-			signal: this.abort.signal,
-			onDelta: () => {},
-			onInfo: info => { if (info && info.notice) this._setStatus(info.notice, null, true); },
-		});
-		out.requests++;
-		if (res.model) out.models.add(res.model);
-		return res.text || "";
+		const aborted = () => Object.assign(new Error(this.T("err.aborted")), { kind: "aborted" });
+		// Depois de um aviso de limite, uma pausa curta entre pedidos para não voltar a ele
+		if (out.pace && !(await this._limitPause(out.pace, engine, "large.pace"))) throw aborted();
+		for (let attempt = 0; ; attempt++) {
+			try {
+				const res = await this.core.runEngine(engine, {
+					system: this.L.buildSystemPrompt("ui"),
+					prompt: promptParts.docs + "\n\n" + promptParts.rest,
+					promptParts,
+					heavy: true,
+					noLite: true,
+					win: this.win,
+					signal: this.abort.signal,
+					onDelta: () => {},
+					onInfo: info => { if (info && info.notice) this._setStatus(info.notice, null, true); },
+				});
+				out.requests++;
+				if (res.model) out.models.add(res.model);
+				return res.text || "";
+			}
+			catch (e) {
+				// Limite de pedidos por minuto: espera e repete o mesmo pedido, sem perder o que está feito
+				if (!this._waitsOnLimit(engine, e) || attempt >= this.LIMIT_WAITS.length) throw e;
+				out.pace = this.LIMIT_PACE;
+				if (!(await this._limitPause(this.LIMIT_WAITS[attempt], engine, "large.limitWait"))) throw aborted();
+				if (out.status) this._setStatus(out.status, null, true);
+			}
+		}
+	}
+
+	/**
+	 * Um limite de pedidos por minuto passa com uma espera. Só nos motores com chave (IAEdu, Claude API,
+	 * ChatGPT API): o Gemini já espera sozinho e o limite da subscrição do Claude Code e do Codex dura horas.
+	 */
+	_waitsOnLimit(engine, e) {
+		return !!(e && e.kind === "limit") && ["iaedu", "anthropic", "openai"].includes(engine) && !(this.abort && this.abort.signal.aborted);
+	}
+
+	/** Pausa com contagem decrescente, que o botão de parar interrompe. Devolve false se a pessoa parou. */
+	async _limitPause(sec, engine, key) {
+		const own = !this.busy;
+		if (own) {
+			this.busy = true;
+			this.abort = new this.win.AbortController();
+			this._updateButtons();
+		}
+		try {
+			for (let s = sec; s > 0; s--) {
+				if (this.abort.signal.aborted) return false;
+				this._setStatus(this.T(key, { engine: this.core.engineLabel(engine), s }), null, true);
+				await this.core._sleep(1000, this.abort.signal);
+			}
+			return !this.abort.signal.aborted;
+		}
+		finally {
+			if (own) {
+				this.busy = false;
+				this.abort = null;
+				this._updateButtons();
+			}
+		}
+	}
+
+	/** Retira da conversa um pedido que falhou por limite e vai ser repetido (sem aviso). */
+	_dropFailed(m) {
+		const list = this.state.messages;
+		const i = list.indexOf(m);
+		if (i < 0) return;
+		const from = i > 0 && list[i - 1].role === "user" ? i - 1 : i;
+		list.splice(from, i - from + 1);
+		this._renderMessages();
 	}
 
 	/** Lê os PDFs um a um. Um PDF que não se consegue ler fica de fora, um problema do motor pára. */
@@ -2283,10 +2399,10 @@ var ZIAChatView = class {
 		if (req.fichas) {
 			const r = await this._collectFichas(a, docs);
 			if (!r) return;
-			await this._runLarge(a, r.fichaDocs, { extra: req.extra, display: req.display, engine, fichas: true, skipped: r.falhadas });
+			await this._runLarge(a, r.fichaDocs, { extra: req.extra, display: req.display, engine, fichas: true, skipped: r.falhadas, resume: req.progress });
 			return;
 		}
-		await this._runLarge(a, docs, { extra: req.extra, display: req.display, engine });
+		await this._runLarge(a, docs, { extra: req.extra, display: req.display, engine, resume: req.progress });
 	}
 
 	/**
@@ -2871,7 +2987,9 @@ var ZIAChatView = class {
 				row.appendChild(this._button(this.T("chat.claudeSetup"), "zia-btn-small zia-btn-primary", () => this._setupClaude()));
 			}
 			if (m.errorKind !== "notconfigured" && m.request) {
-				row.appendChild(this._button(this.T("chat.retry"), "zia-btn-small", () => this._retry(m, m.engine)));
+				// Por lotes, com parte feita: continua de onde parou em vez de refazer tudo
+				const resume = m.request.large && m.request.progress && (m.request.progress.next > 0 || m.request.progress.groups);
+				row.appendChild(this._button(this.T(resume ? "large.resume" : "chat.retry"), "zia-btn-small" + (resume ? " zia-btn-primary" : ""), () => this._retry(m, m.engine)));
 			}
 			for (const other of (m.request ? this._otherReadyEngines(m.engine) : [])) {
 				row.appendChild(this._button(this.T("chat.retryWith", { engine: this.core.engineLabel(other) }), "zia-btn-small", () => this._retry(m, other)));

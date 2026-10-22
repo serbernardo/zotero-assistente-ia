@@ -251,6 +251,14 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   Um PDF ilegivel fica de fora e avisado; um erro do motor para, mas o que ja veio fica na resposta, e "Tentar de novo"
   refaz tudo (`request.large`, `_startLarge`). "Usar fichas" so se liga sozinho entre 6 e 12 artigos (`_fichasAuto`):
   com mais, os lotes chegam e as fichas seriam um pedido a mais por artigo (56 pedidos em vez de 6 com 50 artigos).
+- **Limite de pedidos por minuto** (`LIMIT_WAITS` = 30, 60 e 90 s, `LIMIT_PACE` = 15 s, `_waitsOnLimit`, `_limitPause`,
+  `_askWaiting`): so nos motores com chave (IAEdu, Claude API, ChatGPT API). O Gemini ja espera sozinho e o limite da
+  subscricao do Claude Code e do Codex dura horas. Num lote (`_engineCall`) ou num pedido de uma serie (triagem, fichas),
+  um erro `limit` faz uma pausa com contagem ("O IAEdu pediu uma pausa… Continua sozinho dentro de 30 s"), que o botao de
+  parar interrompe, e repete o mesmo pedido; depois do primeiro aviso ha uma pausa curta entre lotes. O IAEdu manda o
+  limite dentro da resposta ("Rate limit reached (429)", HTTP 200): `classifyIAEduError` reconhece-o pelo texto. Se
+  mesmo assim parar, o progresso fica em `request.progress` (lotes feitos, temas e partes da revisao) e o botao passa
+  a "Continuar de onde parou", que so faz o que falta, tambem com outro motor ("Repetir com").
 - **Tabelas grandes na janela** (`_enhanceTables`, `TABLE_TOOLS` = 8 linhas): altura propria (55vh) a deslizar por
   dentro, cabecalho e 1.a coluna fixos (`position: sticky`), pesquisa sem acentos nem maiusculas, contagem "X de N
   linhas" e filtros por uma coluna de categorias (2 a 5 valores curtos, `_categoryColumn`: Resposta, Decisao). O CSV

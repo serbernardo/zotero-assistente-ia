@@ -895,8 +895,11 @@ async function main() {
 		await fim();
 		assert.match(await page.textContent(".zia-error"), /Limite atingido/);
 		assert.equal(await page.locator(".zia-msg-assistant .zia-table tbody tr").count(), 10, "o primeiro lote fica na resposta");
-		await page.click('.zia-msg-assistant button:has-text("Tentar de novo")');
+		// Continuar de onde parou: só os lotes que faltam e a síntese, sem repetir o primeiro
+		await page.evaluate(() => { window.engineCalls = 0; });
+		await page.click('.zia-msg-assistant button:has-text("Continuar de onde parou")');
 		await fim();
+		assert.equal(await page.evaluate(() => window.engineCalls), 3, "lotes 2 e 3 e a síntese");
 		assert.equal(await page.locator(".zia-msg-assistant").count(), 1, "uma só resposta, não uma por lote");
 		assert.equal(await page.locator(".zia-msg-assistant .zia-table tbody tr").count(), 30, "as 30 linhas numa tabela só");
 		assert.equal(await page.locator(".zia-error").count(), 0);
@@ -936,6 +939,65 @@ async function main() {
 			["Tema 1", "Tema 2", "Tema 3", "Outros", "O que estes documentos não permitem concluir", "Síntese"]);
 		await page.close();
 		console.log("OK muitos artigos: lotes numa só tabela, erro a meio guarda o feito, Tentar de novo, pesquisa, filtros, cabeçalho fixo, CSV inteiro, revisão por temas com índice");
+	}
+
+	// ---------- Limite por minuto (IAEdu, Claude API, ChatGPT API): espera e continua sozinho ----------
+	{
+		const page = await open("?mode=window", { width: 900, height: 900 });
+		const ids = p => [...new Set(((p.match(/Documentos(?: a analisar)?: (.*)\./) || ["", ""])[1].match(/D\d+/g)) || [])];
+		await page.evaluate(async src => {
+			const ids = new Function("return " + src)();
+			window.MOCK.delayMs = 0;
+			// O IAEdu como motor, com as esperas curtas para o teste
+			ZoteroIA.isEngineReady = () => true;
+			ZoteroIA.setPref("privacy.ack.iaedu", true);
+			view.engine = "iaedu";
+			view.LIMIT_WAITS = [1, 1];
+			view.LIMIT_PACE = 1;
+			await view.setItems(Array.from({ length: 25 }, (_, i) => window.paper(`Artigo ${i + 1}`, 2000 + i, ["Autor" + i], "K" + i, ["Pagina um", "Pagina dois"])));
+			let n = 0;
+			window.waits = [];
+			const set = view._setStatus.bind(view);
+			view._setStatus = (t, k, s) => { if (/pediu uma pausa|Pausa curta/.test(t)) window.waits.push(t); return set(t, k, s); };
+			window.MOCK.fn = p => {
+				n++;
+				// o segundo pedido bate no limite uma vez, como o IAEdu
+				if (n === 2) throw Object.assign(new Error("Limite de pedidos de IAEdu atingido."), { kind: "limit" });
+				if (/Faz uma tabela/.test(p)) return "| Documento | Objetivo | Método | Amostra e contexto | Resultados principais | Limitações |\n|---|---|---|---|---|---|\n"
+					+ ids(p).map(id => `| ${id} | a [${id}:p1] | b | c | d | e |`).join("\n");
+				return "## Convergências\nSim [D1:p1].";
+			};
+			window.engineCalls = 0;
+		}, ids.toString());
+		await page.click('[data-card="compare"]');
+		await page.click(".zia-send");
+		await page.waitForFunction(() => !view.busy, null, { timeout: 30000 });
+		assert.equal(await page.locator(".zia-error").count(), 0, "o limite não chega a ser um erro");
+		assert.equal(await page.locator(".zia-msg-assistant").count(), 1);
+		assert.equal(await page.locator(".zia-msg-assistant .zia-table tbody tr").count(), 25, "todas as linhas");
+		const waits = await page.evaluate(() => window.waits);
+		assert.ok(waits.some(t => /IAEdu pediu uma pausa.*Continua sozinho dentro de 1 s/.test(t)), "avisa a espera: " + waits.join(" | "));
+		assert.ok(waits.some(t => /Pausa curta/.test(t)), "depois do aviso, pausa curta entre lotes");
+		// Triagem (um pedido por artigo): o artigo que bateu no limite repete-se e não fica com erro
+		await page.evaluate(async () => {
+			await view.setItems([window.ITEM_A]);
+			let n = 0;
+			window.MOCK.fn = () => {
+				n++;
+				if (n === 1) throw Object.assign(new Error("Limite de pedidos de IAEdu atingido."), { kind: "limit" });
+				return "## Decisão\nIncluir. Cumpre [D1:p1].\n\nTRIAGEM: INCLUIR";
+			};
+		});
+		await page.click('button[data-action="triagem"]');
+		await page.fill(".zia-textarea", "empíricos");
+		await page.click(".zia-send");
+		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
+		await page.waitForFunction(() => !view.busy, null, { timeout: 30000 });
+		assert.equal(await page.locator(".zia-error").count(), 0, "a triagem repetiu o artigo depois da espera");
+		const n = await page.evaluate(() => view.state.docs.length);
+		assert.match(await page.textContent(".zia-msg-assistant >> nth=0"), new RegExp(`Incluir: ${n} · Excluir: 0`), "todos os artigos com decisão, nenhum perdido");
+		await page.close();
+		console.log("OK limite por minuto: espera com contagem, repete o mesmo pedido, pausa curta entre lotes, nada se perde (lotes e triagem)");
 	}
 
 	// ---------- Mapa de temas: exportar para Excel (artigo e tema) ----------

@@ -653,4 +653,10 @@ test("muitos artigos: lotes, tabelas juntas, temas e triagem", () => {
 	const linhas = L.rawTables(sum)[0];
 	assert.deepEqual(linhas.header, ["Artigo", "Decisão", "Motivo"]);
 	assert.deepEqual(linhas.rows.map(x => x[0]), ["B", "C", "A"], "duvidosos, por decidir e só depois os decididos");
+
+	// IAEdu: o limite por minuto chega dentro da resposta, como texto, e tem de ser reconhecido
+	assert.equal(L.classifyIAEduError(0, { detail: "Rate limit reached (429)" }).kind, "limit");
+	assert.equal(L.classifyIAEduError(200, "{\"detail\":\"Too many requests\"}").kind, "limit");
+	assert.equal(L.classifyIAEduError(429, "").kind, "limit");
+	assert.notEqual(L.classifyIAEduError(0, { detail: "Erro interno" }).kind, "limit");
 });

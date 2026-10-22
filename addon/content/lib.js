@@ -2313,7 +2313,10 @@ var ZIALib = (function () {
 		if (status === 403) return { kind: "auth", message: withDetail(t("err.api.permission"), msg) };
 		if (status === 404) return { kind: "other", message: t("err.iaedu.notFound") };
 		if (status === 413 || /too long|too large|context length/i.test(msg)) return { kind: "size", message: t("err.tooLong") };
-		if (status === 429) return { kind: "limit", message: withDetail(t("err.api.limit", { provider }), msg) };
+		// O IAEdu também manda o limite por minuto dentro da resposta, como texto ("Rate limit reached (429)")
+		if (status === 429 || /rate.?limit|too many requests|\b429\b/i.test(msg)) {
+			return { kind: "limit", message: withDetail(t("err.api.limit", { provider }), msg) };
+		}
 		if (status >= 500) return { kind: "overloaded", message: t("err.api.overloaded", { provider }) };
 		return { kind: "other", message: withDetail(t("err.api.other", { provider, status: status || "?" }), msg) };
 	}
