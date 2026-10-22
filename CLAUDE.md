@@ -28,7 +28,7 @@ Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`). Nomes 
   `keepRefs`: a lista de referencias do PDF nao e cortada), Perguntas de investigacao.
 - Compreender tem tambem Explicar os meus destaques (`destaques`, `useAnnotations`, `needsHighlights`:
   so aparece no Avancado e quando o PDF tem destaques, `_hasHighlights`).
-- Janela (varios artigos, `_renderWindowActions`): 5 botoes grandes, sem separadores e sem pergunta
+- Janela (varios artigos, `_renderWindowActions`): 4 botoes grandes, sem separadores e sem pergunta
   livre: a caixa de texto e o Enviar so aparecem depois de escolher uma opcao (`_syncInput`).
   O texto inicial mostra os 3 passos (`chat.empty.window`):
   - Comparar artigos: modelos `.zia-preset` Visao geral (`comparar`), Metodos, Resultados, Conceitos
@@ -41,7 +41,6 @@ Acoes (em `lib.js`, `ACTIONS`, agrupadas em separadores `ACTION_GROUPS`). Nomes 
     ligacoes tracejadas, cartao com titulo ao passar o rato, clicar abre o PDF, clicar num tema ou na
     legenda destaca-o) e Arvore (a lista). Avisa os artigos que ficaram de fora.
   - Revisao de literatura (`cmp_sintese`, a unica revisao).
-  - Triagem (`triagem`, com os numeros para o diagrama PRISMA no resumo).
   Visao geral nao se chama "Comparacao geral": as notas ja comecam por "Comparacao:".
 - Testar o que percebi tem "Exportar para o Anki" (`studyToAnki`, CSV com `#separator:Comma`).
 - Personalizado (prompts do utilizador, pref `custom.prompts`, uma linha "Nome: instrucao").
@@ -253,7 +252,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   com mais, os lotes chegam e as fichas seriam um pedido a mais por artigo (56 pedidos em vez de 6 com 50 artigos).
 - **Limite de pedidos por minuto** (`LIMIT_WAITS` = 30, 60 e 90 s, `LIMIT_PACE` = 15 s, `_waitsOnLimit`, `_limitPause`,
   `_askWaiting`): so nos motores com chave (IAEdu, Claude API, ChatGPT API). O Gemini ja espera sozinho e o limite da
-  subscricao do Claude Code e do Codex dura horas. Num lote (`_engineCall`) ou num pedido de uma serie (triagem, fichas),
+  subscricao do Claude Code e do Codex dura horas. Num lote (`_engineCall`) ou num pedido de uma serie (fichas),
   um erro `limit` faz uma pausa com contagem ("O IAEdu pediu uma pausa… Continua sozinho dentro de 30 s"), que o botao de
   parar interrompe, e repete o mesmo pedido; depois do primeiro aviso ha uma pausa curta entre lotes. O IAEdu manda o
   limite dentro da resposta ("Rate limit reached (429)", HTTP 200): `classifyIAEduError` reconhece-o pelo texto. Se
@@ -261,21 +260,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   a "Continuar de onde parou", que so faz o que falta, tambem com outro motor ("Repetir com").
 - **Tabelas grandes na janela** (`_enhanceTables`, `TABLE_TOOLS` = 8 linhas): altura propria (55vh) a deslizar por
   dentro, cabecalho e 1.a coluna fixos (`position: sticky`), pesquisa sem acentos nem maiusculas, contagem "X de N
-  linhas" e filtros por uma coluna de categorias (2 a 5 valores curtos, `_categoryColumn`: Resposta, Decisao). O CSV
+  linhas" e filtros por uma coluna de categorias (2 a 5 valores curtos, `_categoryColumn`: Resposta). O CSV
   exporta sempre a tabela inteira. Botao "Exportar para Excel (CSV)" (`;` e BOM, abre em colunas no Excel portugues).
   Mapa de temas exporta uma linha por artigo e tema (`themesToCSV`). Revisao de literatura com indice (`_tocRow`).
-- **Triagem e PRISMA 2020** (a pedido, a partir dos materiais de PRISMA usados na FEUP; segue o PRISMA 2020 e nao o
-  modelo 2009 adaptado da FEUP, que tira os duplicados depois da triagem e cujos exemplos nao batem certo). Cada
-  exclusao leva uma linha tecnica `MOTIVO: <criterio que falhou>` antes de `TRIAGEM:` (`parseExclusionReason`,
-  `removeReasonLine`, guardada em `m.exclusion`). Resumo com Artigo, Decisao, Criterio nao cumprido e Motivo
-  (`screeningReason`), duvidosos primeiro e por decidir a seguir (`SCREEN_ORDER`), caixas (`_prismaBoxes`) e o diagrama
-  PRISMA 2020 (`_prismaFlow`, `prismaCounts`): os numeros de antes (bases de dados, registos, duplicados, outros retirados,
-  excluidos no titulo e resumo) escrevem-se em campos e ficam em `m.prisma.pre`; o resto vem da triagem (procurados,
-  nao obtidos = PDF em falta ou ilegivel, avaliados, excluidos por motivo, juntos sem distinguir maiusculas nem acentos,
-  por decidir, incluidos). Confirma que triados menos excluidos dao os procurados. "Exportar diagrama (CSV)"
-  (`prismaCSV`, fase, caixa e n). Frase para a seccao de metodos com o motor e a data (o PRISMA 2020 pede que se declare
-  o uso de ferramentas automaticas). Em As minhas colunas, botao "Colunas da folha de dados PRISMA" (`prisma.data.cols`,
-  as colunas da folha Data da FEUP).
 - **Seletor + Artigos** (`_openPicker`): pesquisa com lupa, "Toda a biblioteca" e "Coleção" (lista das
   coleções ao lado) em botoes, "Ordenar" discreto a direita (Mais recentes, Autor, Ano, Titulo). Sem "Pasta
   aberta". Linhas compactas de duas linhas (autor e ano a negrito, titulo por baixo, `x.ref`/`x.title`
@@ -306,14 +293,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   pede sempre confirmacao. Sem limite automatico. O historico antigo (tudo numa
   conversa) e separado por acao ao abrir (`_splitByAction`). Ficheiro de historico versao 2
   (`conversations`, `active`); a versao 1 ainda se le.
-- **Triagem por criterios** (acao `triagem`, grupo comparar, `perDoc`,
-  `needsCriteria`): sem criterios na caixa de texto nao envia e a acao fica escolhida.
-  Um pedido por PDF: tabela "Verificacao dos criterios" e so depois a decisao. Ultima
-  linha tecnica `TRIAGEM: INCLUIR|EXCLUIR|DUVIDOSO` (`parseScreening`, retirada do texto
-  com `removeScreeningLine`). No fim a app junta "Resumo da triagem"
-  (`screeningSummary`, `_addScreeningSummary`), sem motor e sem "Repetir", com CSV.
-  Botao "i" (`_triagemInfoEl`). Nunca pedir "raciocinio" a IA: o filtro do Sonnet 5.5
-  recusa isso como extracao do pensamento interno (`reasoning_extraction`).
+- **Triagem retirada (1.0.12, a pedido):** a acao `triagem` e o diagrama PRISMA 2020 sairam por
+  desvirtuarem o objetivo da app (a pesquisa nas bases de dados faz-se fora do Zotero). Se voltar: nunca
+  pedir "raciocinio" a IA, o filtro do Sonnet 5.5 recusa isso como extracao do pensamento interno.
 - **Modo Simples / Avancado** (pref `ui.mode`, "simple" por omissao, so no painel lateral: a janela
   e sempre avancada). Interruptor no topo do painel (`.zia-modeswitch`) e lista nas definicoes
   (Respostas, `initUIMode`). Simples (`this.simple`, `_renderSimpleActions`, `_runSimple`): 6 botoes
@@ -493,7 +475,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (41), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (39), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -512,7 +494,7 @@ npm install
   carrega em todos os botoes, separadores e ligacoes das definicoes (cada um tem
   de fazer alguma coisa e nenhum pode dar erro). O `run_ui.js` faz o mesmo para
   os botoes do painel
-- `ONLY=<acoes>` corre so essas acoes (ex.: `ONLY=triagem,critica`).
+- `ONLY=<acoes>` corre so essas acoes (ex.: `ONLY=pergunta,critica`).
 - `CLAUDE_PATH=<exe> node tests/harness/run_ai_real.js claude` ou
   `GEMINI_API_KEY=<chave> node tests/harness/run_ai_real.js gemini` — todas as
   acoes com a IA REAL, mais perguntas-armadilha (informacao que nao existe,

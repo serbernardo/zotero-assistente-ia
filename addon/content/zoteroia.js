@@ -572,7 +572,7 @@ var ZoteroIA = {
 		let active = Array.isArray(data) ? 0 : ((data && data.active) || 0);
 		try {
 			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
-				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check", "stances", "warnings", "pageOffsets", "prisma", "screening", "exclusion"];
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check", "stances", "warnings", "pageOffsets"];
 			const clean = msgs => msgs.filter(m => !m.pending).slice(-this.HISTORY_MAX)
 				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
 			const conversations = [];

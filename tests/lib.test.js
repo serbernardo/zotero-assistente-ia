@@ -417,7 +417,7 @@ test("instruções: só a informação dos documentos, sem suposições", () => 
 		assert.match(sp, /Não inventes, não suponhas/);
 		assert.match(sp, /Uma inferência nunca acrescenta factos novos/);
 	}
-	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_tabela", "pergunta", "temas", "cmp_sintese", "triagem"]);
+	assert.deepEqual(L.ACTION_ORDER.filter(id => L.ACTIONS[id].group === "comparar"), ["comparar", "cmp_metodos", "cmp_resultados", "cmp_conceitos", "cmp_tabela", "pergunta", "temas", "cmp_sintese"]);
 });
 
 test("histórico: só as últimas trocas e com limite de tamanho", () => {
@@ -499,26 +499,6 @@ test("os identificadores D1 e D2 nunca aparecem a quem lê", () => {
 	assert.equal(L.replaceDocIds("D3 e vitamina D", map), "D3 e vitamina D");
 });
 
-test("triagem: decisão lida da última linha, retirada do texto e resumida numa tabela", () => {
-	assert.equal(L.parseScreening("## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR"), "incluir");
-	assert.equal(L.parseScreening("**TRIAGEM:** EXCLUIR"), "excluir");
-	assert.equal(L.parseScreening("TRIAGEM: DUVIDOSO"), "duvidoso");
-	assert.equal(L.parseScreening("SCREENING: INCLUDE"), "incluir");
-	assert.equal(L.parseScreening("Sem linha técnica"), null);
-	assert.equal(L.removeScreeningLine("Raciocínio [D1:p2].\n\nTRIAGEM: EXCLUIR"), "Raciocínio [D1:p2].");
-	const md = L.screeningSummary([
-		{ ref: "Silva et al., 2021", decision: "incluir" },
-		{ ref: "Costa, 2019", decision: "excluir" },
-		{ ref: "Reis, 2020", decision: null },
-	], "estudos empíricos desde 2018");
-	assert.match(md, /Critérios: estudos empíricos desde 2018/);
-	assert.match(md, /\| Silva et al., 2021 \| Incluir \|/);
-	assert.match(md, /\| Reis, 2020 \| Sem resposta \|/);
-	assert.match(md, /Incluir: 1 · Excluir: 1 · Duvidoso: 0/);
-	assert.equal(L.extractTables(md).length, 1, "a tabela pode ser exportada para CSV");
-	assert.ok(L.ACTIONS.triagem.needsCriteria && L.ACTIONS.triagem.perDoc);
-});
-
 test("ações revistas: afirmações e evidência, grelha de avaliação, documentos que não são artigos", () => {
 	const A = L.ACTIONS;
 	assert.match(A.conclusoes.prompt, /Suporte no texto/);
@@ -533,7 +513,7 @@ test("ações revistas: afirmações e evidência, grelha de avaliação, docume
 	assert.match(A.lacunas.prompt, /Com vários documentos, indica quantos/);
 });
 
-test("nomes das ações, referências mantidas e números PRISMA", () => {
+test("nomes das ações e referências mantidas", () => {
 	L.I18N.setLang("pt-PT");
 	assert.equal(L.ACTIONS.resumo.button, "Resumir");
 	assert.equal(L.ACTIONS.resumo.label, "Resumo", "a resposta fica com o nome");
@@ -546,8 +526,6 @@ test("nomes das ações, referências mantidas e números PRISMA", () => {
 	const kept = L.fitDocuments(docs, 0, { keepRefs: true }).docs[0];
 	assert.equal(kept.refsFromPage, null);
 	assert.match(kept.usedPages.join("\n"), /Costa, 2019/);
-	const sum = L.screeningSummary([{ ref: "A", decision: "incluir" }, { ref: "B", decision: "excluir" }, { ref: "C", decision: "duvidoso" }, { ref: "D", decision: null }], "c");
-	assert.match(sum, /PRISMA 2020: relatórios procurados 4 · não obtidos 0 · avaliados 4 · excluídos 1 · incluídos 1 · por decidir 2/);
 });
 
 test("perguntar à coleção, Anki e mapa de temas", () => {
@@ -593,7 +571,7 @@ test("número impresso nas páginas: só com certeza", () => {
 	assert.equal(L.pageLabel({ pageOffset: -1 }, 1), 1);
 });
 
-test("muitos artigos: lotes, tabelas juntas, temas e triagem", () => {
+test("muitos artigos: lotes, tabelas juntas e temas", () => {
 	// Só a partir de 13 artigos, e só nas ações de conjunto
 	assert.equal(L.largeMode("comparar", 12), null);
 	assert.equal(L.largeMode("comparar", 13), "batch");
@@ -645,63 +623,9 @@ test("muitos artigos: lotes, tabelas juntas, temas e triagem", () => {
 	const csv = L.themesToCSV("- B\n  - Atendimento (2)\n    - x [D1]\n    - y [D2]\n", { docsMap: { D1: { ref: "Silva, 2021" }, D2: { ref: "Costa; 2019" } } });
 	assert.match(csv, /^﻿Artigo;Tema;Subtema\r\nSilva, 2021;Atendimento;\r\n"Costa; 2019";Atendimento;\r\n$/);
 
-	// Triagem: motivo tirado da secção Decisão, duvidosos primeiro
-	assert.equal(L.screeningReason("## Verificação\n| a | b |\n\n## Decisão\n**Duvidoso**. A amostra não é descrita [D1:p2].\n\nTRIAGEM: DUVIDOSO"),
-		"A amostra não é descrita [D1:p2].");
-	assert.equal(L.screeningReason("sem secção"), "");
-	const sum = L.screeningSummary([{ ref: "A", decision: "incluir", reason: "ok" }, { ref: "B", decision: "duvidoso", reason: "falta" }, { ref: "C", decision: null }], "c");
-	const linhas = L.rawTables(sum)[0];
-	assert.deepEqual(linhas.header, ["Artigo", "Decisão", "Motivo"]);
-	assert.deepEqual(linhas.rows.map(x => x[0]), ["B", "C", "A"], "duvidosos, por decidir e só depois os decididos");
-
 	// IAEdu: o limite por minuto chega dentro da resposta, como texto, e tem de ser reconhecido
 	assert.equal(L.classifyIAEduError(0, { detail: "Rate limit reached (429)" }).kind, "limit");
 	assert.equal(L.classifyIAEduError(200, "{\"detail\":\"Too many requests\"}").kind, "limit");
 	assert.equal(L.classifyIAEduError(429, "").kind, "limit");
 	assert.notEqual(L.classifyIAEduError(0, { detail: "Erro interno" }).kind, "limit");
 });
-
-test("PRISMA 2020: motivo por critério, números que batem certo e frase para os métodos", () => {
-	// O pedido da triagem pede o critério que falhou numa linha técnica
-	assert.match(L.ACTIONS.triagem.prompt, /MOTIVO: seguido do critério que não se cumpre/);
-	const txt = "## Decisão\nExcluir. Não é empírico [D1:p2].\n\n**MOTIVO: Não é estudo empírico.**\nTRIAGEM: EXCLUIR";
-	assert.equal(L.parseExclusionReason(txt), "Não é estudo empírico");
-	assert.equal(L.parseExclusionReason("sem linha"), null);
-	assert.doesNotMatch(L.removeReasonLine(L.removeScreeningLine(txt)), /MOTIVO|TRIAGEM/, "as linhas técnicas não aparecem");
-
-	const rows = [
-		{ ref: "A", decision: "incluir" },
-		{ ref: "B", decision: "excluir", label: "Não é estudo empírico" },
-		{ ref: "C", decision: "excluir", label: "não é estudo empírico." },
-		{ ref: "D", decision: "excluir", label: "Anterior a 2018" },
-		{ ref: "E", decision: null, notRetrieved: true },
-		{ ref: "F", decision: "duvidoso" },
-	];
-	const c = L.prismaCounts(rows, { db: "5042", reg: "", dup: "40", excludedTA: "4996" });
-	assert.equal(c.screened, 5002, "identificados menos duplicados");
-	assert.equal(c.sought, 6);
-	assert.equal(c.notRetrieved, 1, "PDF em falta: relatório não obtido, como manda o PRISMA 2020");
-	assert.equal(c.assessed, 5);
-	assert.equal(c.excluded, 3);
-	assert.deepEqual(c.reasons, [{ label: "Não é estudo empírico", n: 2 }, { label: "Anterior a 2018", n: 1 }], "motivos iguais juntam-se");
-	assert.equal(c.included, 1);
-	assert.equal(c.pending, 1);
-	assert.equal(c.matches, true, "5002 triados menos 4996 excluídos dão os 6 procurados");
-	assert.equal(L.prismaCounts(rows, { db: 100, excludedTA: 90 }).matches, false);
-	assert.equal(L.prismaCounts(rows).identified, null, "sem números de antes, não inventa");
-
-	const csv = L.prismaCSV(c);
-	assert.match(csv, /^\ufeffFase;Caixa;n\r\nIdentificação;Registos identificados em bases de dados;5042\r\n/);
-	assert.match(csv, /Relatórios não obtidos \(PDF em falta ou ilegível\);1\r\n/);
-	assert.match(csv, /Triagem;  Não é estudo empírico;2\r\n/);
-	assert.match(csv, /Incluídos;Estudos incluídos na revisão;1\r\n$/);
-
-	const sum = L.screeningSummary(rows, "c", { engine: "IAEdu", date: "22/10/2026" });
-	assert.deepEqual(L.rawTables(sum)[0].header, ["Artigo", "Decisão", "Critério não cumprido"]);
-	assert.match(sum, /\| E \| Não obtido \|/);
-	assert.match(sum, /Para a secção de métodos: a avaliação do texto completo de 5 relatórios foi apoiada pelo Assistente IA para Zotero \(IAEdu, 22\/10\/2026\)[\s\S]*decisão final foi tomada pelos autores/);
-	assert.doesNotMatch(L.screeningSummary(rows, "c"), /secção de métodos/, "sem motor, sem frase");
-	assert.match(I18N_COLS(), /^Título\. País ou região\. Área\./);
-});
-
-function I18N_COLS() { return L.I18N.t("prisma.data.cols"); }

@@ -111,13 +111,10 @@ async function main() {
 		const a = L.ACTIONS[id];
 		const docs = a.minDocs >= 2 ? [d1, d2] : [d1];
 		try {
-			// A triagem precisa dos critérios do utilizador
-			const extra = id === "triagem" ? "\n\nIndicações adicionais do utilizador: estudos empíricos com estudantes do ensino superior, publicados desde 2015" : "";
-			const r = await ask(docs, L.actionPrompt(id, docs) + extra, null, id);
+			const r = await ask(docs, L.actionPrompt(id, docs), null, id);
 			fs.writeFileSync(path.join(OUT, id + ".md"), r.text);
 			const c = check(id, r.text, { needCites: id !== "etiquetas" });
 			if (id === "etiquetas" && !L.parseTagLine(r.text).length) c.problems.push("sem linha de etiquetas");
-			if (id === "triagem" && !L.parseScreening(r.text)) c.problems.push("sem linha TRIAGEM");
 			if (id !== "etiquetas" && /\|/.test(r.text) && a.group === "comparar" && !L.extractTables(r.text).length) c.problems.push("tabela mal formada");
 			return Object.assign(c, { secs: r.secs, chars: r.text.length, model: r.model, notices: r.notices });
 		}

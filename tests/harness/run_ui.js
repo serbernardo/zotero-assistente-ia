@@ -62,7 +62,7 @@ async function main() {
 		assert.equal(await page.isHidden(".zia-tabs"), true, "janela: só Comparar, sem separadores");
 		assert.equal(await page.isDisabled('[data-card="compare"]'), false, "comparar ativo: abre o seletor de PDFs");
 		assert.deepEqual(await page.$$eval(".zia-win-grid .zia-simple-label", ls => ls.map(l => l.textContent)),
-			["Comparar artigos", "Perguntar à coleção", "Mapa de temas", "Revisão de literatura", "Triagem"], "5 botões grandes");
+			["Comparar artigos", "Perguntar à coleção", "Mapa de temas", "Revisão de literatura"], "4 botões grandes");
 		await addAll(page);
 		await page.waitForSelector(".zia-chip >> nth=1");
 		assert.equal(await page.isDisabled('[data-card="compare"]'), false);
@@ -204,7 +204,7 @@ async function main() {
 		assert.equal(await page.isHidden(".zia-picker"), true);
 		// "i" junto de "Usar fichas" e lista das fichas em Comparar
 		await page.click('[data-card="compare"]');
-		await page.click(".zia-info-btn:not(.zia-triagem-info)");
+		await page.click(".zia-info-btn");
 		await page.waitForSelector(".zia-info-panel");
 		assert.equal(await page.locator(".zia-fichas-list").count(), 1);
 		console.log("OK janela: + PDF com seletor e pesquisa, i das fichas junto de Usar fichas");
@@ -829,40 +829,6 @@ async function main() {
 		console.log("OK janela com um artigo: seletor mostra todos (o da conversa marcado), Enviar junta os marcados, Coleção sem coleções explica");
 	}
 
-	// ---------- Janela: triagem por critérios ----------
-	{
-		const page = await open("?mode=window", { width: 820, height: 900 });
-		await addAll(page);
-		await page.waitForSelector(".zia-chip >> nth=1");
-		await page.evaluate(() => { window.MOCK.answer = "## Verificação dos critérios\n- Estudo empírico: Sim [D1:p1].\n\n## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR"; });
-		// botão i com o que faz e os passos (aparece ao escolher Triagem)
-		await page.click('button[data-action="triagem"]');
-		await page.click(".zia-triagem-info");
-		await page.waitForSelector(".zia-triagem-panel");
-		assert.equal(await page.locator(".zia-triagem-panel li").count(), 4, "quatro passos explicados");
-		await page.click(".zia-triagem-panel .zia-info-close");
-		assert.equal(await page.locator(".zia-triagem-panel").count(), 0);
-		// sem critérios não envia
-		await page.click(".zia-send");
-		await page.waitForSelector("text=Escreve primeiro os critérios");
-		assert.equal(await page.evaluate(() => window.lastEngine), undefined, "sem critérios, nada é enviado");
-		await page.fill(".zia-textarea", "estudos empíricos, desde 2018");
-		await page.click(".zia-send");
-		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
-		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
-		assert.match(await page.evaluate(() => window.lastPrompt), /estudos empíricos, desde 2018/);
-		assert.equal(await page.locator("text=TRIAGEM: INCLUIR").count(), 0, "a linha técnica não aparece");
-		const summary = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
-		assert.equal(await summary.locator(".zia-md .zia-table tbody tr").count(), 2, "uma linha por artigo");
-		assert.match(await summary.textContent(), /Incluir: 2 · Excluir: 0 · Duvidoso: 0/);
-		assert.match(await summary.textContent(), /PRISMA 2020: relatórios procurados 2 · não obtidos 0 · avaliados 2 · excluídos 0 · incluídos 2 · por decidir 0/, "números para o PRISMA 2020");
-		assert.equal(await summary.locator("button:has-text(\"Exportar para Excel (CSV)\")").count(), 1);
-		assert.equal(await summary.locator("button:has-text(\"Repetir com\")").count(), 0, "o resumo é da app, não se repete");
-		await page.screenshot({ path: path.join(OUT, "ui_janela_triagem.png") });
-		console.log("OK triagem: pede os critérios, um pedido por artigo, resumo com a decisão de cada um e exportação CSV");
-		await page.close();
-	}
-
 	// ---------- Muitos artigos: por lotes, uma tabela só, filtros, Tentar de novo, revisão por temas ----------
 	{
 		const page = await open("?mode=window", { width: 900, height: 900 });
@@ -978,26 +944,28 @@ async function main() {
 		const waits = await page.evaluate(() => window.waits);
 		assert.ok(waits.some(t => /IAEdu pediu uma pausa.*Continua sozinho dentro de 1 s/.test(t)), "avisa a espera: " + waits.join(" | "));
 		assert.ok(waits.some(t => /Pausa curta/.test(t)), "depois do aviso, pausa curta entre lotes");
-		// Triagem (um pedido por artigo): o artigo que bateu no limite repete-se e não fica com erro
+		// Fichas (um pedido por artigo, antes de comparar): a ficha que bateu no limite repete-se e não fica com erro
 		await page.evaluate(async () => {
-			await view.setItems([window.ITEM_A]);
+			await view.setItems(Array.from({ length: 4 }, (_, i) => window.paper(`Ficha ${i + 1}`, 2005 + i, ["Ficha" + i], "F" + i, ["Pagina um", "Pagina dois"])));
+			view.useFichas.checked = true;
 			let n = 0;
-			window.MOCK.fn = () => {
+			window.MOCK.fn = p => {
 				n++;
 				if (n === 1) throw Object.assign(new Error("Limite de pedidos de IAEdu atingido."), { kind: "limit" });
-				return "## Decisão\nIncluir. Cumpre [D1:p1].\n\nTRIAGEM: INCLUIR";
+				if (/Faz uma tabela|Compara os documentos/.test(p)) return "| Documento | Objetivo |\n|---|---|\n| D1 | x [D1:p1] |";
+				return "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p1] |";
 			};
+			window.engineCalls = 0;
+			view.state.docs = view.state.docs.slice(-4);
+			view._renderDocs();
 		});
-		await page.click('button[data-action="triagem"]');
-		await page.fill(".zia-textarea", "empíricos");
+		await page.click('[data-card="compare"]');
 		await page.click(".zia-send");
-		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
 		await page.waitForFunction(() => !view.busy, null, { timeout: 30000 });
-		assert.equal(await page.locator(".zia-error").count(), 0, "a triagem repetiu o artigo depois da espera");
-		const n = await page.evaluate(() => view.state.docs.length);
-		assert.match(await page.textContent(".zia-msg-assistant >> nth=0"), new RegExp(`Incluir: ${n} · Excluir: 0`), "todos os artigos com decisão, nenhum perdido");
+		assert.equal(await page.locator(".zia-error").count(), 0, "as fichas repetiram o pedido depois da espera");
+		assert.ok(await page.evaluate(() => window.engineCalls) >= 5, "uma ficha por artigo, a comparação e o pedido repetido");
 		await page.close();
-		console.log("OK limite por minuto: espera com contagem, repete o mesmo pedido, pausa curta entre lotes, nada se perde (lotes e triagem)");
+		console.log("OK limite por minuto: espera com contagem, repete o mesmo pedido, pausa curta entre lotes, nada se perde (lotes e fichas)");
 	}
 
 	// ---------- Mapa de temas: exportar para Excel (artigo e tema) ----------
@@ -1016,90 +984,34 @@ async function main() {
 		console.log("OK mapa de temas: exporta uma linha por artigo e tema para o Excel");
 	}
 
-	// ---------- PRISMA 2020: motivo por critério, diagrama, exportar, frase de métodos, folha de dados ----------
-	{
-		const page = await open("?mode=window", { width: 900, height: 1000 });
-		await page.evaluate(async () => {
-			window.MOCK.delayMs = 0;
-			await view.setItems(Array.from({ length: 4 }, (_, i) => window.paper(`Artigo ${i + 1}`, 2010 + i, ["Autor" + i], "P" + i, ["Pagina um", "Pagina dois"])));
-			const r = [
-				["Incluir", "INCLUIR", ""],
-				["Excluir", "EXCLUIR", "MOTIVO: Não é estudo empírico"],
-				["Excluir", "EXCLUIR", "MOTIVO: não é estudo empírico."],
-				["Excluir", "EXCLUIR", "MOTIVO: Anterior a 2018"],
-			];
-			window.MOCK.fn = p => {
-				const i = +((p.match(/Documentos a analisar: D(\d+)/) || ["", "1"])[1]) - 1;
-				return `## Verificação dos critérios\n| Critério | Cumpre? |\n|---|---|\n| Estudo empírico | Sim |\n\n## Decisão\n${r[i][0]}. Motivo ${i + 1} [D${i + 1}:p1].\n\n${r[i][2]}\nTRIAGEM: ${r[i][1]}`;
-			};
-		});
-		await page.click('button[data-action="triagem"]');
-		await page.fill(".zia-textarea", "estudos empíricos, desde 2018");
-		await page.click(".zia-send");
-		await page.waitForSelector(".zia-prisma-flow", { timeout: 30000 });
-		await page.waitForFunction(() => !view.busy);
-		const resumo = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
-		assert.match(await resumo.textContent(), /Critério não cumprido/);
-		assert.equal(await page.locator("text=/MOTIVO:/").count(), 0, "a linha técnica do motivo não aparece");
-		const flow = page.locator(".zia-prisma-flow");
-		assert.match(await flow.textContent(), /Não é estudo empírico2/, "os motivos iguais juntam-se e contam-se");
-		assert.match(await flow.textContent(), /Anterior a 20181/);
-		// Números de antes: 1000 nas bases, 50 duplicados, 946 excluídos por título e resumo dão os 4 procurados
-		await flow.locator('input[data-key="db"]').fill("1000");
-		await flow.locator('input[data-key="dup"]').fill("50");
-		await flow.locator('input[data-key="excludedTA"]').fill("946");
-		assert.match(await page.textContent(".zia-prisma-check"), /As contas batem certo/);
-		await flow.locator('input[data-key="excludedTA"]').fill("900");
-		assert.match(await page.textContent(".zia-prisma-check"), /dão 50, mas esta triagem procurou 4/);
-		await flow.locator('input[data-key="excludedTA"]').fill("946");
-		await flow.locator('input[data-key="excludedTA"]').dispatchEvent("change");
-		await resumo.locator('button:has-text("Exportar diagrama (CSV)")').click();
-		const csv = await page.evaluate(() => window.lastCSV.csv);
-		assert.match(csv, /Registos triados \(título e resumo\);950/);
-		assert.match(csv, /Relatórios excluídos, com os motivos;3/);
-		assert.match(csv, /Estudos incluídos na revisão;1/);
-		assert.match(await resumo.textContent(), /Para a secção de métodos: a avaliação do texto completo de 4 relatórios foi apoiada pelo Assistente IA para Zotero/);
-		// os números escritos ficam guardados na resposta
-		assert.equal(await page.evaluate(() => view.state.messages.find(m => m.prisma).prisma.pre.db), "1000");
-		await page.screenshot({ path: path.join(OUT, "ui_janela_prisma.png"), fullPage: true });
-		// As minhas colunas: as colunas da folha de dados PRISMA com um clique
-		await page.click('[data-card="compare"]');
-		await page.click('.zia-preset[data-action="cmp_tabela"]');
-		await page.click(".zia-prisma-data");
-		assert.match(await page.inputValue(".zia-textarea"), /^Título\. País ou região\. Área\./);
-		await page.close();
-		console.log("OK PRISMA 2020: motivo por critério contado, diagrama com os números de antes e contas confirmadas, exportar, frase de métodos, colunas da folha de dados");
-	}
-
 	// ---------- Um PDF que não se consegue ler não pára os outros ----------
 	{
 		const page = await open("?mode=window", { width: 820, height: 900 });
 		await addAll(page);
 		await page.waitForSelector(".zia-chip >> nth=1");
 		await page.evaluate(() => {
-			window.MOCK.answer = "## Verificação dos critérios\n- Estudo empírico: Sim [D1:p1].\n\n## Decisão\nIncluir.\n\nTRIAGEM: INCLUIR";
+			view.useFichas.checked = true;
+			window.MOCK.fn = p => (/Compara os documentos/.test(p) ? "| Documento | Objetivo |\n|---|---|\n| D1 | x [D1:p1] |" : "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p1] |");
 			// o PDF do García não está no computador (o caso real: está só na nuvem)
 			const original = ZoteroIA.loadText.bind(ZoteroIA);
 			ZoteroIA.loadText = async d => {
 				if (/García/.test(d.shortRef || "")) throw ZoteroIA.error("doc", "O PDF de García não está neste computador.");
 				return original(d);
 			};
+			window.engineCalls = 0;
 		});
-		await page.click('button[data-action="triagem"]');
-		await page.fill(".zia-textarea", "estudos empíricos");
-		await page.evaluate(() => { window.engineCalls = 0; });
+		await page.click('[data-card="compare"]');
 		await page.click(".zia-send");
-		await page.waitForSelector("text=Resumo da triagem", { timeout: 30000 });
-		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop"));
-		// o artigo com problema mostra o erro, o outro foi analisado na mesma
-		assert.equal(await page.locator(".zia-error").count(), 1, "só o artigo com problema falha");
-		assert.equal(await page.evaluate(() => window.engineCalls), 1, "o artigo bom foi mesmo pedido à IA");
-		assert.match(await page.textContent(".zia-status"), /ficaram de fora|left out/, "avisa quais ficaram de fora");
-		const resumo = page.locator(".zia-msg-assistant", { hasText: "Resumo da triagem" });
-		assert.equal(await resumo.locator(".zia-md .zia-table tbody tr").count(), 2, "o resumo tem os dois artigos, com e sem PDF");
-		assert.match(await resumo.textContent(), /Incluir: 1/, "o que correu bem conta na decisão");
+		await page.waitForFunction(() => !view.busy, null, { timeout: 30000 });
+		// a ficha do artigo com problema mostra o erro, a do outro foi feita e a comparação segue
+		assert.equal(await page.evaluate(() => view.state.convs.flat().filter(m => m.error).length), 1, "só a ficha do artigo com problema falha");
+		assert.equal(await page.evaluate(() => window.engineCalls), 2, "a ficha do artigo bom e a comparação");
+		// o aviso fica na própria comparação, onde se vê quais ficaram de fora (o estado muda logo para "Concluído")
+		const comparacao = page.locator(".zia-msg-assistant", { hasText: "Objetivo" });
+		assert.ok(await comparacao.count() >= 1, "a comparação foi feita com o que se leu");
+		assert.match(await comparacao.first().textContent(), /ficaram de fora.*García/, "diz qual ficou de fora");
 		await page.close();
-		console.log("OK um PDF ilegível não pára os outros: salta, avisa e o resumo inclui os que correram");
+		console.log("OK um PDF ilegível não pára os outros: salta, avisa e a comparação segue com os que correram");
 	}
 
 	// ---------- Gemini muda de modelo: não é um erro ----------
@@ -1200,7 +1112,7 @@ async function main() {
 			window.MOCK.answer = "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p3] |";
 		});
 		await tab(page, "escrever");
-		await page.click(".zia-info-btn:not(.zia-triagem-info)");
+		await page.click(".zia-info-btn");
 		await page.waitForSelector(".zia-info-panel");
 		assert.equal(await page.locator(".zia-info-fields li").count(), 14, "a explicação lista os campos da ficha");
 		await page.screenshot({ path: path.join(OUT, "ui_painel_ficha_info.png") });
