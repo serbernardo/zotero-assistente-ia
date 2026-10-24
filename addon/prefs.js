@@ -3,7 +3,6 @@
 pref("extensions.zoteroia.engine", "");
 // Língua da interface: "auto" (a do Zotero), "pt-PT" ou "en"
 pref("extensions.zoteroia.ui.lang", "auto");
-// Língua das respostas: "ui" (a mesma da interface), "pt-PT", "en", "auto" (a do documento)...
 pref("extensions.zoteroia.context.annotations", false);
 pref("extensions.zoteroia.fichas.autoSave", true);
 pref("extensions.zoteroia.custom.prompts", "");
@@ -35,6 +34,8 @@ pref("extensions.zoteroia.codex.enabled", false);
 pref("extensions.zoteroia.codex.path", "");
 pref("extensions.zoteroia.codex.model", "");
 pref("extensions.zoteroia.codex.maxChars", 400000);
+// Ignora OPENAI_API_KEY e CODEX_API_KEY do ambiente (usa a conta ChatGPT)
+pref("extensions.zoteroia.codex.ignoreApiKey", true);
 
 // Gemini com chave da API do Google (a chave fica encriptada)
 pref("extensions.zoteroia.gemini.key", "");

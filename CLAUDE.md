@@ -1,6 +1,6 @@
 # Assistente IA para Zotero
 
-Addon para o Zotero (versao 0.7) que ajuda a ler, avaliar e escrever a partir
+Addon para o Zotero (8 ou superior) que ajuda a ler, avaliar e escrever a partir
 de artigos cientificos, com a conta de IA do proprio utilizador (gratuita ou
 paga). Seis motores: Claude com chave da API (`anthropic`), Claude com a
 subscricao Pro/Max atraves do Claude Code em subprocesso (`claude`), ChatGPT
@@ -123,8 +123,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   PDFs e contas (`findCalculations`, so valem se o resultado estiver certo). O
   resultado (`msg.check`) aparece por baixo da resposta e fica no historico.
 - **Historico enviado a IA:** as acoes nao levam historico (sao pedidos
-  completos). As perguntas livres levam so as ultimas 3 trocas, ate 24 mil
-  caracteres (`selectHistory`).
+  completos). As perguntas livres ficam no separador a vista e levam as ultimas 3 trocas desse
+  separador, ate 24 mil caracteres (`selectHistory`): assim da para perguntar "e quanto a amostra?".
 - **Gemini, tarefas exigentes** (`isHeavyTask`: Avaliar, Comparar, Investigar,
   e perguntas com 2 ou mais PDFs): `runGeminiHeavy` tenta primeiro o
   modelo de analise (pref `gemini.modelStrong`: auto = os dois flash estaveis
@@ -156,7 +156,19 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Mesmo autor e ano:** `disambiguateRefs` (lib.js) acrescenta a, b, c ao ano
   (Silva et al., 2021a e 2021b) nos chips, citacoes e notas. O id Dn continua unico
   internamente, mas nunca aparece a quem le: `replaceDocIds` (lib.js) troca "D1" pelo
-  autor e ano, retira "(D1, D2)" e "documento D1" no texto, titulos e notas.
+  autor e ano, retira "(D1, D2)" e "documento D1" no texto, titulos, notas e avisos. Excecao: um "D1"
+  que o proprio PDF usa como nome ("recetores D1 e D2", "vitamina D3") fica como esta. Cada resposta
+  guarda esses nomes em `m.literalIds` (`literalDocIds`), e `_docsMap(m)` passa-os ao `replaceDocIds`
+  (propriedade `literalIds`, nao enumeravel). "documento D1" e as celulas so com "D1" trocam-se sempre.
+- **Painel, troca rapida de artigo:** `showItem` usa um contador (`_showToken`): so conta o ultimo
+  artigo pedido, e `_addItems` junta os artigos a conversa em que comecou (`st`), nunca a de outro
+  artigo. Antes, passar depressa pela lista com as setas punha dois artigos na mesma conversa.
+- **Janela ja aberta:** os artigos que chegam (clique direito, faixa "Varios artigos", menu das
+  colecoes) substituem os que la estavam (`replaceItems`), as respostas antigas ficam. Antes
+  somavam-se (comparar 2 artigos com 30 na janela comparava 32). Um artigo que volta usa o seu Dn
+  antigo (`_addItems` procura em `allDocs`). A meio de um pedido nao muda nada (`win.busyReplace`).
+- **Muitos artigos de uma vez:** acima de 100 (`MANY_CONFIRM`) o seletor e "Juntar a colecao toda"
+  pedem confirmacao com a estimativa de pedidos (`_confirmMany`). Ao desistir o seletor fica aberto.
 - **Citacoes ao estilo APA de cada lingua:** dois autores com "e" em PT e "&" em ingles
   (`ref.and`); varias fontes no mesmo parentesis separadas por ";" e varias paginas do
   mesmo documento juntas (`joinCites`): (Silva et al., 2021, pp. 1, 5; Costa, 2019, p. 3).
@@ -225,7 +237,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Simples por omissao:** `simpleModeOnce` no `bootstrap.js` poe `ui.mode` = simple uma so vez (pref
   `ui.simpleApplied`), depois fica a escolha da pessoa.
 - **Icones das acoes** (`_actionIcon`, `_icon`): cada acao tem um icone em linha fina num quadrado claro
-  com a cor da acao (`.zia-ic`, `.zia-k-<cor>`), igual no Simples, no Avancado e nos 5 cartoes da janela.
+  com a cor da acao (`.zia-ic`, `.zia-k-<cor>`), igual no Simples, no Avancado e nos 4 cartoes da janela.
 - **Painel sem ajuda nem motor:** sem lista do motor no painel (Simples e Avancado, motor nas definicoes),
   sem perguntas por baixo da caixa e sem rodape ("Nova conversa" retirado). As perguntas de exemplo estao
   em Pers. (`.zia-examples`, um clique escreve a pergunta na caixa). A janela mantem os 3 passos.
@@ -284,11 +296,11 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   fichas tambem aparece junto de "Usar fichas" e a lista das fichas em Comparar.
 - **Eliminar:** uma resposta com texto nunca e tratada como erro no aviso (oferece
   guardar como nota), mesmo que tenha um erro associado.
-- **Separadores (um por acao e por pergunta):** `state.convs` (listas de
+- **Separadores (um por acao):** `state.convs` (listas de
   mensagens) e `state.active`; `state.messages` e sempre `convs[active]`.
   `_routeConversation` (chamado em `_ask`): uma acao vai para o separador dela
-  (ou um novo), cada pergunta abre um novo (sem historico), um separador vazio e
-  aproveitado; "Repetir" fica no mesmo (`stay`). Escolher uma acao ja pedida abre
+  (ou um novo, um separador vazio e aproveitado), uma pergunta fica no separador a vista
+  (opcao A da auditoria da 1.0.13: antes cada pergunta abria um separador sem historico); "Repetir" fica no mesmo (`stay`). Escolher uma acao ja pedida abre
   o separador dela sem enviar. "Nova conversa" (so no Simples e na janela) abre um separador vazio. Fechar
   pede sempre confirmacao. Sem limite automatico. O historico antigo (tudo numa
   conversa) e separado por acao ao abrir (`_splitByAction`). Ficheiro de historico versao 2
@@ -324,8 +336,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   (`.zia-action-extra`). As perguntas livres mantem a bolha.
 - **Respostas:** Copiar e Guardar como nota ficam por cima do texto. O titulo
   tem so a acao e o x (nunca recolhe). O motor, o modelo e o consumo ficam por
-  baixo do texto (`.zia-msg-meta`). Rodape do painel com "Abrir em janela" (Avancado tambem
-  com "Comparar artigos ↗", Simples com "Nova conversa") e o botao de apoio, escondido por agora.
+  baixo do texto (`.zia-msg-meta`). O painel nao tem rodape (o botao de apoio, escondido por agora,
+  e o unico que la iria).
 - **Avisos com x:** `_setStatus` com "warn" ou "error" mostra um botao para fechar.
 - **Paleta** (no fim de `zoteroia.css`, um so bloco de variaveis, claro e
   escuro): creme quente, tinta azul-noite para texto e o que esta escolhido,
@@ -343,7 +355,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   pasta temporaria vazia, instrucoes de sistema no inicio do stdin, e o
   processo e morto se aparecer um item `command_execution`, `file_change`,
   `mcp_tool_call` ou `web_search`. As variaveis `OPENAI_API_KEY` e
-  `ANTHROPIC_API_KEY` sao retiradas do ambiente (usa-se a conta).
+  `CODEX_API_KEY` sao retiradas do ambiente (usa-se a conta), com a pref propria
+  `codex.ignoreApiKey` (antes dependia da opcao do Claude Code). A marca `<instrucoes_de_sistema>`
+  tambem e neutralizada nos PDFs (`neutralizeTags`).
 - **IAEdu** (motor `iaedu`, `runIAEdu`, `createIAEduStreamParser`, `classifyIAEduError`,
   `isIAEduEndpoint`): servico de IA para o ensino e a investigacao em Portugal. Por omissao
   liga ao agente "Assistente IA Zotero", partilhado com a UPorto (`IAEDU_DEFAULT_ENDPOINT` e
@@ -452,8 +466,11 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   mensagens (sem o texto dos PDFs) em
   `<pasta de dados do Zotero>/zoteroia/conversas/<biblioteca>_<chave>.json`.
   Varias conversas por artigo. Pref `history.save` (ligada por omissao), botao para apagar nas definicoes.
-- **Modelos Claude:** API com `claude-sonnet-5-5` por omissao e esforco
-  `medium` (`output_config.effort`) nos modelos Sonnet/Opus 5. Claude Code
+  A escrita passa por um ficheiro `.tmp` (`tmpPath`): fechar o Zotero a meio nao estraga o historico.
+- **Modelos Claude:** API com `claude-sonnet-5-5` por omissao (tambem quando a pref tem um nome
+  invalido) e esforco `medium` (`output_config.effort`) nos modelos Sonnet, Opus e Haiku 5. Lista:
+  Sonnet 5.5, Opus 5.5 e Haiku 5.5 (o Haiku 4.5 saiu: e 10 vezes mais caro). O Haiku nao tem reserva
+  no servidor (`fallbacks`), so o Opus 5, Sonnet 5.5 e Fable. Claude Code
   com o nome curto `sonnet`, que aponta sempre para o mais recente.
 - **Atualizacoes:** `update_url` do manifest aponta para
   `releases/latest/download/updates.json` do GitHub. `build.py` gera o
@@ -475,7 +492,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (39), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (41), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -521,7 +538,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.12.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.13.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica

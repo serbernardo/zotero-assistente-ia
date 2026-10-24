@@ -102,6 +102,13 @@ const errBody = (type, message) => JSON.stringify({ type: "error", error: { type
 	assert.ok(!("fallbacks" in calls[0].body) && !calls[0].opts.headers["anthropic-beta"]);
 	assert.deepEqual(calls[0].body.messages[0].content, [{ type: "text", text: "p" }]);
 
+	// Haiku 5.5: esforço médio, sem reserva (o Haiku não tem reserva no servidor)
+	calls.length = 0;
+	await core.runAnthropic({ system: "s", prompt: "p", model: "claude-haiku-5-5", win: mkWin(() => sse(OK_EVENTS)) });
+	assert.equal(calls[0].body.output_config.effort, "medium");
+	assert.ok(!("fallbacks" in calls[0].body));
+	assert.ok(core.ANTHROPIC_MODELS.some(m => m.id === "claude-haiku-5-5") && !core.ANTHROPIC_MODELS.some(m => m.id === "claude-haiku-4-5"), "lista com o Haiku atual");
+
 	// Reserva não aceite: repete sem ela
 	calls.length = 0;
 	r = await core.runAnthropic({ system: "s", prompt: "p", model: "claude-opus-5", win: mkWin(n => n === 1

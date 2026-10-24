@@ -572,7 +572,7 @@ var ZoteroIA = {
 		let active = Array.isArray(data) ? 0 : ((data && data.active) || 0);
 		try {
 			const keep = ["role", "display", "promptText", "text", "actionID", "actionLabel", "engine", "model",
-				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check", "stances", "warnings", "pageOffsets"];
+				"heading", "error", "errorKind", "errorDetail", "asked", "time", "docIDs", "usageNote", "noteID", "check", "stances", "warnings", "pageOffsets", "literalIds"];
 			const clean = msgs => msgs.filter(m => !m.pending).slice(-this.HISTORY_MAX)
 				.map(m => Object.fromEntries(keep.filter(k => m[k] != null).map(k => [k, m[k]])));
 			const conversations = [];
@@ -587,7 +587,8 @@ var ZoteroIA = {
 			}
 			active = Math.min(Math.max(0, active), conversations.length - 1);
 			await IOUtils.makeDirectory(dir, { ignoreExisting: true, createAncestors: true });
-			await IOUtils.writeUTF8(file, JSON.stringify({ version: 2, saved: Date.now(), active, conversations }));
+			// Escreve primeiro num ficheiro à parte e só depois o troca: fechar o Zotero a meio não estraga o histórico
+			await IOUtils.writeUTF8(file, JSON.stringify({ version: 2, saved: Date.now(), active, conversations }), { tmpPath: file + ".tmp" });
 		}
 		catch (e) {
 			this.log("Histórico: " + e);
@@ -599,10 +600,6 @@ var ZoteroIA = {
 		if (await IOUtils.exists(dir)) await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
 	},
 
-	/**
-	 * Artigos com PDF que o utilizador está a ver na lista central do Zotero (coleção, pesquisa
-	 * ou biblioteca), para os juntar à conversa. Devolve { item, label } pela ordem da lista.
-	 */
 	/**
 	 * Artigos com PDF para o seletor. source: "view" (a lista aberta no Zotero), "library" (toda a
 	 * biblioteca aberta) ou o id de uma coleção (número).
@@ -1552,12 +1549,12 @@ var ZoteroIA = {
 	ANTHROPIC_MODELS: [
 		{ id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", tier: "recommended" },
 		{ id: "claude-opus-5-5", label: "Claude Opus 5.5", tier: "best" },
-		{ id: "claude-haiku-4-5", label: "Claude Haiku 4.5", tier: "fast" },
+		{ id: "claude-haiku-5-5", label: "Claude Haiku 5.5", tier: "fast" },
 	],
 
 	anthropicModel() {
 		const m = String(this.pref("anthropic.model") || "claude-sonnet-5-5").trim();
-		return /^[a-z0-9][a-z0-9._-]{2,80}$/i.test(m) ? m : "claude-opus-5";
+		return /^[a-z0-9][a-z0-9._-]{2,80}$/i.test(m) ? m : "claude-sonnet-5-5";
 	},
 
 	_anthropicHeaders(key) {
@@ -1592,7 +1589,7 @@ var ZoteroIA = {
 			messages: [{ role: "user", content }],
 		};
 		// Ler e resumir artigos não precisa de raciocínio longo: esforço médio gasta menos tokens
-		if (/^claude-(sonnet|opus)-5/.test(model)) body.output_config = { effort: "medium" };
+		if (/^claude-(sonnet|opus|haiku)-5/.test(model)) body.output_config = { effort: "medium" };
 		const headers = this._anthropicHeaders(key);
 		// Nos modelos com classificadores de segurança, uma recusa passa para outro modelo
 		let useFallbacks = /^claude-(opus-5|sonnet-5-5|fable)/.test(model);
@@ -1891,8 +1888,8 @@ var ZoteroIA = {
 			+ "\nResponde apenas com texto. Não executes comandos, não leias nem escrevas ficheiros e não pesquises na Internet."
 			+ "\n</instrucoes_de_sistema>\n\n" + prompt;
 		const env = this.Subprocess.getEnvironment();
-		// Garante o uso da conta ChatGPT, e não de uma chave de API paga por uso
-		if (this.pref("claude.ignoreApiKey") !== false) {
+		// Garante o uso da conta ChatGPT, e não de uma chave de API paga por uso (opção própria do Codex)
+		if (this.pref("codex.ignoreApiKey") !== false) {
 			delete env.OPENAI_API_KEY;
 			delete env.CODEX_API_KEY;
 		}
@@ -2032,7 +2029,7 @@ var ZoteroIA = {
 		const L = this.lib;
 		const ctx = { docsMap, citeHref: c => this.citeHref(docsMap[c.doc], c.page) };
 		const body = L.markdownToHTML(markdown, ctx);
-		const refs = docs.map(d => `<li>${L.escapeHTML(d.id)}: ${L.escapeHTML(d.fullRef || d.ref)}</li>`).join("");
+		const refs = docs.map(d => `<li>${L.escapeHTML(d.fullRef || d.ref)}</li>`).join("");
 		const date = new Date().toLocaleDateString(L.I18N.getLang() === "en" ? "en-GB" : "pt-PT");
 		const html = `<h1>${L.escapeHTML(heading)}</h1>\n${body}\n<hr/>\n`
 			+ (docs.length > 1 ? `<p><strong>${L.escapeHTML(this.t("note.documents"))}</strong></p><ul>${refs}</ul>` : "")

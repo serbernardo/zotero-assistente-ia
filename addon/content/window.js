@@ -28,13 +28,16 @@ var ZIAWindow = {
 	/** Recebe itens (ao abrir ou quando a janela já existe). */
 	async receive(args) {
 		if (!this.view || !args) return;
-		if (args.collectionName) this.view.collectionName = args.collectionName;
 		// Vindo do separador "Comparar" do painel: abre logo em Comparar
 		if (args.group) {
 			this.view.group = args.group;
 			this.view._renderTabs();
 		}
-		await this.view.setItems(args.items || [], { collectionIDs: args.collectionIDs || [] });
+		// Os artigos escolhidos passam a ser os da janela (não se somam aos que lá estavam)
+		if ((args.items || []).length) {
+			const ok = await this.view.replaceItems(args.items, { collectionIDs: args.collectionIDs || [], collectionName: args.collectionName || null });
+			if (!ok) return;
+		}
 		// Vindo de "Comparar coleção": abre logo a lista das coleções
 		if (args.pickCollection) this.view._openCollectionPicker();
 		// Vindo do clique direito "Perguntar a estes artigos": a ação fica escolhida, falta escrever a pergunta

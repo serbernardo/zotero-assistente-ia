@@ -1256,6 +1256,95 @@ async function main() {
 		console.log("OK janela com 50 artigos: lista encolhida com a contagem, e a caixa e o Enviar sempre dentro da janela");
 	}
 
+	// ---------- Painel: passar depressa de artigo em artigo (setas na lista do Zotero) ----------
+	{
+		const page = await open("?mode=section", { width: 420, height: 900 });
+		const r = await page.evaluate(async () => {
+			const X = window.paper("Artigo X", 2020, ["Xavier"], "XPDF", ["x ".repeat(300)]);
+			const Y = window.paper("Artigo Y", 2022, ["Yang"], "YPDF", ["y ".repeat(300)]);
+			const Z = window.paper("Artigo Z", 2024, ["Zeta"], "ZPDF", ["z ".repeat(300)]);
+			await Promise.all([view.showItem(X), view.showItem(Y), view.showItem(Z)]);
+			await new Promise(res => setTimeout(res, 50));
+			const own = id => (ZoteroIA.sessions.get(id) || { docs: [] }).docs.map(d => d.shortRef);
+			view._saveSession();
+			return { key: view.sessionKey, zid: "item:" + Z.id, docs: view.state.docs.map(d => d.shortRef), x: own("item:" + X.id), y: own("item:" + Y.id) };
+		});
+		assert.equal(r.key, r.zid, "fica o último artigo pedido");
+		assert.deepEqual(r.docs, ["Zeta 2024"], "a conversa do último artigo só tem esse artigo");
+		assert.ok(r.x.length <= 1 && r.y.length <= 1, "nenhuma conversa fica com dois artigos misturados");
+		console.log("OK painel: passar depressa de artigo em artigo não mistura artigos na mesma conversa");
+
+		// Pergunta de seguimento: fica no mesmo separador e leva a troca anterior
+		await page.evaluate(() => { window.MOCK.answer = "A amostra tem 40 pessoas [D1:p1]."; });
+		await page.fill(".zia-textarea", "Qual é a amostra?");
+		await page.click(".zia-send");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && /40 pessoas/.test(document.querySelector(".zia-messages").textContent));
+		await page.evaluate(() => { window.MOCK.answer = "Foi recolhida em 2020 [D1:p1]."; });
+		await page.fill(".zia-textarea", "E quando foi recolhida?");
+		await page.click(".zia-send");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && /recolhida em 2020/.test(document.querySelector(".zia-messages").textContent));
+		assert.equal(await page.evaluate(() => view.state.convs.length), 1, "a pergunta de seguimento fica no mesmo separador");
+		assert.match(await page.evaluate(() => window.lastPrompt), /<historico>[\s\S]*Qual é a amostra\?[\s\S]*40 pessoas[\s\S]*<\/historico>[\s\S]*E quando foi recolhida/, "leva a troca anterior");
+		// Uma ação continua a ir para o seu separador
+		await page.evaluate(() => { window.MOCK.answer = "Resumo curto [D1:p1]."; });
+		await act(page, "resumo");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && view.state.convs.length === 2);
+		assert.equal(await page.evaluate(() => window.lastPrompt.includes("<historico>")), false, "as ações não levam histórico");
+		console.log("OK painel: pergunta de seguimento no mesmo separador, com a troca anterior, e a ação no seu separador");
+		await page.close();
+	}
+
+	// ---------- Janela já aberta: os artigos escolhidos substituem os que lá estavam ----------
+	{
+		const page = await open("?mode=window", { width: 820, height: 900 });
+		const r = await page.evaluate(async () => {
+			const mk = (n, p) => Array.from({ length: n }, (_, i) => window.paper(p + i, 2000 + i, [p + "Autor" + i], p + "K" + i, ["texto ".repeat(100)]));
+			const first = mk(5, "A");
+			await view.setItems(first);
+			// uma resposta sobre os 5, que tem de continuar certa depois da troca
+			view.state.messages.push({ role: "assistant", text: "Ver [D1:p1].", docIDs: ["D1"], actionID: "comparar", actionLabel: "Visão geral" });
+			const novos = mk(2, "B");
+			await view.replaceItems(novos, { collectionIDs: [] });
+			const after = view.state.docs.map(d => d.shortRef);
+			// o mesmo artigo de antes volta com o mesmo identificador (sem 2021a e 2021b repetidos)
+			await view.replaceItems([first[0]], { collectionIDs: [] });
+			return { after, again: view.state.docs.map(d => d.id), status: document.querySelector(".zia-status").textContent, stillKnown: !!view.state.allDocs.D1 };
+		});
+		assert.equal(r.after.length, 2, "ficam só os 2 escolhidos (antes somavam-se: 5 + 2 = 7)");
+		assert.deepEqual(r.again, ["D1"], "um artigo que volta usa o identificador antigo");
+		assert.ok(r.stillKnown, "as respostas antigas continuam com os seus artigos");
+		assert.match(r.status, /só os 1 artigos escolhidos|só os \d+ artigos/);
+		// Registo sem PDF: aviso claro, sem "{n}"
+		await page.evaluate(async () => {
+			const semPdf = { id: 9901, key: "SEMPDF", libraryID: 1, isAttachment: () => false, isRegularItem: () => true, isPDFAttachment: () => false,
+				getAttachments: () => [], getBestAttachment: async () => null, getField: () => "", getCreators: () => [], getDisplayTitle: () => "Livro sem PDF", getNotes: () => [] };
+			await view.setItems([semPdf]);
+		});
+		const aviso = await page.textContent(".zia-status");
+		assert.match(aviso, /Sem PDF.*Livro sem PDF/);
+		assert.doesNotMatch(aviso, /\{n\}|ler o PDF/);
+		// Muitos artigos de uma vez: pede confirmação com a estimativa de pedidos
+		await page.evaluate(() => {
+			const many = Array.from({ length: 120 }, (_, i) => window.paper("M" + i, 2001, ["M" + i], "MK" + i, ["p"]));
+			window.Zotero.Items.getAll = async () => many;
+		});
+		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.waitForSelector(".zia-picker-row");
+		await page.check(".zia-picker-all input");
+		let msg = "";
+		page.once("dialog", d => { msg = d.message(); d.dismiss(); });
+		await page.click(".zia-picker button.zia-btn-primary");
+		await page.waitForTimeout(100);
+		assert.match(msg, /Vais juntar 121 artigos.*cerca de 14 pedidos/);
+		assert.equal(await page.isVisible(".zia-picker-row"), true, "ao desistir o seletor fica aberto com as escolhas");
+		assert.equal(await page.evaluate(() => view.state.docs.length), 1, "nada foi juntado");
+		page.once("dialog", d => d.accept());
+		await page.click(".zia-picker button.zia-btn-primary");
+		await page.waitForFunction(() => view.state.docs.length === 121);
+		await page.close();
+		console.log("OK janela: artigos escolhidos substituem os anteriores, sem PDF avisa bem, muitos artigos pedem confirmação");
+	}
+
 	await browser.close();
 	if (errors.length) {
 		console.error("Erros na página:", errors);

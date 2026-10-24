@@ -24,6 +24,9 @@ var ZIAChatView = class {
 	LIMIT_WAITS = [30, 60, 90];
 	LIMIT_PACE = 15;
 
+	/** A partir de quantos artigos se pede confirmação antes de os juntar (cada pedido gasta quota). */
+	MANY_CONFIRM = 100;
+
 	constructor({ doc, win, container, mode, core }) {
 		this.doc = doc;
 		this.win = win;
@@ -771,7 +774,10 @@ var ZIAChatView = class {
 	/** Painel lateral: mostra a conversa do item atual (guardada em memória na sessão). */
 	async showItem(item) {
 		const picked = item;
+		// Ao passar depressa pela lista do Zotero, só conta o último artigo pedido
+		const token = this._showToken = (this._showToken || 0) + 1;
 		if (item && this.core.conversationItem) item = await this.core.conversationItem(item);
+		if (token !== this._showToken) return;
 		const key = item ? `item:${item.id}` : null;
 		if (key === this.sessionKey) return;
 		this._saveSession();
@@ -785,6 +791,7 @@ var ZIAChatView = class {
 		this.state = saved || this._emptyState();
 		if (!saved && item) {
 			await this._addItems([item], { quiet: true });
+			if (this.sessionKey !== key) return;
 			// Conversa guardada de uma sessão anterior do Zotero
 			let old = this.core.loadConversation ? await this.core.loadConversation(this.historyKey) : null;
 			// Conversa guardada antes com o PDF selecionado: junta-se à do registo, uma só vez
@@ -954,14 +961,36 @@ var ZIAChatView = class {
 		return `${a.title} · ${list}`;
 	}
 
-	/** Abre a janela grande com a lista das coleções, para comparar os PDFs de uma coleção. */
-	openCollectionWindow() {
-		this.core.openWindow({ items: [], pickCollection: true });
-	}
-
 	async setItems(items, { collectionIDs } = {}) {
 		if (collectionIDs) this.collectionIDs = collectionIDs;
 		await this._addItems(items || [], {});
+	}
+
+	/**
+	 * Janela já aberta que recebe outros artigos (clique direito, faixa "Vários artigos", menu das
+	 * coleções): passam a ser só esses. Somá-los aos que lá estavam fazia, por exemplo, comparar 32
+	 * artigos quando a pessoa escolheu 2. As respostas anteriores ficam na conversa.
+	 * Devolve false se estiver a meio de um pedido (nada muda).
+	 */
+	async replaceItems(items, { collectionIDs, collectionName } = {}) {
+		if (this.busy) {
+			this._setStatus(this.T("win.busyReplace"), "warn");
+			return false;
+		}
+		const before = this.state.docs.length;
+		this.state.docs = [];
+		this.collectionName = collectionName || null;
+		this.collectionIDs = collectionIDs || [];
+		this._docsOpen = false;
+		this._fichasOpen = false;
+		// "Usar fichas" volta a decidir-se sozinho pelo número de artigos novos (se foi ligado sozinho)
+		if (this._fichasAuto) { this.useFichas.checked = false; this._fichasAuto = undefined; }
+		if (this.selectedAction) { this.selectedAction = null; this._renderPending(); }
+		this._closePicker();
+		await this._addItems(items || [], {});
+		if (before && this.state.docs.length) this._setStatus(this.T("win.replaced", { n: this.state.docs.length }));
+		this._renderActions();
+		return true;
 	}
 
 	async addSelected() {
@@ -992,9 +1021,12 @@ var ZIAChatView = class {
 	}
 
 	async _addItems(items, { quiet }) {
+		// A conversa a que os artigos pertencem: se entretanto se mudou de artigo no painel, os
+		// artigos vão para a conversa certa e a interface (já de outro artigo) não muda
+		const st = this.state;
 		const skipped = [];
 		let added = 0;
-		const before = this.state.docs.length;
+		const before = st.docs.length;
 		for (const item of items) {
 			let d = null;
 			try {
@@ -1008,14 +1040,22 @@ var ZIAChatView = class {
 				skipped.push(t);
 				continue;
 			}
-			if (this.state.docs.some(x => x.attachmentID === d.attachmentID)) continue;
-			d.id = "D" + this.state.nextDocNum++;
-			this.state.docs.push(d);
-			this.state.allDocs[d.id] = d;
+			if (st.docs.some(x => x.attachmentID === d.attachmentID)) continue;
+			// Artigo que já esteve na conversa: volta com o mesmo identificador (as respostas antigas continuam certas)
+			const prev = Object.values(st.allDocs).find(x => x.attachmentID === d.attachmentID);
+			if (prev) {
+				st.docs.push(prev);
+				added++;
+				continue;
+			}
+			d.id = "D" + st.nextDocNum++;
+			st.docs.push(d);
+			st.allDocs[d.id] = d;
 			added++;
 		}
 		// Mesmo autor e ano em dois artigos: Silva et al., 2021a e 2021b
-		this.L.disambiguateRefs(Object.values(this.state.allDocs));
+		this.L.disambiguateRefs(Object.values(st.allDocs));
+		if (this.state !== st) return;
 		this._renderDocs();
 		// Passou a haver vários PDFs: abre logo o separador Comparar (sem mudar uma ação já escolhida)
 		if (!quiet && this.mode !== "section" && before < 2 && this.state.docs.length >= 2 && this.group !== "comparar"
@@ -1028,6 +1068,7 @@ var ZIAChatView = class {
 		// Com mais, os lotes já resolvem e as fichas seriam um pedido a mais por artigo: desliga-se,
 		// se tiver sido ligado sozinho
 		const n = this.state.docs.length;
+		let fichasOn = false;
 		if (n > this.L.LARGE_DOCS && this.useFichas.checked && this._fichasAuto) {
 			this.useFichas.checked = false;
 			this._fichasAuto = undefined;
@@ -1035,11 +1076,14 @@ var ZIAChatView = class {
 		else if (n >= 6 && n <= this.L.LARGE_DOCS && !this.useFichas.checked && this._fichasAuto !== false) {
 			this.useFichas.checked = true;
 			this._fichasAuto = true;
-			this._setStatus(this.T("chat.fichasAuto", { n }));
-			return;
+			fichasOn = true;
 		}
+		// Registos sem PDF: o aviso vem primeiro (senão a pessoa não sabe que ficaram de fora)
 		if (skipped.length && !quiet) {
-			this._setStatus(this.T("chat.skipped", { list: skipped.slice(0, 3).join(", ") + (skipped.length > 3 ? "…" : "") }), "warn");
+			this._setStatus(this.T("chat.noPdfSkipped", { n: skipped.length, list: skipped.slice(0, 3).join(", ") + (skipped.length > 3 ? "…" : "") }), "warn");
+		}
+		else if (fichasOn) {
+			this._setStatus(this.T("chat.fichasAuto", { n }));
 		}
 		else if (added && !quiet) {
 			this._setStatus(this.T("chat.inContext", { n: this.state.docs.length }));
@@ -1057,7 +1101,6 @@ var ZIAChatView = class {
 		this._updateButtons();
 	}
 
-	/** Texto da caixa: singular com um PDF, plural com vários. */
 	/** Na janela, a caixa de texto e o Enviar só aparecem depois de escolher o que fazer. */
 	_syncInput() {
 		if (this.inputEl) this.inputEl.hidden = this.mode === "window" && !this.selectedAction && !this.busy;
@@ -1234,12 +1277,16 @@ var ZIAChatView = class {
 		this._pickerCommit = async () => {
 			const items = [...chosen.values()];
 			if (!items.length) return false;
+			// A pessoa desistiu ao ver quantos eram: o seletor fica aberto com as escolhas (null)
+			if (!this._confirmMany(this.state.docs.length + items.length)) return null;
 			this._closePicker();
 			await this._addItems(items, {});
 			return true;
 		};
 		const addBtn = this._button(this.T("chat.picker.add", { n: 0 }), "zia-btn-small zia-btn-primary", async () => {
-			if (!this._pickerCommit || !(await this._pickerCommit())) return this._closePicker();
+			const done = this._pickerCommit ? await this._pickerCommit() : false;
+			if (done === null) return;
+			if (!done) return this._closePicker();
 			const a = this.selectedAction && this._action(this.selectedAction);
 			if (a && this.state.docs.length >= a.minDocs) this._setStatus(this.T("chat.picker.ready", { label: a.label }));
 		});
@@ -1345,6 +1392,16 @@ var ZIAChatView = class {
 		search.focus();
 	}
 
+	/**
+	 * Muitos artigos de uma vez: confirma antes, com uma ideia dos pedidos que cada comparação vai fazer
+	 * (um por lote de 10, mais a síntese). Devolve true para continuar.
+	 */
+	_confirmMany(n) {
+		if (n <= this.MANY_CONFIRM) return true;
+		const r = Math.ceil(n / this.L.BATCH_SIZE) + 1;
+		return this.win.confirm(this.T("chat.picker.manyConfirm", { n, r }));
+	}
+
 	/** Junta todos os artigos de uma coleção e indica-a como "Coleção: X". */
 	async _addWholeCollection(c) {
 		this._closePicker();
@@ -1353,6 +1410,7 @@ var ZIAChatView = class {
 			this._setStatus(this.T("chat.emptyCollection", { name: r.name || c.name }), "warn");
 			return;
 		}
+		if (!this._confirmMany(this.state.docs.length + r.items.length)) return;
 		this.collectionIDs = [c.id];
 		this.collectionName = r.name || c.name;
 		const before = this.state.docs.length;
@@ -1478,10 +1536,6 @@ var ZIAChatView = class {
 		if (this.historyKey && this.core.saveConversation) {
 			this.core.saveConversation(this.historyKey, { convs: this.state.convs, active: this.state.active });
 		}
-	}
-
-	clearConversation() {
-		this.newConversation();
 	}
 
 	/**
@@ -1754,17 +1808,17 @@ var ZIAChatView = class {
 	}
 
 	/**
-	 * Cada ação e cada pergunta têm o seu separador: a ação vai para o separador dela (ou um novo),
-	 * a pergunta abre um novo. Um separador vazio é aproveitado.
+	 * Cada ação tem o seu separador: vai para o separador dela (ou um novo). Uma pergunta fica no
+	 * separador à vista, para se poder continuar a conversa ("e quanto à amostra?"): leva as últimas
+	 * trocas desse separador (ver selectHistory). Um separador vazio é aproveitado.
 	 */
 	_routeConversation(actionID) {
 		this._ensureConvs();
-		if (actionID) {
-			const i = this._findConvFor(actionID);
-			if (i >= 0) {
-				if (i !== this.state.active) this._switchTo(i);
-				return;
-			}
+		if (!actionID) return;
+		const i = this._findConvFor(actionID);
+		if (i >= 0) {
+			if (i !== this.state.active) this._switchTo(i);
+			return;
 		}
 		if (this.state.messages.length) {
 			const fresh = [];
@@ -1933,7 +1987,6 @@ var ZIAChatView = class {
 		});
 	}
 
-	/** Ação sobre fichas: reutiliza notas "Ficha IA" e cria as que faltam. */
 	/** Erro só deste PDF (não está no computador, sem texto, com senha): salta e segue. */
 	_skippableError(msg) {
 		return msg && msg.errorKind === "doc";
@@ -2078,6 +2131,8 @@ var ZIAChatView = class {
 					if (typeof src.pageOffset === "number" && src.pageOffset !== 0) offs[d.id] = src.pageOffset;
 				}
 				if (Object.keys(offs).length) botMsg.pageOffsets = offs;
+				const lit = this.L.literalDocIds(Object.values(pool), Object.keys(this.state.allDocs));
+				if (lit.length) botMsg.literalIds = lit;
 				botMsg.check = this.L.verifyAnswer(botMsg.text, pool);
 			}
 			catch (e) { this.core.log("Verificação: " + e); }
@@ -2465,6 +2520,8 @@ var ZIAChatView = class {
 					if (src && typeof src.pageOffset === "number" && src.pageOffset !== 0) offs[d.id] = src.pageOffset;
 				}
 				if (Object.keys(offs).length) botMsg.pageOffsets = offs;
+				const lit = this.L.literalDocIds(Object.values(pool), Object.keys(this.state.allDocs));
+				if (lit.length) botMsg.literalIds = lit;
 				botMsg.check = this.L.verifyAnswer(botMsg.text, pool);
 			}
 			catch (e) { this.core.log("Verificação: " + e); }
@@ -2698,11 +2755,14 @@ var ZIAChatView = class {
 	_docsMap(m) {
 		const base = this.state.allDocs;
 		const offs = m && m.pageOffsets;
-		if (!offs) return base;
+		const lit = m && m.literalIds && m.literalIds.length ? m.literalIds : null;
+		if (!offs && !lit) return base;
 		const out = Object.assign({}, base);
-		for (const id of Object.keys(offs)) {
+		for (const id of Object.keys(offs || {})) {
 			if (out[id] && out[id].pageOffset !== offs[id]) out[id] = Object.assign({}, out[id], { pageOffset: offs[id] });
 		}
+		// "D1" que o próprio PDF usa como nome (recetores D1 e D2): não se troca pelo autor
+		if (lit) Object.defineProperty(out, "literalIds", { value: new Set(lit), enumerable: false });
 		return out;
 	}
 
@@ -2805,8 +2865,6 @@ var ZIAChatView = class {
 		}
 		// Resposta: título da ação e x (o motor usado aparece por baixo do texto)
 		const head = this._el("div", "zia-msg-head");
-		m.collapsed = false;
-		el.classList.remove("zia-collapsed");
 		// Painel Avançado com separadores de conversa visíveis: o nome já está no separador, não se repete aqui
 		const nameInTab = this.mode === "section" && !this.simple && (this.state.convs || []).length > 1;
 		if (!nameInTab) head.appendChild(this._el("span", "zia-action-tag", this._actionTitle(m) || this.T("chat.question")));
@@ -2830,19 +2888,6 @@ var ZIAChatView = class {
 		if (nameInTab && !head.querySelector(".zia-action-extra")) head.classList.add("zia-head-x");
 		if (head.firstChild) el.appendChild(head);
 		if (m.confirmDel) el.appendChild(this._confirmDelEl(m));
-		if (m.collapsed) {
-			// Também recolhida se pode guardar como nota
-			if (!m.error && m.text) {
-				const save = this._saveNoteButton(m, "zia-head-save");
-				save.addEventListener("keydown", ev => ev.stopPropagation());
-				head.insertBefore(save, head.querySelector(".zia-msg-del"));
-			}
-			const asked = !m.actionLabel && m.asked ? m.asked + ": " : "";
-			const plain = String(m.error || m.text || "").replace(/\[D\d+[^\]]*\]/g, "").replace(/[#*_>`|]/g, "").replace(/\s+/g, " ").trim();
-			el.appendChild(this._el("div", "zia-preview" + (m.error ? " zia-preview-error" : ""),
-				(asked + plain).slice(0, 150) + ((asked + plain).length > 150 ? "…" : "")));
-			return;
-		}
 		if (m.warnings && m.warnings.length) {
 			const w = this._el("div", "zia-warn");
 			for (const t of m.warnings) w.appendChild(this._el("div", null, t));

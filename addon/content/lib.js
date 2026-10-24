@@ -866,7 +866,7 @@ var ZIALib = (function () {
 					d.keep = choosePages(d.usedPages, budget);
 					d.truncated = true;
 					const omitted = d.keep.filter(k => !k).length;
-					warnings.push(t("warn.pagesOmitted", { doc: `${d.id} (${d.ref})`, n: omitted }));
+					warnings.push(t("warn.pagesOmitted", { doc: d.ref, n: omitted }));
 				}
 			}
 			total = prepared.reduce((a, d) => {
@@ -892,7 +892,7 @@ var ZIALib = (function () {
 	}
 
 	// Marcas estruturais do pedido. Um PDF não as pode imitar para "sair" do seu bloco.
-	const STRUCT_TAG_RE = /<(\/?)(documentos?|pedido|historico|mensagem|p|omitido|anotacoes|texto)(?=[\s>\/])/gi;
+	const STRUCT_TAG_RE = /<(\/?)(documentos?|pedido|historico|mensagem|p|omitido|anotacoes|texto|instrucoes_de_sistema)(?=[\s>\/])/gi;
 
 	function neutralizeTags(s) {
 		return String(s == null ? "" : s).replace(STRUCT_TAG_RE, "‹$1$2");
@@ -1743,14 +1743,18 @@ var ZIALib = (function () {
 	 */
 	function replaceDocIds(text, docsMap) {
 		if (!docsMap || !text) return text;
-		const known = id => !!docsMap[id];
+		// Nomes que o próprio PDF usa ("recetores D1 e D2", "vitamina D3") ficam como estão
+		const literal = docsMap.literalIds;
+		const known = id => !!docsMap[id] && !(literal && literal.has(id));
 		let s = String(text).replace(/\s*\(((?:D\d+)(?:\s*(?:,|;|e|and|&)\s*D\d+)*)\)/g, (all, inner) => {
 			const ids = inner.match(/D\d+/g) || [];
 			return ids.every(known) ? "" : all;
 		});
 		// "documento D1" / "document D1": fica só o autor e ano
-		s = s.replace(/\b(d|n)os?\s+documentos?\s+(D\d+)\b/gi, (all, dn, id) => (known(id) ? (dn === "d" ? "de " : dn === "D" ? "De " : dn === "n" ? "em " : "Em ") + id : all));
-		s = s.replace(/\b(?:(?:o|os|the)\s+)?(?:documentos?|documents?)\s+(D\d+)\b/gi, (all, id) => (known(id) ? id : all));
+		// (aqui o D1 é sempre o documento, mesmo que o PDF use o mesmo nome noutro sentido)
+		const refOf = id => docsMap[id].ref || docsMap[id].shortRef || id;
+		s = s.replace(/\b(d|n)os?\s+documentos?\s+(D\d+)\b/gi, (all, dn, id) => (docsMap[id] ? (dn === "d" ? "de " : dn === "D" ? "De " : dn === "n" ? "em " : "Em ") + refOf(id) : all));
+		s = s.replace(/\b(?:(?:o|os|the)\s+)?(?:documentos?|documents?)\s+(D\d+)\b/gi, (all, id) => (docsMap[id] ? refOf(id) : all));
 		s = s.replace(/\bD(\d+)\b/g, (all) => (known(all) ? (docsMap[all].ref || docsMap[all].shortRef || all) : all));
 		// "Silva et al., 2021 (Silva et al., 2021)" ou "(Silva et al., 2021) (Silva…)": sem repetir
 		for (const id of Object.keys(docsMap)) {
@@ -1760,6 +1764,22 @@ var ZIALib = (function () {
 			s = s.replace(new RegExp(`${r}\\s*\\(${r}\\)`, "g"), ref);
 		}
 		return s;
+	}
+
+	/**
+	 * Identificadores (D1, D2…) que aparecem como palavras no texto dos próprios PDFs, por exemplo
+	 * "recetores D1 e D2" num artigo de neurociência. Nesses, o D1 do texto não é trocado pelo autor.
+	 */
+	function literalDocIds(docs, ids) {
+		const want = new Set(ids || []);
+		const out = new Set();
+		for (const d of docs || []) {
+			if (!d || !Array.isArray(d.pages)) continue;
+			for (const p of d.pages) {
+				for (const m of String(p).matchAll(/\bD\d+\b/g)) if (want.has(m[0])) out.add(m[0]);
+			}
+		}
+		return [...out].sort();
 	}
 
 	/** Numa célula de tabela com apenas "D1", mostra o autor e o ano. */
@@ -2646,7 +2666,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, parseStances, removeStanceLines, studyToAnki, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint, IAEDU_DEFAULT_ENDPOINT, IAEDU_DEFAULT_CHANNEL,
-		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, setCiteFormatter, replaceDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, setCiteFormatter, replaceDocIds, literalDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 
