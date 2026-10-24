@@ -75,6 +75,8 @@ Open it from the "Several articles" bar at the top of the panel, from the right-
 
 **Large collections (more than 12 articles).** Tables are built in batches of 10 articles and joined into one table, with the synthesis written from it at the end, so nothing is cut off. The literature review is written theme by theme. Long tables get their own scroll area with a fixed header, a search box and filters (for example, only the articles that answer "No"). An article whose PDF cannot be read is left out and listed, instead of stopping the rest. Every table, and the topic map, exports to Excel (CSV).
 
+**Limits.** There is no fixed limit on the number of articles. Up to 12, a comparison is a single request and each engine has a text limit per request, so very long PDFs may have pages cut (the answer says which). From 13 on, about one request per 10 articles plus one for the synthesis (50 articles are about 6 requests). From 100 articles the app asks for confirmation. What limits you in practice is your account: free accounts have per-minute and daily quotas. When a per-minute limit is reached the app waits and carries on by itself, and if it stops, "Continue where it stopped" does only what is missing.
+
 ![Topic map](docs/screenshots/theme-map.png)
 
 ### Citations and notes

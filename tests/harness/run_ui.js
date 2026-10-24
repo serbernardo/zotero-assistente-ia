@@ -1237,6 +1237,9 @@ async function main() {
 			const b = document.querySelector(s).getBoundingClientRect();
 			return b.top >= 0 && b.bottom <= window.innerHeight && b.height > 0;
 		}, sel);
+		// aviso de quantos pedidos a ação vai fazer (só com mais de 12 artigos)
+		assert.match(await page.textContent(".zia-large-note"), /^50 artigos: o trabalho faz-se em 5 lotes de 10, cerca de 6 pedidos ao motor/);
+		assert.ok(await dentro(".zia-large-note"), "o aviso fica dentro da janela");
 		assert.ok(await dentro(".zia-input"), "a caixa de texto fica dentro da janela");
 		assert.ok(await dentro(".zia-send"), "o Enviar fica dentro da janela");
 		// aberta a lista toda, com as fichas também abertas, continua tudo à vista
@@ -1252,6 +1255,11 @@ async function main() {
 		assert.ok(await dentro(".zia-input"), "com a lista aberta a caixa continua dentro da janela");
 		assert.ok(await dentro(".zia-send"), "com a lista aberta o Enviar continua dentro da janela");
 		await page.screenshot({ path: path.join(OUT, "ui_janela_muitos_artigos.png") });
+		// revisão de literatura: tema a tema. Mapa de temas: um só pedido, sem aviso
+		await page.click('button[data-action="cmp_sintese"]');
+		assert.match(await page.textContent(".zia-large-note"), /50 artigos: a revisão escreve-se tema a tema/);
+		await page.click('button[data-action="temas"]');
+		assert.equal(await page.isHidden(".zia-large-note"), true, "o mapa de temas faz um só pedido: sem aviso");
 		await page.close();
 		console.log("OK janela com 50 artigos: lista encolhida com a contagem, e a caixa e o Enviar sempre dentro da janela");
 	}
@@ -1332,6 +1340,7 @@ async function main() {
 		await page.waitForSelector(".zia-picker-row");
 		await page.check(".zia-picker-all input");
 		let msg = "";
+		assert.match(await page.textContent(".zia-picker-many"), /^120 artigos escolhidos: cada comparação faz cerca de 14 pedidos ao motor/, "o aviso do seletor traz a estimativa");
 		page.once("dialog", d => { msg = d.message(); d.dismiss(); });
 		await page.click(".zia-picker button.zia-btn-primary");
 		await page.waitForTimeout(100);

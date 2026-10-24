@@ -1807,6 +1807,8 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-picker-bulk { display: flex; gap: 6px; margin: 4px 0; }
 .zia-picker-many { font-size: 11.5px; color: var(--zia-orange); margin: 4px 0; }
 .zia-picker-many[hidden] { display: none; }
+.zia-large-note { font-size: 11.5px; line-height: 1.4; color: var(--zia-fg2); background: var(--zia-accent-soft); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+.zia-large-note[hidden] { display: none; }
 .zia-multi-strip { background: linear-gradient(135deg, var(--zia-accent-soft), var(--zia-bg) 70%); border-color: color-mix(in srgb, var(--zia-accent) 30%, var(--zia-border)); }
 .zia-multi-icon { background: var(--zia-accent); color: var(--zia-on-accent); width: 28px; height: 28px; border-radius: 9px; box-shadow: 0 1px 3px color-mix(in srgb, var(--zia-accent) 40%, transparent); }
 

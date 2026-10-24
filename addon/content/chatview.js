@@ -326,6 +326,10 @@ var ZIAChatView = class {
 		root.appendChild(this.tabsEl);
 		this.actionsEl = this._el("div", "zia-actions");
 		root.appendChild(this.actionsEl);
+		// Janela: com mais de 12 artigos, uma linha a dizer quantos pedidos a ação escolhida vai fazer
+		this.largeNoteEl = this._el("div", "zia-large-note");
+		this.largeNoteEl.hidden = true;
+		root.appendChild(this.largeNoteEl);
 		// Painel Avançado: indicações para a próxima ação (abrem com "+ indicações") e "ou" antes da pergunta
 		this.hintsEl = this._el("div", "zia-hints");
 		this.hintsEl.hidden = true;
@@ -1106,7 +1110,27 @@ var ZIAChatView = class {
 		if (this.inputEl) this.inputEl.hidden = this.mode === "window" && !this.selectedAction && !this.busy;
 	}
 
+	/**
+	 * Aviso da janela com muitos artigos: a ação escolhida (comparar, perguntar, revisão) faz o trabalho
+	 * por lotes e gasta vários pedidos. Aparece só quando é preciso e com os números certos.
+	 */
+	_renderLargeNote() {
+		const el = this.largeNoteEl;
+		if (!el) return;
+		const mode = this.mode === "window" && this.selectedAction
+			? this.L.largeMode(this.selectedAction, this.state.docs.length) : null;
+		el.hidden = !mode;
+		el.textContent = "";
+		if (!mode) return;
+		const n = this.state.docs.length;
+		const b = Math.ceil(n / this.L.BATCH_SIZE);
+		el.textContent = mode === "themes"
+			? this.T("win.largeNote.themes", { n })
+			: this.T("win.largeNote", { n, b, r: b + 1 });
+	}
+
 	_updatePlaceholder() {
+		this._renderLargeNote();
 		this._syncInput();
 		const a = this.selectedAction && this._action(this.selectedAction);
 		// Relevância, pergunta e colunas precisam de texto escrito: a caixa diz o que escrever
@@ -1315,7 +1339,7 @@ var ZIAChatView = class {
 			addBtn.textContent = this.T("chat.picker.add", { n: chosen.size });
 			addBtn.disabled = !chosen.size;
 			many.hidden = chosen.size <= 50;
-			many.textContent = this.T("chat.picker.many", { n: chosen.size });
+			many.textContent = this.T("chat.picker.many", { n: chosen.size, r: Math.ceil((inConv.size + chosen.size) / this.L.BATCH_SIZE) + 1 });
 		};
 		allCb.addEventListener("change", () => {
 			for (const r of visible()) {

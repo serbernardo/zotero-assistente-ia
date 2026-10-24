@@ -169,6 +169,11 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   antigo (`_addItems` procura em `allDocs`). A meio de um pedido nao muda nada (`win.busyReplace`).
 - **Muitos artigos de uma vez:** acima de 100 (`MANY_CONFIRM`) o seletor e "Juntar a colecao toda"
   pedem confirmacao com a estimativa de pedidos (`_confirmMany`). Ao desistir o seletor fica aberto.
+  Nao ha limite fixo de artigos: o que limita e o texto por pedido de cada motor (`maxChars`) e a quota
+  da conta. Para o utilizador saber, ha tres avisos: o do seletor (acima de 50 escolhidos, com `r` = lotes
+  + 1 pedidos), a confirmacao (acima de 100) e a linha `.zia-large-note` da janela (`_renderLargeNote`,
+  `win.largeNote`, `win.largeNote.themes`), que so aparece com mais de 12 artigos e uma acao que faz
+  lotes ou revisao por temas. README e GUIA tem a frase "Limites".
 - **Citacoes ao estilo APA de cada lingua:** dois autores com "e" em PT e "&" em ingles
   (`ref.and`); varias fontes no mesmo parentesis separadas por ";" e varias paginas do
   mesmo documento juntas (`joinCites`): (Silva et al., 2021, pp. 1, 5; Costa, 2019, p. 3).
