@@ -295,7 +295,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   fina desenhados em SVG (`_icon`, `_iconButton`). Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
   (`.zia-multi-strip`) abre a janela com o artigo. Sem botoes no titulo da seccao do Zotero (sem
   `sectionButtons`) e sem "Abrir em janela" nem "Comparar artigos ↗" no rodape.
-- **Painel = um artigo:** no painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
+- **Painel = um artigo:** o seletor de artigos nunca abre no painel (`_openPicker` sai se o modo nao for a janela).
+  Num registo sem PDF os botoes das acoes ficam inativos e clicar mostra `chat.noPdfAction` (abre a janela). Teste
+  "registo sem PDF" em `run_ui.js`. No painel nao ha "+ PDF" nem "D1" nos chips. Varios PDFs
   so na janela (com "+ Artigos" na barra de cima). O cartao "sem PDF" tem
   "Abrir a janela do assistente" e "Comparar uma colecao". Na janela, o "i" das
   fichas tambem aparece junto de "Usar fichas" e a lista das fichas em Comparar.

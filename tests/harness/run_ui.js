@@ -1174,6 +1174,34 @@ async function main() {
 		await page.close();
 	}
 
+	// ---------- Registo sem PDF: o seletor de artigos nunca abre no painel lateral ----------
+	for (const uimode of ["simple", "advanced"]) {
+		const page = await open("?mode=section&uimode=" + uimode, { width: 420, height: 900 });
+		await page.evaluate(async () => {
+			const it = { id: 501, key: "NOPDF2", libraryID: 1, isRegularItem: () => true, isAttachment: () => false, isPDFAttachment: () => false,
+				getAttachments: () => [], getBestAttachment: async () => null, getField: () => "", getCreators: () => [], getDisplayTitle: () => "Livro sem PDF", getNotes: () => [] };
+			await view.showItem(it);
+		});
+		await page.waitForSelector("text=Este registo não tem PDF");
+		const calls = await page.evaluate(() => window.engineCalls || 0);
+		// as ações ficam inativas e, mesmo à força, não abrem o seletor nem enviam nada
+		const disabled = await page.evaluate(() => [...document.querySelectorAll(".zia-actions button[data-action]")].every(b => b.disabled));
+		assert.ok(disabled, `${uimode}: os botões das ações ficam inativos sem PDF`);
+		await page.evaluate(async () => {
+			for (const id of ["conceitos", "resumo", "relevancia"]) { view.selectAction(id); await view.runAction(id, { extra: "tema" }); }
+			view._runSimple && view._runSimple("conceitos");
+			view.textarea.value = "uma pergunta";
+			await view.sendQuestion();
+			await view._openPicker();
+		});
+		assert.equal(await page.locator(".zia-picker").isVisible(), false, `${uimode}: o seletor não abre no painel`);
+		assert.equal(await page.locator(".zia-picker-row, .zia-picker-all").count(), 0);
+		assert.match(await page.textContent(".zia-status"), /Este registo não tem PDF\. Abre a janela do assistente/);
+		assert.equal(await page.evaluate(() => window.engineCalls || 0), calls, "nada foi enviado ao motor");
+		await page.close();
+	}
+	console.log("OK registo sem PDF: no painel (Simples e Avançado) os botões ficam inativos e o seletor nunca abre");
+
 	// ---------- Todos os botões do painel (avançado e simples): cada um faz alguma coisa e nenhum dá erro ----------
 	for (const uimode of ["advanced", "simple"]) {
 		const snapshot = page => page.evaluate(() => JSON.stringify([

@@ -1220,7 +1220,8 @@ var ZIAChatView = class {
 
 	/** Mostra os artigos da lista do Zotero, para escolher os que se juntam à conversa. */
 	async _openPicker(reason) {
-		if (this.busy) return;
+		// O seletor de artigos é só da janela: no painel lateral nunca abre (o painel é para um artigo)
+		if (this.busy || this.mode !== "window") return;
 		const box = this.pickerEl;
 		if (!box.hidden && !reason && box.dataset.kind === "items") {
 			this._closePicker();
@@ -1504,11 +1505,15 @@ var ZIAChatView = class {
 		for (const [id, b] of Object.entries(this.actionButtons || {})) {
 			const a = this._action(id);
 			if (!a) continue;
-			b.disabled = this.busy || (n < a.minDocs && !this.core.pickableItems);
+			// Na janela, faltar artigos abre o seletor. No painel (um só artigo) o botão fica inativo
+			b.disabled = this.busy || (n < a.minDocs && (this.mode !== "window" || !this.core.pickableItems));
 			b.classList.toggle("zia-selected", this.selectedAction === id);
 			b.setAttribute("aria-pressed", this.selectedAction === id ? "true" : "false");
 			b.classList.toggle("zia-done", !!this._lastAnswerFor(id));
-			if (a.minDocs > 1 && n < a.minDocs) {
+			if (this.mode === "section" && n < 1) {
+				b.title = this.T("nopdf.title");
+			}
+			else if (a.minDocs > 1 && n < a.minDocs) {
 				b.title = this.mode === "section"
 					? this.T("chat.needDocs.section")
 					: this.T("chat.needDocs.window", { n: a.minDocs });
@@ -1741,6 +1746,14 @@ var ZIAChatView = class {
 		if (this.busy) return;
 		this.selectedAction = this.selectedAction === actionID ? null : actionID;
 		const a = this.selectedAction && this._action(this.selectedAction);
+		if (a && this.state.docs.length < a.minDocs && this.mode !== "window") {
+			// Painel lateral, registo sem PDF: não há nada a juntar aqui, explica e deixa a janela como saída
+			this.selectedAction = null;
+			this._renderPending();
+			this._updateButtons();
+			this._setStatus(this.T("chat.noPdfAction"), "warn");
+			return;
+		}
 		if (a && this.state.docs.length < a.minDocs) {
 			// Faltam PDFs (por exemplo, para comparar): abre logo o seletor
 			this._renderPending();
@@ -1890,7 +1903,7 @@ var ZIAChatView = class {
 			return;
 		}
 		if (!this.state.docs.length) {
-			this._setStatus(this.T("chat.addOne"), "warn");
+			this._setStatus(this.T(this.mode === "window" ? "chat.addOne" : "chat.noPdfAction"), "warn");
 			return;
 		}
 		if (!this._engineReady()) {
@@ -1923,6 +1936,10 @@ var ZIAChatView = class {
 			return;
 		}
 		let docs = this.state.docs.slice();
+		if (docs.length < a.minDocs && this.mode !== "window") {
+			this._setStatus(this.T("chat.noPdfAction"), "warn");
+			return;
+		}
 		// Artigos marcados no seletor ainda aberto: juntam-se logo (Enviar faz o mesmo que Juntar e pedir)
 		if (docs.length < a.minDocs && this._pickerCommit && await this._pickerCommit()) docs = this.state.docs.slice();
 		if (docs.length < a.minDocs) {
