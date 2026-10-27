@@ -418,7 +418,10 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   copia-se com Ctrl+C. Os comandos (PowerShell, Terminal) mantem o botao Copiar. Os blocos que
   abrem e fecham sao divs `.zia-pfold` (`.zia-pfold-head`, `.zia-pfold-body`, `initFolds`,
   `openFold`), nunca `<details>`: dentro de `<details>` as listas (select) nao abriam no Zotero.
-  Nao usar o nome `zia-fold`, que e do painel. Respostas e Creditos comecam abertas, Privacidade
+  Nao usar o nome `zia-fold`, que e do painel. Titulos dos campos (`<label data-zia-label>`): o texto vai para
+  DENTRO do elemento (`translate`), porque no Zotero um `<label>` nao mostra o atributo `label` (na 1.0.15 todos
+  os titulos das definicoes estavam invisiveis). O `run_prefs.js` ja nao tem a regra CSS que mostrava esse
+  atributo e confirma que todos os titulos tem texto. No IAEdu, "Apagar" limpa os tres campos e as prefs. Respostas e Creditos comecam abertas, Privacidade
   fechada. Sem "Acoes personalizadas" nas definicoes (estao no painel, separador Personalizado).
   "Procurar atualizacoes" esta no cartao dos Creditos.
 - **Buy me a coffee** (`coffeeButton`, `SUPPORT_URL`, `SUPPORT_ENABLED` em `zoteroia.js`): botao

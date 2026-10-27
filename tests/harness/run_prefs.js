@@ -22,7 +22,8 @@ function buildPage() {
 	body { font-family: system-ui, sans-serif; font-size: 13px; margin: 12px; background: #fff; }
 	button[label]::after { content: attr(label); }
 	checkbox { display: block; } checkbox::after { content: "☐ " attr(label); }
-	label[label]::after { content: attr(label); margin-right: 6px; }
+	/* Sem regra para label[label]: no Zotero um <label> só mostra o texto de dentro, nunca o atributo */
+	label { margin-right: 6px; }
 	groupbox { display: block; border: 1px solid #ddd; padding: 8px; margin: 8px 0; }
 	vbox { display: block; }
 </style></head><body>
@@ -283,6 +284,12 @@ async function main() {
 			.filter(i => i.offsetParent && i.type !== "number").map(i => i.id));
 		assert.deepEqual(order, ["zia-iaedu-endpoint", "zia-iaedu-key", "zia-iaedu-channel"], "três campos abertos e pela ordem certa");
 		assert.equal(await pg.locator("text=Usar outro agente").count(), 0, "sem secção escondida");
+		// Títulos dos campos visíveis: o texto fica dentro do <label> (o Zotero não mostra o atributo label)
+		const titles = await pg.evaluate(() => [...document.querySelectorAll('.zia-engine-panel[data-engine="iaedu"] .zia-iaedu-row label')]
+			.map(l => (l.getBoundingClientRect().width > 0 ? "" : "INVISÍVEL ") + l.textContent.trim()));
+		assert.deepEqual(titles, ["Endpoint da API:", "Chave da API:", "ID do Canal:"], "títulos antes dos três campos");
+		const semTexto = await pg.evaluate(() => [...document.querySelectorAll("label[data-zia-label]")].filter(l => !l.textContent.trim()).map(l => l.getAttribute("data-zia-label")));
+		assert.deepEqual(semTexto, [], "todos os títulos das definições têm texto à vista");
 		assert.match(await pg.textContent(".zia-iaedu-fields-note"), /mesmo cartão/);
 		assert.match(await pg.textContent('.zia-guide[data-guide="iaedu"]'), /Endpoint da API, a Chave da API e o ID do Canal/);
 		await pg.fill("#zia-iaedu-key", KEY);
@@ -336,6 +343,11 @@ async function main() {
 		await pg.click("#zia-iaedu-save");
 		await pg.waitForFunction(() => /mesmo cartão do IAEdu/.test(document.getElementById("zia-test-result").textContent));
 		await pg.screenshot({ path: path.join(OUT, "ui_definicoes_iaedu_erro.png"), fullPage: true });
+		// "Apagar" limpa os três campos e o que estava guardado
+		await pg.click("#zia-iaedu-clear");
+		await pg.waitForFunction(() => !document.getElementById("zia-iaedu-endpoint").value);
+		assert.deepEqual(await pg.evaluate(() => ["zia-iaedu-endpoint", "zia-iaedu-key", "zia-iaedu-channel"].map(id => document.getElementById(id).value)), ["", "", ""], "campos vazios depois de Apagar");
+		assert.deepEqual(await pg.evaluate(() => [window.PREFS["iaedu.endpoint"], window.PREFS["iaedu.channel"], window.PREFS["iaedu.key"]]), ["", "", ""], "nada fica guardado");
 		// O separador aberto distingue-se dos outros (fundo e barra azul) e o nome do motor aparece no passo 2
 		const look = await pg.evaluate(() => {
 			const st = sel => getComputedStyle(document.querySelector(sel));

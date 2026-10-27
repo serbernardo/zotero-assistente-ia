@@ -230,7 +230,13 @@ window.ZIAPrefs = {
 	translate() {
 		const root = this.$("zoteroia-prefs-root");
 		for (const el of root.querySelectorAll("[data-zia]")) el.textContent = this.T(el.getAttribute("data-zia"));
-		for (const el of root.querySelectorAll("[data-zia-label]")) el.setAttribute("label", this.T(el.getAttribute("data-zia-label")));
+		// Botões e caixas mostram o atributo "label". Os títulos dos campos (<label>) não: no Zotero só se vê
+		// o texto de dentro, por isso esse vai para o conteúdo (antes os títulos ficavam invisíveis)
+		for (const el of root.querySelectorAll("[data-zia-label]")) {
+			const text = this.T(el.getAttribute("data-zia-label"));
+			if (el.localName === "label") el.textContent = text;
+			else el.setAttribute("label", text);
+		}
 		for (const id of ["zia-pref-claude-path", "zia-pref-codex-path"]) {
 			const el = this.$(id);
 			if (el) el.setAttribute("placeholder", this.T("prefs.path.placeholder"));
@@ -592,6 +598,15 @@ window.ZIAPrefs = {
 		const core = this.core();
 		await core.setSecret(name, "");
 		core.setPref(name + ".lastTest", "");
+		// IAEdu: "Apagar" limpa os três campos (Endpoint, Chave e ID do Canal)
+		if (name === "iaedu") {
+			core.setPref("iaedu.endpoint", "");
+			core.setPref("iaedu.channel", "");
+			for (const id of ["zia-iaedu-endpoint", "zia-iaedu-key", "zia-iaedu-channel"]) {
+				const el = this.$(id);
+				if (el) el.value = "";
+			}
+		}
 		this.refresh();
 		this.setText("zia-test-result", this.T("prefs.keyDeleted"));
 		this.$("zia-test-result").className = "zia-test-result";
