@@ -300,8 +300,11 @@ var ZIAChatView = class {
 		bar.appendChild(this.docsEl);
 		const tools = this._el("div", "zia-bar-tools");
 		if (this.mode === "window") {
-			tools.appendChild(this._button(this.T("chat.addPdf"), "zia-btn-small", () => this._openPicker(),
-				this.T("chat.addPdf.tip")));
+			// "+ Artigos" é o primeiro passo na janela: em destaque enquanto não há artigos, mais discreto depois
+			this.addBtn = this._button(this.T("chat.addPdf"), "zia-btn-small zia-add-articles", () => this._openPicker(),
+				this.T("chat.addPdf.tip"));
+			this.addBtn.insertBefore(this._icon("docs"), this.addBtn.firstChild);
+			tools.appendChild(this.addBtn);
 		}
 		this.engineSel = this._select("zia-engine", this.T("chat.engine.tip"));
 		this.engineSel.title = this.T("chat.engine.tip");
@@ -1166,6 +1169,7 @@ var ZIAChatView = class {
 
 	_renderDocs() {
 		this._updatePlaceholder();
+		if (this.addBtn) this.addBtn.classList.toggle("zia-has-docs", this.state.docs.length > 0);
 		const box = this.docsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
 		box.hidden = false;
@@ -1530,11 +1534,13 @@ var ZIAChatView = class {
 		for (const t of this.tabsEl.querySelectorAll(".zia-tab")) t.disabled = this.busy && t.getAttribute("aria-selected") !== "true";
 	}
 
+	/**
+	 * Abre a janela do assistente vazia: os artigos escolhem-se lá (com "+ Artigos"). Trazer o artigo do
+	 * painel obrigava a tirá-lo quando não fazia parte da comparação. Se a janela já estiver aberta,
+	 * fica com os artigos que tinha.
+	 */
 	openInWindow({ group } = {}) {
-		const items = this.state.docs
-			.map(d => Zotero.Items.get(d.parentID || d.attachmentID))
-			.filter(Boolean);
-		this.core.openWindow({ items, collectionIDs: this.core.selectedCollectionIDs(), group });
+		this.core.openWindow({ items: [], collectionIDs: this.core.selectedCollectionIDs(), group });
 	}
 
 	// ------------------------------------------------------------------

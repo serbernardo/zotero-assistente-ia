@@ -130,6 +130,7 @@ async function main() {
 		assert.equal(await page.locator(".zia-top .zia-btn-icon").count(), 1, "definições na linha do título");
 		await page.click(".zia-multi-strip");
 		assert.ok(await page.evaluate(() => !!window.openedWindow), "a faixa abre a janela do assistente");
+		assert.equal(await page.evaluate(() => window.openedWindow.items.length), 0, "a janela abre vazia, sem o artigo do painel");
 		// PT/EN no painel muda a língua de tudo
 		await page.click('.zia-langswitch [data-lang="en"]');
 		await page.waitForSelector(".zia-multi-text b:has-text(\"Several articles\")");

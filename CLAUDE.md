@@ -293,7 +293,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Linha de cima do painel** (`.zia-top`): sem titulo (o Zotero ja mostra "Assistente IA" no cabecalho),
   PT/EN (`.zia-langswitch`, muda `ui.lang` e redesenha) e definicoes (roda dentada, icone `gear`, desenhada em `_icon`). Icones em linha
   fina desenhados em SVG (`_icon`, `_iconButton`). Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
-  (`.zia-multi-strip`) abre a janela com o artigo. Sem botoes no titulo da seccao do Zotero (sem
+  (`.zia-multi-strip`) abre a janela vazia (`openInWindow`, a pedido: os artigos escolhem-se la).
+  Na janela, "+ Artigos" (`.zia-add-articles`, `this.addBtn`) e cheio na cor principal enquanto nao ha artigos e
+  passa a fundo azul claro com artigos (`.zia-has-docs`, em `_renderDocs`), para nao competir com o Enviar. Sem botoes no titulo da seccao do Zotero (sem
   `sectionButtons`) e sem "Abrir em janela" nem "Comparar artigos ↗" no rodape.
 - **Painel = um artigo:** o seletor de artigos nunca abre no painel (`_openPicker` sai se o modo nao for a janela).
   Num registo sem PDF os botoes das acoes ficam inativos e clicar mostra `chat.noPdfAction` (abre a janela). Teste

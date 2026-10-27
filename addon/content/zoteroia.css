@@ -1903,3 +1903,10 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 #zia-engines .zia-etab.selected { color: var(--zia-accent); background: var(--zia-accent-soft); border-color: var(--zia-border); border-bottom-color: transparent; box-shadow: inset 0 -3px 0 var(--zia-accent); }
 #zia-engines .zia-etab:not(.selected) { color: var(--zia-fg2); }
 .zia-step-engine { color: var(--zia-accent); }
+
+/* Janela: "+ Artigos" em destaque (é o primeiro passo). Cheio na cor principal sem artigos,
+   fundo azul claro depois, para não competir com o Enviar */
+.zia-btn.zia-add-articles { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 10px; border-radius: 8px; font-weight: 600; background: var(--zia-accent); color: var(--zia-on-accent); border: 1px solid var(--zia-accent); box-shadow: 0 1px 3px color-mix(in srgb, var(--zia-accent) 35%, transparent); }
+.zia-btn.zia-add-articles:hover { filter: brightness(1.06); }
+.zia-btn.zia-add-articles.zia-has-docs { background: var(--zia-accent-soft); color: var(--zia-accent); border-color: color-mix(in srgb, var(--zia-accent) 35%, var(--zia-border)); box-shadow: none; }
+.zia-btn.zia-add-articles .zia-icon { width: 15px; height: 15px; }
