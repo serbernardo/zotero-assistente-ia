@@ -267,6 +267,9 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   Um PDF ilegivel fica de fora e avisado; um erro do motor para, mas o que ja veio fica na resposta, e "Tentar de novo"
   refaz tudo (`request.large`, `_startLarge`). "Usar fichas" so se liga sozinho entre 6 e 12 artigos (`_fichasAuto`):
   com mais, os lotes chegam e as fichas seriam um pedido a mais por artigo (56 pedidos em vez de 6 com 50 artigos).
+  O texto da caixa diz o que vai acontecer (`_renderFichasLabel`): "Criar as 8 fichas e usa-las (8 pedidos a mais)",
+  "Usar fichas (3 feitas, criar as 5 em falta)" ou "Usar as 8 fichas ja feitas". So na janela: no painel (um artigo)
+  nao ha "Usar fichas".
 - **Limite de pedidos por minuto** (`LIMIT_WAITS` = 30, 60 e 90 s, `LIMIT_PACE` = 15 s, `_waitsOnLimit`, `_limitPause`,
   `_askWaiting`): so nos motores com chave (IAEdu, Claude API, ChatGPT API). O Gemini ja espera sozinho e o limite da
   subscricao do Claude Code e do Codex dura horas. Num lote (`_engineCall`) ou num pedido de uma serie (fichas),
@@ -280,8 +283,11 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   linhas" e filtros por uma coluna de categorias (2 a 5 valores curtos, `_categoryColumn`: Resposta). O CSV
   exporta sempre a tabela inteira. Botao "Exportar para Excel (CSV)" (`;` e BOM, abre em colunas no Excel portugues).
   Mapa de temas exporta uma linha por artigo e tema (`themesToCSV`). Revisao de literatura com indice (`_tocRow`).
-- **Seletor + Artigos** (`_openPicker`): pesquisa com lupa, "Toda a biblioteca" e "Coleção" (lista das
-  coleções ao lado) em botoes, "Ordenar" discreto a direita (Mais recentes, Autor, Ano, Titulo). Sem "Pasta
+- **Seletor + Artigos** (`_openPicker`): pesquisa com lupa, "Toda a biblioteca" e "Coleção" em botoes. "Coleção"
+  mostra a lista das colecoes NO LUGAR dos artigos, como no Zotero (`renderCols`, `.zia-col-pick`: pasta, nome,
+  subcolecoes recuadas, numero de artigos com PDF `pdfCount`, seta). Clicar abre a colecao, com o caminho
+  "‹ Colecoes · Tese" (`.zia-picker-crumb`, `.zia-picker-back`) para voltar. Sem lista suspensa (a pedido: era
+  pouco visivel). A pesquisa filtra as colecoes nessa vista ("Procurar colecao"), "Ordenar" discreto a direita (Mais recentes, Autor, Ano, Titulo). Sem "Pasta
   aberta". Linhas compactas de duas linhas (autor e ano a negrito, titulo por baixo, `x.ref`/`x.title`
   de `pickableItems`). Uma caixa "Marcar todos (N)" por cima do primeiro artigo marca e desmarca os artigos
   visiveis (a pesquisa conta, fica mista com so alguns). Rodape: "Escolhidos: N", "Juntar a colecao toda"
@@ -555,7 +561,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.14.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.15.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica

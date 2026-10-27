@@ -1838,8 +1838,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-picker-seg { display: inline-flex; background: var(--zia-sand); border-radius: 10px; padding: 3px; gap: 2px; }
 .zia-picker-segbtn { display: inline-flex; align-items: center; gap: 5px; border: none; background: none; border-radius: 7px; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 600; color: var(--zia-fg2); cursor: pointer; height: auto; min-height: 0; }
 .zia-picker-segbtn.on { background: var(--zia-bg); color: var(--zia-accent); box-shadow: 0 1px 2px rgba(17, 23, 41, 0.12); }
-.zia-picker-segbtn[hidden], .zia-picker-colsel[hidden] { display: none; }
-.zia-picker-colsel { min-width: 140px; max-width: 220px; }
+.zia-picker-segbtn[hidden], .zia-picker-sortwrap[hidden] { display: none; }
 .zia-picker-sortwrap { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 4px; color: var(--zia-fg2); }
 .zia-picker-sortwrap .zia-picker-sortsel { flex: none; min-width: 0; }
 .zia-picker-sortwrap .zia-dd-btn { border: none; background: none; padding: 2px 4px; font-weight: 600; color: var(--zia-fg); }
@@ -1912,3 +1911,15 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-btn.zia-add-articles .zia-icon { width: 15px; height: 15px; }
 .zia-bar > .zia-add-articles { flex: none; align-self: flex-start; }
 .zia-bar > .zia-add-articles + .zia-docs { align-self: center; }
+
+/* Seletor: lista das coleções no lugar dos artigos (pasta, nome, artigos com PDF e seta) e o caminho para voltar */
+.zia-col-pick { display: flex; align-items: center; gap: 8px; }
+.zia-col-pick .zia-icon { flex: none; color: var(--zia-fg2); }
+.zia-col-pick .zia-col-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zia-col-pick.zia-col-selected::after { content: none; }
+.zia-col-count { flex: none; font-size: 11px; color: var(--zia-fg2); background: var(--zia-sand); border-radius: 10px; padding: 1px 7px; min-width: 1.6em; text-align: center; }
+.zia-col-count:empty { display: none; }
+.zia-picker-crumb { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin: 2px 0 6px; }
+.zia-picker-crumb[hidden] { display: none; }
+.zia-picker-crumb-sep { color: var(--zia-fg2); }
+.zia-picker-crumb-name { font-weight: 600; }

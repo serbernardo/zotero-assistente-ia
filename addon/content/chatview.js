@@ -346,7 +346,9 @@ var ZIAChatView = class {
 		// Escolha da pessoa: deixa de mudar sozinha com o número de artigos
 		this.useFichas.addEventListener("change", () => { this._fichasAuto = false; });
 		fichasLabel.appendChild(this.useFichas);
-		fichasLabel.appendChild(this.doc.createTextNode(this.T("chat.fichas")));
+		// O texto diz o que vai acontecer: criar as fichas, criar só as que faltam ou usar as que já existem
+		this.fichasText = this.doc.createTextNode(this.T("chat.fichas"));
+		fichasLabel.appendChild(this.fichasText);
 		fichasLabel.title = this.T("chat.fichas.tip");
 		this.fichasLabel = fichasLabel;
 
@@ -625,19 +627,26 @@ var ZIAChatView = class {
 				box.appendChild(ex);
 			}
 		}
-		if (this.group !== "compreender" && !custom) {
-			box.appendChild(this.fichasLabel);
-			if (this.mode === "window" && this.group !== "escrever") {
-				const info = this._button("i", "zia-info-btn", () => {
-					this._fichaInfoOpen = !this._fichaInfoOpen;
-					this._renderActions();
-				}, this.T("ficha.info.tip"));
-				info.setAttribute("aria-expanded", this._fichaInfoOpen ? "true" : "false");
-				box.appendChild(info);
-				if (this._fichaInfoOpen) box.appendChild(this._fichaInfoEl());
-			}
-		}
+		// Sem "Usar fichas" no painel: as fichas só servem com vários artigos, e o painel é para um
 		this._updateButtons();
+	}
+
+	/**
+	 * Texto de "Usar fichas" conforme as fichas que já existem: "Criar as 8 fichas e usá-las (8 pedidos a mais)",
+	 * "Usar fichas (3 feitas, criar as 5 em falta)" ou "Usar as 8 fichas já feitas". Antes dizia sempre "Usar
+	 * fichas", mesmo quando ainda não havia nenhuma (e então criava-as primeiro, um pedido por artigo).
+	 */
+	_renderFichasLabel() {
+		if (!this.fichasText) return;
+		const docs = this.state.docs;
+		let done = 0;
+		for (const d of docs) {
+			try { if (d.parentID && this.core.findFichaNote && this.core.findFichaNote(d.parentID)) done++; }
+			catch (e) { /* sem acesso às notas */ }
+		}
+		const n = docs.length, m = n - done;
+		const key = n < 2 ? "chat.fichas" : !done ? "chat.fichas.create" : m ? "chat.fichas.partial" : "chat.fichas.all";
+		this.fichasText.textContent = " " + this.T(key, { n, k: done, m }).trim();
 	}
 
 	/** Explicação das fichas: o que são, onde ficam e os campos. */
@@ -1170,6 +1179,7 @@ var ZIAChatView = class {
 
 	_renderDocs() {
 		this._updatePlaceholder();
+		this._renderFichasLabel();
 		if (this.addBtn) this.addBtn.classList.toggle("zia-has-docs", this.state.docs.length > 0);
 		const box = this.docsEl;
 		while (box.firstChild) box.removeChild(box.firstChild);
@@ -1254,22 +1264,17 @@ var ZIAChatView = class {
 		sbox.appendChild(search);
 		box.appendChild(sbox);
 
-		// Onde procurar (toda a biblioteca ou uma coleção) e ordenar, numa só linha
+		// Onde procurar (toda a biblioteca ou uma coleção) e ordenar, numa só linha.
+		// "Coleção" mostra a lista das coleções no lugar dos artigos (como no Zotero), sem lista suspensa
 		const bar = this._el("div", "zia-picker-bar");
 		const seg = this._el("div", "zia-picker-seg");
 		const libBtn = this._button("", "zia-picker-segbtn on", () => setSource("library"));
 		libBtn.append(this._icon("shelf"), this.doc.createTextNode(this.T("chat.picker.source.library")));
 		seg.appendChild(libBtn);
-		const colBtn = this._button("", "zia-picker-segbtn", () => setSource("col:" + (colSel.value || "")));
+		const colBtn = this._button("", "zia-picker-segbtn", () => setSource("cols"));
 		colBtn.append(this._icon("folder"), this.doc.createTextNode(this.T("chat.picker.collection")));
 		seg.appendChild(colBtn);
 		bar.appendChild(seg);
-		const colSel = this._select("zia-picker-colsel", this.T("chat.picker.collection"));
-		for (const c of cols) colSel.addOption(String(c.id), "  ".repeat(c.depth) + c.name);
-		const preferred = cols.find(c => c.selected) || cols[0];
-		if (preferred) colSel.value = String(preferred.id);
-		colSel.hidden = true;
-		bar.appendChild(colSel);
 		const sortWrap = this._el("div", "zia-picker-sortwrap");
 		sortWrap.title = this.T("chat.picker.sort");
 		sortWrap.appendChild(this._icon("sort"));
@@ -1278,6 +1283,10 @@ var ZIAChatView = class {
 		sortWrap.appendChild(sortSel);
 		bar.appendChild(sortWrap);
 		box.appendChild(bar);
+		// Dentro de uma coleção: "‹ Coleções · Tese" para voltar à lista
+		const crumb = this._el("div", "zia-picker-crumb");
+		crumb.hidden = true;
+		box.appendChild(crumb);
 
 		// Lista: a caixa "Marcar todos" fica por cima do primeiro artigo
 		const head = this._el("label", "zia-picker-all");
@@ -1356,13 +1365,50 @@ var ZIAChatView = class {
 			}
 			refresh();
 		});
+		let colRows = [];
 		const filter = () => {
 			const q = search.value.trim().toLowerCase();
-			for (const r of rows) r.row.hidden = !!q && !r.text.includes(q);
+			for (const r of source === "cols" ? colRows : rows) r.row.hidden = !!q && !r.text.includes(q);
 			refresh();
+		};
+		// Artigos com PDF de uma coleção (o número ao lado do nome)
+		const pdfCount = id => {
+			try {
+				return (this.core.collectionItems(id).items || []).filter(it => (it.isRegularItem && it.isRegularItem()
+					? (it.getAttachments ? it.getAttachments() : []).some(a => { const x = Zotero.Items.get(a); return !!(x && x.isPDFAttachment && x.isPDFAttachment()); })
+					: !!(it.isPDFAttachment && it.isPDFAttachment()))).length;
+			}
+			catch (e) { return null; }
+		};
+		// Lista das coleções, com subcoleções e o número de artigos com PDF. Clicar abre a coleção
+		const renderCols = () => {
+			++loadID;
+			rows = [];
+			colRows = [];
+			while (ul.firstChild) ul.removeChild(ul.firstChild);
+			wholeBtn.hidden = true;
+			if (!cols.length) ul.appendChild(this._el("div", "zia-muted zia-picker-none", this.T("chat.picker.noCols")));
+			let lastLib = null;
+			for (const c of cols) {
+				if (c.library && c.library !== lastLib) {
+					lastLib = c.library;
+					ul.appendChild(this._el("div", "zia-picker-lib", c.library));
+				}
+				const row = this._button("", "zia-picker-row zia-col-row zia-col-pick" + (c.selected ? " zia-col-selected" : ""), () => setSource("col:" + c.id));
+				row.style.paddingInlineStart = (8 + c.depth * 16) + "px";
+				row.dataset.col = String(c.id);
+				const n = pdfCount(c.id);
+				const count = this._el("span", "zia-col-count", n == null ? "" : String(n));
+				if (n != null) count.title = this.T("chat.picker.colCount", { n });
+				row.append(this._icon("folder"), this._el("span", "zia-col-name", c.name), count, this._icon("chevron"));
+				colRows.push({ row, text: String(c.name).toLowerCase() });
+				ul.appendChild(row);
+			}
+			filter();
 		};
 		let loadID = 0;
 		const load = async () => {
+			if (source === "cols") return renderCols();
 			const my = ++loadID;
 			while (ul.firstChild) ul.removeChild(ul.firstChild);
 			ul.appendChild(this._el("div", "zia-muted zia-picker-msg", this.T("chat.picker.loading")));
@@ -1408,10 +1454,18 @@ var ZIAChatView = class {
 			source = v;
 			libBtn.classList.toggle("on", v === "library");
 			colBtn.classList.toggle("on", v !== "library");
-			colSel.hidden = v === "library" || !cols.length;
+			sortWrap.hidden = v === "cols";
+			search.value = "";
+			search.setAttribute("placeholder", this.T(v === "cols" ? "chat.picker.searchCols" : "chat.picker.search"));
+			while (crumb.firstChild) crumb.removeChild(crumb.firstChild);
+			const c = v.startsWith("col:") ? cols.find(x => "col:" + x.id === v) : null;
+			crumb.hidden = !c;
+			if (c) {
+				crumb.append(this._button("‹ " + this.T("chat.picker.collections"), "zia-link-btn zia-picker-back", () => setSource("cols")),
+					this._el("span", "zia-picker-crumb-sep", "·"), this._el("span", "zia-picker-crumb-name", c.name));
+			}
 			load();
 		};
-		colSel.addEventListener("change", () => setSource("col:" + colSel.value));
 		sortSel.addEventListener("change", () => {
 			rows.sort((r1, r2) => cmp[sortSel.value](r1.x, r2.x));
 			for (const r of rows) ul.appendChild(r.row);
@@ -1623,6 +1677,7 @@ var ZIAChatView = class {
 		// "Usar fichas" só onde faz diferença
 		if (a.fichasOK) {
 			const row = this._el("div", "zia-win-fichas");
+			this._renderFichasLabel();
 			row.appendChild(this.fichasLabel);
 			const info = this._button("i", "zia-info-btn", () => {
 				this._fichaInfoOpen = !this._fichaInfoOpen;
@@ -2117,6 +2172,7 @@ var ZIAChatView = class {
 			this._setStatus(this.T("chat.skipped", { n: falhadas.length, list: falhadas.join(", ") }), "warn");
 		}
 		else this._setStatus(this.T("chat.fichasDone", { reused, created }));
+		this._renderFichasLabel();
 		return { fichaDocs, falhadas, ok };
 	}
 

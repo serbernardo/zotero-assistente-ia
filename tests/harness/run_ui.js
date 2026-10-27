@@ -187,7 +187,21 @@ async function main() {
 		// coleção: escolher uma coleção vazia não mostra "Juntar a coleção toda", a escolha de antes fica
 		await page.check(".zia-picker-row:has-text(\"Outra pasta\") >> input");
 		await page.click(".zia-picker-segbtn:has-text(\"Coleção\")");
-		await dd(page, ".zia-picker-colsel", "8");
+		// "Coleção" mostra a lista das coleções no lugar dos artigos, com subcoleções e o número de artigos com PDF
+		await page.waitForSelector(".zia-col-pick");
+		assert.deepEqual(await page.$$eval(".zia-col-pick", rs => rs.map(r => r.querySelector(".zia-col-name").textContent + ":" + r.querySelector(".zia-col-count").textContent)),
+			["Tese:2", "Capítulo 1:0"], "lista das coleções com contagem");
+		assert.equal(await page.locator(".zia-picker-colsel").count(), 0, "sem lista suspensa");
+		assert.equal(await page.isHidden(".zia-picker-sortwrap"), true, "ordenar só nos artigos");
+		assert.match(await page.getAttribute(".zia-picker-search", "placeholder"), /Procurar coleção/);
+		await page.fill(".zia-picker-search", "capít");
+		assert.equal(await page.locator(".zia-col-pick:not([hidden])").count(), 1, "a pesquisa filtra as coleções");
+		await page.click('.zia-col-pick[data-col="8"]');
+		await page.waitForSelector(".zia-picker-none");
+		assert.match(await page.textContent(".zia-picker-crumb"), /‹ Coleções\s*·\s*Capítulo 1/, "caminho para voltar à lista");
+		await page.click(".zia-picker-back");
+		await page.waitForSelector(".zia-col-pick");
+		await page.click('.zia-col-pick[data-col="8"]');
 		await page.waitForSelector(".zia-picker-none");
 		assert.equal(await page.isHidden(".zia-picker-whole"), true, "coleção vazia: sem Juntar a coleção toda");
 		assert.match(await page.textContent(".zia-picker button.zia-btn-primary"), /Juntar \(1\)/, "a escolha de outra coleção fica");
@@ -1080,12 +1094,29 @@ async function main() {
 		await page.click(".zia-add-articles");
 		await page.waitForSelector(".zia-picker-row");
 		await page.click(".zia-picker-segbtn:has-text(\"Coleção\")");
-		await dd(page, ".zia-picker-colsel", "7");
+		await page.click('.zia-col-pick[data-col="7"]');
 		await page.click(".zia-picker-whole:has-text(\"Juntar a coleção toda (2)\")");
 		await page.waitForSelector(".zia-chip-col:has-text(\"Coleção: Tese\")");
 		await page.waitForSelector("text=Coleção «Tese» selecionada");
 		await page.waitForSelector(".zia-chip >> nth=1");
 		await page.click('[data-card="compare"]');
+		// "Usar fichas" diz o que vai acontecer: sem fichas feitas, cria-as primeiro (um pedido por artigo)
+		assert.match(await page.textContent(".zia-fichas-toggle"), /Usar fichas em vez do texto dos PDFs \(cria 2 agora, poupa tokens nas próximas vezes\)/);
+		const fichaTexts = await page.evaluate(() => {
+			const orig = ZoteroIA.findFichaNote;
+			const first = view.state.docs[0].parentID;
+			ZoteroIA.findFichaNote = id => (id === first ? { id: 1 } : null);
+			view._renderFichasLabel();
+			const partial = view.fichasLabel.textContent;
+			ZoteroIA.findFichaNote = () => ({ id: 1 });
+			view._renderFichasLabel();
+			const all = view.fichasLabel.textContent;
+			ZoteroIA.findFichaNote = orig;
+			view._renderFichasLabel();
+			return [partial, all];
+		});
+		assert.match(fichaTexts[0], /\(1 feitas, cria 1 agora\)/);
+		assert.match(fichaTexts[1], /Usar as 2 fichas em vez do texto dos PDFs \(poupa tokens\)/);
 		await page.check(".zia-fichas-toggle input");
 		await act(page, "comparar");
 		await page.waitForFunction(() => window.calls.length === 3 && !document.querySelector(".zia-stop"), null, { timeout: 30000 });
@@ -1310,6 +1341,12 @@ async function main() {
 		assert.deepEqual(r.docs, ["Zeta 2024"], "a conversa do último artigo só tem esse artigo");
 		assert.ok(r.x.length <= 1 && r.y.length <= 1, "nenhuma conversa fica com dois artigos misturados");
 		console.log("OK painel: passar depressa de artigo em artigo não mistura artigos na mesma conversa");
+		// No painel (um artigo) não há "Usar fichas", que só serve com vários artigos
+		for (const g of ["avaliar", "escrever", "investigar"]) {
+			await tab(page, g);
+			assert.equal(await page.locator(".zia-fichas-toggle").count(), 0, `sem Usar fichas no separador ${g} do painel`);
+		}
+		await tab(page, "compreender");
 
 		// Pergunta de seguimento: fica no mesmo separador e leva a troca anterior
 		await page.evaluate(() => { window.MOCK.answer = "A amostra tem 40 pessoas [D1:p1]."; });
