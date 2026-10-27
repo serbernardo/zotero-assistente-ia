@@ -36,7 +36,7 @@ async function main() {
 	};
 	// Janela: juntar os dois PDFs pelo seletor "+ Artigos"
 	const addAll = async page => {
-		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.click(".zia-add-articles");
 		await page.waitForSelector(".zia-picker-row");
 		await page.check(".zia-picker-all input");
 		await page.uncheck(".zia-picker-row:has-text(\"Outra pasta\") >> input");
@@ -159,7 +159,7 @@ async function main() {
 	{
 		const page = await open("?mode=window", { width: 820, height: 700 });
 		assert.equal(await page.locator("button:has-text(\"+ Coleção\")").count(), 0, "um só botão para juntar artigos");
-		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.click(".zia-add-articles");
 		await page.waitForSelector(".zia-picker-row");
 		// abre em toda a biblioteca (3 artigos), sem a opção "Pasta aberta"
 		assert.equal(await page.locator(".zia-picker-row").count(), 3, "toda a biblioteca");
@@ -823,7 +823,7 @@ async function main() {
 		assert.equal(await page.evaluate(() => window.engineCalls), 1);
 		// Coleção sem coleções: o botão aparece e explica como criar uma
 		await page.evaluate(() => { ZoteroIA.listCollections = () => []; });
-		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.click(".zia-add-articles");
 		await page.click(".zia-picker-segbtn:has-text(\"Coleção\")");
 		await page.waitForSelector("text=Ainda não tens coleções");
 		await page.close();
@@ -1077,7 +1077,7 @@ async function main() {
 			window.MOCK.answer = "| Campo | Conteúdo |\n|---|---|\n| Método | Inquérito [D1:p3] |";
 		});
 		// escolhe a coleção em "Procurar em", sem ter de a selecionar antes no Zotero, e junta-a toda
-		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.click(".zia-add-articles");
 		await page.waitForSelector(".zia-picker-row");
 		await page.click(".zia-picker-segbtn:has-text(\"Coleção\")");
 		await dd(page, ".zia-picker-colsel", "7");
@@ -1365,7 +1365,7 @@ async function main() {
 			const many = Array.from({ length: 120 }, (_, i) => window.paper("M" + i, 2001, ["M" + i], "MK" + i, ["p"]));
 			window.Zotero.Items.getAll = async () => many;
 		});
-		await page.click(".zia-bar-tools button:has-text(\"+ Artigos\")");
+		await page.click(".zia-add-articles");
 		await page.waitForSelector(".zia-picker-row");
 		await page.check(".zia-picker-all input");
 		let msg = "";

@@ -1910,3 +1910,5 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-btn.zia-add-articles:hover { filter: brightness(1.06); }
 .zia-btn.zia-add-articles.zia-has-docs { background: var(--zia-accent-soft); color: var(--zia-accent); border-color: color-mix(in srgb, var(--zia-accent) 35%, var(--zia-border)); box-shadow: none; }
 .zia-btn.zia-add-articles .zia-icon { width: 15px; height: 15px; }
+.zia-bar > .zia-add-articles { flex: none; align-self: flex-start; }
+.zia-bar > .zia-add-articles + .zia-docs { align-self: center; }

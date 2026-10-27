@@ -296,16 +296,17 @@ var ZIAChatView = class {
 
 		// Barra superior: documentos, motor e definições
 		const bar = this._el("div", "zia-bar");
-		this.docsEl = this._el("div", "zia-docs");
-		bar.appendChild(this.docsEl);
-		const tools = this._el("div", "zia-bar-tools");
+		// "+ Artigos" é o primeiro passo na janela: à esquerda, antes da lista dos artigos que junta,
+		// em destaque enquanto não há artigos e mais discreto depois
 		if (this.mode === "window") {
-			// "+ Artigos" é o primeiro passo na janela: em destaque enquanto não há artigos, mais discreto depois
 			this.addBtn = this._button(this.T("chat.addPdf"), "zia-btn-small zia-add-articles", () => this._openPicker(),
 				this.T("chat.addPdf.tip"));
 			this.addBtn.insertBefore(this._icon("docs"), this.addBtn.firstChild);
-			tools.appendChild(this.addBtn);
+			bar.appendChild(this.addBtn);
 		}
+		this.docsEl = this._el("div", "zia-docs");
+		bar.appendChild(this.docsEl);
+		const tools = this._el("div", "zia-bar-tools");
 		this.engineSel = this._select("zia-engine", this.T("chat.engine.tip"));
 		this.engineSel.title = this.T("chat.engine.tip");
 		this.engineSel.addEventListener("change", () => this._setEngine(this.engineSel.value));
