@@ -105,7 +105,7 @@ const json = (status, o) => new Response(JSON.stringify(o), { status });
 		if (re) assert.match(e.message, re);
 		return true;
 	});
-	await expectKind(mkWin(() => json(401, { detail: "Invalid API key" })), "auth", /chave do IAEdu/);
+	await expectKind(mkWin(() => json(401, { detail: "Invalid API key" })), "auth", /mesmo cartão do IAEdu|agente partilhado da UPorto/);
 	await expectKind(mkWin(() => json(403, { detail: "Forbidden" })), "auth");
 	await expectKind(mkWin(() => json(404, { detail: "Not Found" })), "other", /não encontrou o agente/);
 	await expectKind(mkWin(() => json(422, { detail: [{ msg: "Field required", loc: ["body", "channel_id"] }] })), "other", /Field required/);

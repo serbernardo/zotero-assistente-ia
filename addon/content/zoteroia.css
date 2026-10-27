@@ -1892,3 +1892,14 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-toc { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 2px 0 6px; }
 .zia-toc-label { font-size: 12px; font-weight: 700; color: var(--zia-fg2); }
 .zia-btn.zia-toc-item { border-radius: 20px; padding: 1px 10px; font-size: 12px; min-height: 0; height: auto; color: var(--zia-link); }
+
+/* IAEdu: os três campos alinhados, pela ordem do painel Informação da API */
+.zia-iaedu-row label { min-width: 8.5em; margin: 0; }
+.zia-iaedu-row input[type="text"], .zia-iaedu-row input[type="password"] { flex: 1 1 280px; max-width: 520px; }
+.zia-iaedu-fields-note { margin-top: 8px; }
+
+/* Separador do motor aberto bem visível: fundo azul claro, texto azul e barra azul por baixo.
+   A estrela continua a marcar só o motor em uso */
+#zia-engines .zia-etab.selected { color: var(--zia-accent); background: var(--zia-accent-soft); border-color: var(--zia-border); border-bottom-color: transparent; box-shadow: inset 0 -3px 0 var(--zia-accent); }
+#zia-engines .zia-etab:not(.selected) { color: var(--zia-fg2); }
+.zia-step-engine { color: var(--zia-accent); }

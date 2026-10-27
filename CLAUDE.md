@@ -291,7 +291,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   (`chat.picker.noCols`). Enviar com o seletor aberto junta os marcados e faz o pedido (`_pickerCommit`
   chamado em `runAction`). Faltando artigos, a acao fica escolhida na janela e a mensagem diz quantos faltam.
 - **Linha de cima do painel** (`.zia-top`): sem titulo (o Zotero ja mostra "Assistente IA" no cabecalho),
-  PT/EN (`.zia-langswitch`, muda `ui.lang` e redesenha) e definicoes (icone `sliders`). Icones em linha
+  PT/EN (`.zia-langswitch`, muda `ui.lang` e redesenha) e definicoes (roda dentada, icone `gear`, desenhada em `_icon`). Icones em linha
   fina desenhados em SVG (`_icon`, `_iconButton`). Por baixo, a faixa "Varios artigos · Comparar, perguntar, mapa de temas ›"
   (`.zia-multi-strip`) abre a janela com o artigo. Sem botoes no titulo da seccao do Zotero (sem
   `sectionButtons`) e sem "Abrir em janela" nem "Comparar artigos ↗" no rodape.
@@ -369,10 +369,16 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   `isIAEduEndpoint`): servico de IA para o ensino e a investigacao em Portugal. Por omissao
   liga ao agente "Assistente IA Zotero", partilhado com a UPorto (`IAEDU_DEFAULT_ENDPOINT` e
   `IAEDU_DEFAULT_CHANNEL` em `lib.js`, nao sao segredos: sem a chave pessoal nao responde).
-  O utilizador so cola a chave (cofre, cabecalho `x-api-key`). Quem nao e da UPorto abre "Usar
-  outro agente (opcional)" e cola o endereco (prefs `iaedu.endpoint`, tem de ser https e do
-  dominio iaedu.pt, senao nada e enviado) e o ID do canal (`iaedu.channel`). Os dois campos
-  em branco voltam ao agente por omissao (`iaeduEndpoint`, `iaeduChannel`). Pedido multipart
+  Cada cartao do IAEdu (agente) tem a sua chave, o seu endpoint (com o id do agente no meio) e o seu
+  canal: uma chave de um cartao NAO funciona no agente de outro (foi o erro de uma colega, chave do cartao
+  "OpenAI" com o agente por omissao: "chave invalida"). Nas definicoes os tres campos estao sempre a vista,
+  pela ordem do painel Informacao da API: Endpoint da API (pref `iaedu.endpoint`, tem de ser https e do
+  dominio iaedu.pt, senao nada e enviado), Chave da API (cofre, cabecalho `x-api-key`) e ID do Canal
+  (`iaedu.channel`), com a nota `prefs.iaedu.fields` ("copia os tres do mesmo cartao"). Sem secao escondida
+  "Usar outro agente". Endpoint e canal em branco voltam ao agente partilhado da UPorto (`iaeduEndpoint`,
+  `iaeduChannel`), que so aceita chaves desse agente. Nao pre-preencher o endpoint: muda de agente para
+  agente. Chave recusada (`_iaeduAuthHint`): `err.iaedu.authDefault` (campos em branco, diz para copiar o
+  Endpoint e o Canal do mesmo cartao) ou `err.iaedu.auth` (os tres do mesmo cartao, chave inteira). Pedido multipart
   (`channel_id`, `thread_id` novo em cada pedido, `user_info` = "{}", `message` = instrucoes de
   sistema + pedido, porque nao ha campo proprio). Resposta em blocos JSON separados por linhas
   em branco: `start`, `token`, `message` (texto completo, vale mais do que os pedacos) e `done`.
@@ -414,8 +420,10 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   nome do Ko-fi e o MB WAY. Nunca usar scripts de sites de pagamento (codigo de fora nao corre
   dentro do Zotero, que tem acesso total ao computador).
 - **Separadores dos motores:** um por motor (IAEdu, Gemini, Claude API, ChatGPT API, Claude Pro/Max,
-  ChatGPT conta), sem "Recomendado". O escolhido fica a negrito e a estrela do motor em
-  uso e maior. Arrastar um separador muda a ordem (`tabOrder`, `moveTab`, pref
+  ChatGPT conta), sem "Recomendado". O aberto fica com fundo azul claro, texto azul e barra azul por baixo
+  (uma colega nao percebia qual estava aberto), e o nome do motor no "2. Configurar:" fica na mesma cor
+  (`.zia-step-engine`). A estrela marca so o motor em uso. O resultado do teste (`#zia-test-result`) e
+  movido para dentro do painel aberto, logo por baixo dos botoes (`refresh`), e nao no fim da pagina. Arrastar um separador muda a ordem (`tabOrder`, `moveTab`, pref
   `engines.tabOrder`).
 - **Instrucoes de cada motor** (`GUIDES`, `renderGuides` em
   `preferences.js`, textos `guide.<motor>.*`): Claude Code, Codex, Claude API,

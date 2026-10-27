@@ -458,8 +458,19 @@ window.ZIAPrefs = {
 		for (const panel of document.querySelectorAll(".zia-engine-panel")) {
 			panel.hidden = panel.getAttribute("data-engine") !== shown;
 		}
+		// O resultado do teste fica logo por baixo dos botões do motor aberto (antes ficava no fim da página)
+		const result = this.$("zia-test-result");
+		const panel = document.querySelector(`.zia-engine-panel[data-engine="${shown}"]`);
+		if (result && panel) panel.insertBefore(result, panel.querySelector(":scope > .zia-advanced"));
 		const step2 = document.querySelector("[data-zia='prefs.step2']");
-		if (step2) step2.textContent = this.T("prefs.step2", { engine: this.T("prefs.engine." + shown) });
+		if (step2) {
+			// O nome do motor a azul, a cor do separador aberto: liga o separador à secção de baixo
+			const [before, after] = this.T("prefs.step2", { engine: "\u0001" }).split("\u0001");
+			while (step2.firstChild) step2.removeChild(step2.firstChild);
+			const name = this.html("span", this.T("prefs.engine." + shown));
+			name.className = "zia-step-engine";
+			step2.append(before || "", name, after || "");
+		}
 		for (const name of ["anthropic", "openai", "gemini", "iaedu"]) {
 			const st = core.secretState(name);
 			const k = st === "encrypted" ? "prefs.st.keyEncrypted" : st === "login" ? "prefs.st.keyLogin" : st === "plain" ? "prefs.st.keyPlain" : null;
@@ -533,14 +544,12 @@ window.ZIAPrefs = {
 		const ch = this.$("zia-iaedu-channel");
 		if (ep) {
 			ep.value = core.pref("iaedu.endpoint") || "";
-			ep.setAttribute("placeholder", this.T("prefs.iaedu.blank"));
+			ep.setAttribute("placeholder", this.T("prefs.iaedu.endpointPh"));
 		}
 		if (ch) {
 			ch.value = core.pref("iaedu.channel") || "";
-			ch.setAttribute("placeholder", this.T("prefs.iaedu.blank"));
+			ch.setAttribute("placeholder", this.T("prefs.iaedu.channelPh"));
 		}
-		const adv = this.$("zia-iaedu-adv");
-		if (adv && ((ep && ep.value) || (ch && ch.value))) this.openFold(adv);
 	},
 
 	async saveKey(name) {

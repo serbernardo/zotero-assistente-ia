@@ -51,6 +51,8 @@ ${x}
 		if (/anthropic\\.com\\/v1\\/models/.test(url)) return json({ data: [{ id: "claude-sonnet-5-5" }] });
 		if (/iaedu\\.pt/.test(url)) {
 			window.iaeduCall = { url: String(url), key: opts.headers["x-api-key"], channel: opts.body.get("channel_id") };
+			// Chave copiada de outro cartão do IAEdu: o serviço recusa-a
+			if (opts.headers["x-api-key"] === "sk-usr-de-outro-cartao-0123456789") return json({ detail: "Invalid API key" }, 401);
 			const b = o => JSON.stringify(o) + "\\n\\n";
 			return new Response(b({ type: "start", content: "Processing" }) + b({ type: "token", content: "OK" }) + b({ type: "message", content: { content: "OK", response_metadata: { model_name: "gpt-5.5" } } }) + b({ type: "done", content: "x" }), { status: 200 });
 		}
@@ -276,6 +278,13 @@ async function main() {
 		const KEY = "sk-usr-abcdefghijklmnopqrstuvwxyz0123";
 		const state = () => pg.textContent("#zia-iaedu-keystate");
 		const DEF = await pg.evaluate(() => ({ url: ZoteroIA.lib.IAEDU_DEFAULT_ENDPOINT, channel: ZoteroIA.lib.IAEDU_DEFAULT_CHANNEL }));
+		// Os três campos estão sempre à vista, pela ordem do painel Informação da API: Endpoint, Chave, Canal
+		const order = await pg.evaluate(() => [...document.querySelectorAll('.zia-engine-panel[data-engine="iaedu"] input')]
+			.filter(i => i.offsetParent && i.type !== "number").map(i => i.id));
+		assert.deepEqual(order, ["zia-iaedu-endpoint", "zia-iaedu-key", "zia-iaedu-channel"], "três campos abertos e pela ordem certa");
+		assert.equal(await pg.locator("text=Usar outro agente").count(), 0, "sem secção escondida");
+		assert.match(await pg.textContent(".zia-iaedu-fields-note"), /mesmo cartão/);
+		assert.match(await pg.textContent('.zia-guide[data-guide="iaedu"]'), /Endpoint da API, a Chave da API e o ID do Canal/);
 		await pg.fill("#zia-iaedu-key", KEY);
 		await pg.click("#zia-iaedu-save");
 		await pg.waitForSelector(".zia-test-result.ok");
@@ -311,9 +320,40 @@ async function main() {
 		await pg.click("#zia-iaedu-save");
 		await pg.waitForFunction(() => !!window.iaeduCall);
 		assert.equal((await pg.evaluate(() => window.iaeduCall)).url, DEF.url);
+
+		// Chave de outro cartão: o erro diz o que fazer, logo por baixo dos botões
+		const BAD = "sk-usr-de-outro-cartao-0123456789";
+		await pg.fill("#zia-iaedu-key", BAD);
+		await pg.click("#zia-iaedu-save");
+		await pg.waitForSelector(".zia-test-result.fail");
+		assert.match(await pg.textContent("#zia-test-result"), /agente partilhado da UPorto.*Endpoint da API e o ID do Canal do mesmo cartão/s, "em branco: explica que falta o Endpoint e o Canal");
+		assert.equal(await pg.evaluate(() => {
+			const r = document.getElementById("zia-test-result");
+			return r.parentNode.dataset.engine + ":" + (r.previousElementSibling && r.previousElementSibling.id);
+		}), "iaedu:zia-iaedu-keystate", "o resultado aparece por baixo dos botões do IAEdu");
+		await pg.fill("#zia-iaedu-endpoint", "https://api.iaedu.pt/agent-chat//api/v1/agent/AGENTE123/stream");
+		await pg.fill("#zia-iaedu-channel", "canal-de-teste-01");
+		await pg.click("#zia-iaedu-save");
+		await pg.waitForFunction(() => /mesmo cartão do IAEdu/.test(document.getElementById("zia-test-result").textContent));
+		await pg.screenshot({ path: path.join(OUT, "ui_definicoes_iaedu_erro.png"), fullPage: true });
+		// O separador aberto distingue-se dos outros (fundo e barra azul) e o nome do motor aparece no passo 2
+		const look = await pg.evaluate(() => {
+			const st = sel => getComputedStyle(document.querySelector(sel));
+			return { on: st('.zia-etab.selected').boxShadow, off: st('.zia-etab:not(.selected)').boxShadow,
+				onBg: st('.zia-etab.selected').backgroundColor, offBg: st('.zia-etab:not(.selected)').backgroundColor,
+				step: document.querySelector(".zia-step-engine").textContent };
+		});
+		assert.notEqual(look.on, "none", "barra por baixo do separador aberto");
+		assert.equal(look.off, "none");
+		assert.notEqual(look.onBg, look.offBg, "fundo diferente no separador aberto");
+		assert.equal(look.step, "IAEdu");
+		// Noutro motor o resultado muda para o painel desse motor
+		await pg.click('.zia-etab[data-engine="gemini"]');
+		assert.match(await pg.textContent(".zia-step-engine"), /^Gemini/);
+		assert.equal(await pg.evaluate(() => document.getElementById("zia-test-result").parentNode.dataset.engine), "gemini");
 		await pg.close();
 	}
-	console.log("OK IAEdu nas definições: só a chave chega, outro agente é opcional e validado, em branco volta ao agente por omissão");
+	console.log("OK IAEdu nas definições: Endpoint, Chave e Canal sempre à vista, validados, em branco volta ao agente por omissão, chave de outro cartão explica o que fazer junto aos botões");
 
 	// 2. Teste rápido dos modelos Gemini: mostra quem responde e quem está sobrecarregado
 	const page = await open();

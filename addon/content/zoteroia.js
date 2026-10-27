@@ -1792,6 +1792,16 @@ var ZoteroIA = {
 		return String(this.pref("iaedu.endpoint") || "").trim() || this.lib.IAEDU_DEFAULT_ENDPOINT;
 	},
 
+	/**
+	 * Chave recusada: no IAEdu cada cartão (agente) tem a sua chave, o seu endpoint e o seu canal. Uma chave de
+	 * um cartão não serve no agente de outro, por isso a mensagem diz o que copiar (e de onde).
+	 */
+	_iaeduAuthHint(c) {
+		if (c.kind !== "auth") return c.message;
+		const own = String(this.pref("iaedu.endpoint") || "").trim() || String(this.pref("iaedu.channel") || "").trim();
+		return this.t(own ? "err.iaedu.auth" : "err.iaedu.authDefault");
+	},
+
 	async runIAEdu({ system, prompt, onDelta, signal, win }) {
 		const key = await this.getSecret("iaedu");
 		if (!key) throw this.error("auth", this.t("err.noKey", { label: this.t("key.iaedu") }));
@@ -1821,7 +1831,7 @@ var ZoteroIA = {
 		try {
 			if (!res.ok) {
 				const c = this.lib.classifyIAEduError(res.status, await res.text());
-				throw this.error(c.kind, c.message);
+				throw this.error(c.kind, this._iaeduAuthHint(c));
 			}
 			const parser = this.lib.createIAEduStreamParser((d, all) => onDelta && onDelta(d, all));
 			try {
@@ -1834,7 +1844,7 @@ var ZoteroIA = {
 			const st = parser.end();
 			if (st.error) {
 				const c = this.lib.classifyIAEduError(0, { detail: st.error });
-				throw this.error(c.kind, c.message);
+				throw this.error(c.kind, this._iaeduAuthHint(c));
 			}
 			if (!st.text) throw this.error("other", this.t("err.noText", { engine: "IAEdu" }));
 			let text = st.text;

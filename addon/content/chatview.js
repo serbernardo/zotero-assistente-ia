@@ -169,7 +169,7 @@ var ZIAChatView = class {
 	_icon(name, cls) {
 		const P = {
 			spark: [["path", { d: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5Z", fill: "currentColor", stroke: "none" }]],
-			sliders: [["path", { d: "M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6" }], ["circle", { cx: 10, cy: 4.5, r: 1.6 }], ["circle", { cx: 6, cy: 11.5, r: 1.6 }]],
+			gear: [["path", { d: "M12.93 8.83 14.38 9.71 13.72 11.30 12.07 10.90 10.90 12.07 11.30 13.72 9.71 14.38 8.83 12.93 7.17 12.93 6.29 14.38 4.70 13.72 5.10 12.07 3.93 10.90 2.28 11.30 1.62 9.71 3.07 8.83 3.07 7.17 1.62 6.29 2.28 4.70 3.93 5.10 5.10 3.93 4.70 2.28 6.29 1.62 7.17 3.07 8.83 3.07 9.71 1.62 11.30 2.28 10.90 3.93 12.07 5.10 13.72 4.70 14.38 6.29 12.93 7.17Z" }], ["circle", { cx: 8, cy: 8, r: 2.1 }]],
 			docs: [["rect", { x: 5, y: 1.8, width: 8.5, height: 10.5, rx: 1.6 }], ["path", { d: "M2.5 5v8a1.7 1.7 0 0 0 1.7 1.7H10" }], ["path", { d: "M7.3 5.3h4M7.3 7.8h4M7.3 10.2h2.4" }]],
 			chevron: [["path", { d: "M6 3.5 10.5 8 6 12.5" }]],
 			sum: [["path", { d: "M3 3.5h10M3 6.5h10M3 9.5h7M3 12.5h5" }]],
@@ -258,7 +258,7 @@ var ZIAChatView = class {
 				lang.appendChild(b);
 			}
 			top.appendChild(lang);
-			top.appendChild(this._iconButton("sliders", "", () => this._openPrefs(), this.T("chat.settings.tip")));
+			top.appendChild(this._iconButton("gear", "", () => this._openPrefs(), this.T("chat.settings.tip")));
 			root.appendChild(top);
 			const strip = this._button("", "zia-multi-strip", () => this.openInWindow(), this.T("multi.tip"));
 			const ic = this._el("span", "zia-multi-icon");
@@ -310,7 +310,7 @@ var ZIAChatView = class {
 		this.engineSel.hidden = this.mode === "section";
 		tools.appendChild(this.engineSel);
 		// No painel o ⚙ está na linha do título
-		if (this.mode === "window") tools.appendChild(this._iconButton("sliders", "", () => this._openPrefs(), this.T("chat.settings.tip")));
+		if (this.mode === "window") tools.appendChild(this._iconButton("gear", "", () => this._openPrefs(), this.T("chat.settings.tip")));
 		if (this._modeSwitch) tools.appendChild(this._modeSwitch);
 		bar.appendChild(tools);
 		root.appendChild(bar);
