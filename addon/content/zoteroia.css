@@ -1394,6 +1394,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 /* Verificação automática da resposta contra os PDFs */
 .zia-check { margin: 6px 0 2px; padding: 5px 8px; border-radius: 6px; font-size: 12px; }
 .zia-check-ok { color: var(--zia-green); background: none; padding-left: 0; }
+.zia-check-info { color: var(--zia-fg2); background: none; padding-left: 0; }
 .zia-check-warn { border: 1px solid var(--zia-orange); border-left-width: 3px; background: rgba(232, 133, 12, 0.08); color: var(--zia-fg); }
 .zia-check-title { font-weight: 700; color: var(--zia-link); }
 .zia-check ul { margin: 4px 0; padding-inline-start: 18px; }
@@ -1923,3 +1924,13 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-picker-crumb[hidden] { display: none; }
 .zia-picker-crumb-sep { color: var(--zia-fg2); }
 .zia-picker-crumb-name { font-weight: 600; }
+
+/* Versão nova do addon: roda dentada verde com um ponto, e aviso no topo das definições */
+.zia-btn-icon.zia-gear.zia-has-update { color: var(--zia-green); position: relative; }
+.zia-btn-icon.zia-gear.zia-has-update::after {
+	content: ""; position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; border-radius: 50%;
+	background: var(--zia-green); box-shadow: 0 0 0 1.5px var(--zia-bg, #fff);
+}
+.zia-update-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 4px; padding: 8px 12px;
+	border: 1px solid var(--zia-green); border-left-width: 3px; border-radius: 6px; background: rgba(46, 139, 61, 0.08); }
+.zia-update-banner[hidden] { display: none; }

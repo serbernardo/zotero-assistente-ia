@@ -270,6 +270,33 @@ async function main() {
 		await pg.close();
 	}
 	console.log("OK atualização que falha: motivo e botão para instalar à mão; pronta a reiniciar sem o botão");
+
+	// 1e. Versão nova encontrada na verificação diária: aviso no topo com "Atualizar agora"
+	{
+		const pg = await open();
+		assert.equal(await pg.isVisible("#zia-update-banner"), false, "sem versão nova, sem aviso");
+		await pg.evaluate(() => {
+			ZoteroIA.setPref("update.available", "9.9.9");
+			ZoteroIA.setPref("update.state", "available");
+			window.updCalls = 0;
+			ZoteroIA.checkForUpdates = async () => { window.updCalls++; return { status: "installed", version: "9.9.9" }; };
+			ZIAPrefs.showUpdateBanner();
+		});
+		assert.ok(await pg.isVisible("#zia-update-banner"));
+		assert.match(await pg.textContent("#zia-update-banner"), /versão nova do Assistente IA: 9\.9\.9/);
+		const top = await pg.evaluate(() => document.getElementById("zia-update-banner").getBoundingClientRect().top);
+		assert.ok(top < 200, "no topo das definições: " + top);
+		await pg.click("#zia-update-now");
+		await pg.waitForFunction(() => /9\.9\.9 instalada/.test(document.getElementById("zia-update-banner-text").textContent));
+		assert.equal(await pg.evaluate(() => window.updCalls), 1);
+		assert.equal(await pg.isVisible("#zia-update-now"), false, "depois de atualizar o botão sai");
+		// Já descarregada, à espera de reiniciar: só a frase, sem botão
+		await pg.evaluate(() => { ZoteroIA.setPref("update.state", "restart"); ZIAPrefs.showUpdateBanner(); });
+		assert.match(await pg.textContent("#zia-update-banner"), /Reinicia o Zotero/);
+		assert.equal(await pg.isVisible("#zia-update-now"), false);
+		await pg.close();
+	}
+	console.log("OK versão nova: aviso no topo das definições com Atualizar agora, e só a frase quando falta reiniciar");
 	console.log("OK instruções dos motores: custo, passos com ligações e comandos, texto selecionável, Copiar só nos comandos");
 
 	// 1c. IAEdu: só a chave chega (agente por omissão), os campos de outro agente são opcionais e validados

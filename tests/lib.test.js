@@ -661,3 +661,52 @@ test("textos da interface sem chaves repetidas (a segunda apagava a primeira em 
 	}
 	assert.doesNotMatch(L.I18N.t("chat.skipped", { n: 2, list: "A, B" }), /\{n\}/);
 });
+
+test("verificação: ligaduras, aspas simples, n = e valores de p, artigos sem texto", () => {
+	const pages = ["Introduction. The sample included 120 nurses (N = 1,234 records).",
+		"Results. Burnout ﬁndings were reported by 47.3% of participants (p < .001). The nurses’ workload was the main predictor of burnout in this sample.",
+		"Discussion. Workload was the main predictor (p = 0.03)."];
+	const docs = { D1: { pages }, D2: { pages: null } };
+	const v = t => L.verifyAnswer(t, docs);
+	// "fi" junto num só carácter no PDF (ligadura) não é uma transcrição falsa
+	assert.equal(v("«Burnout findings were reported by 47.3% of participants» [D1:p2]").quotesOK, 1);
+	// Aspas simples: o apóstrofo (nurses’ workload) não fecha a transcrição
+	assert.equal(v("‘The nurses’ workload was the main predictor of burnout’ [D1:p2]").quotesOK, 1);
+	const inv = v("‘The nurses’ salary was the main predictor of everything here’ [D1:p2]");
+	assert.equal(inv.quotes, 1);
+	assert.equal(inv.badQuotes.length, 1);
+	// Amostra e valores de p
+	assert.deepEqual(v("Amostra (n = 340) [D1:p1].").unknownNumbers, ["n = 340"]);
+	assert.equal(v("Amostra (n = 120), N = 1234 e N = 1 234 [D1:p1].").problems, 0);
+	assert.equal(v("Significativo (p < .001) e p = 0.03 [D1:p2].").problems, 0, "0.03 no PDF ou .03 na resposta são o mesmo");
+	assert.deepEqual(v("Significativo (p < .01) e p = .04 [D1:p2].").unknownNumbers, ["p < .01", "p = .04"]);
+	// Um artigo sem texto lido (ficha) não dá "página que não existe"
+	const r = v("Segundo o outro artigo [D2:p5].");
+	assert.equal(r.problems, 0);
+	assert.equal(r.cites, 1);
+	assert.deepEqual(v("Algo [D7:p5].").badCites, [{ doc: "D7", page: 5 }], "um documento que não está na conversa continua a ser erro");
+	assert.equal(v("Sem citações nenhumas.").cites, 0);
+});
+
+test("transcrição antes de uma citação e pedaço para a pesquisa do leitor", () => {
+	assert.equal(L.quoteBeforeCite("Os autores dizem que «a carga de trabalho foi o principal preditor» "), "a carga de trabalho foi o principal preditor");
+	assert.equal(L.quoteBeforeCite("“the workload was the main predictor”, segundo "), "the workload was the main predictor");
+	assert.equal(L.quoteBeforeCite("‘the nurses’ workload was high indeed’, "), "the nurses’ workload was high indeed");
+	assert.equal(L.quoteBeforeCite("sem aspas, uma paráfrase "), null);
+	assert.equal(L.quoteBeforeCite("«uma transcrição antiga com muitas palavras» e depois uma frase longa por palavras da IA que já não é a transcrição "), null, "mais de 40 caracteres depois das aspas");
+	const page = "Results. Burnout findings were reported by 47.3% of participants in the study.";
+	assert.equal(L.quoteSnippet("Burnout findings were reported by 47.3% of participants in the study", page), "Burnout findings were reported by 47.3% of");
+	assert.equal(L.quoteSnippet("X Y Burnout findings were reported by 47.3% of", page), "Burnout findings were reported by 47.3% of", "começa nas palavras que estão na página");
+	assert.equal(L.quoteSnippet("The nurses’ workload … main predictor", null), "The nurses’ workload", "só o pedaço antes das reticências");
+	assert.equal(L.quoteSnippet("curta.", null), "curta");
+});
+
+test("ficha guardada como nota: as ligações às páginas voltam a ser [Dn:pN]", () => {
+	const html = '<p>Amostra de 120 (<a href="zotero://open-pdf/library/items/ABCD1234?page=3">Silva et al., 2021, p. 147</a>; '
+		+ '<a rel="noopener" href="zotero://open-pdf/groups/5/items/ABCD1234?page=4">Silva, p. 148</a>) e '
+		+ '<a href="zotero://open-pdf/library/items/ABCD1234">Silva, 2021</a>, outro <a href="zotero://open-pdf/library/items/ZZZ?page=2">x</a></p>';
+	assert.equal(L.noteCitesToMarkers(html, "D3", "ABCD1234"),
+		'<p>Amostra de 120 [D3:p3] [D3:p4] e [D3], outro <a href="zotero://open-pdf/library/items/ZZZ?page=2">x</a></p>',
+		"a página do ficheiro (não a impressa, 147) e só as ligações deste PDF");
+	assert.equal(L.noteCitesToMarkers("<p>sem ligações</p>", "D1", "K"), "<p>sem ligações</p>");
+});

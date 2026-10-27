@@ -1395,7 +1395,8 @@ var ZIALib = (function () {
 	// ------------------------------------------------------------------
 
 	function normForMatch(s) {
-		return String(s || "").normalize("NFC").toLowerCase()
+		// NFKC: as ligaduras dos PDFs (\ufb01 de "fi", \ufb00 de "ff") passam a letras normais
+		return String(s || "").normalize("NFKC").toLowerCase()
 			.replace(/[\u00ad]/g, "")
 			.replace(/(\w)-\s*\n\s*(\w)/g, "$1$2")
 			.replace(/[\u2010-\u2015]/g, "-")
@@ -1413,6 +1414,23 @@ var ZIALib = (function () {
 		}
 		return out;
 	}
+
+	// Inteiros como aparecem num texto (1 234, 1,234 e 1234 dão o mesmo) e decimais sem zero à frente (.001)
+	function docIntegers(text) {
+		const out = new Set();
+		for (const m of String(text || "").matchAll(/\d{1,3}(?:[ \u00a0\u202f,.]\d{3})+(?!\d)|\d+/g)) {
+			out.add(m[0].replace(/\D/g, "").replace(/^0+(?=\d)/, ""));
+		}
+		return out;
+	}
+	function docDecimals(text) {
+		const out = new Set();
+		for (const m of String(text || "").matchAll(/(?<![\d.,])(\d*)[.,](\d+)/g)) out.add((parseInt(m[1] || "0", 10)) + "," + m[2]);
+		return out;
+	}
+	// Tamanho da amostra (n = 340) e valores de p sem zero à frente (p < .001): os outros números não os veem
+	const STAT_N_RE = /\b[nN]\s?=\s?(\d{1,3}(?:[ \u00a0\u202f,.]\d{3})+|\d+)(?![\d.,]?\d)/g;
+	const STAT_P_RE = /\b[pP]\s?(?:<=|>=|[<>=\u2264\u2265])\s?([.,]\d+)/g;
 
 	// Um excerto conta como literal se quase todos os seus grupos de 4 palavras estão no texto
 	function quoteFound(quote, hay) {
@@ -1472,6 +1490,59 @@ var ZIALib = (function () {
 		return hit / words.length >= 0.85;
 	}
 
+	// Transcrições: entre aspas ("", \u201c\u201d, \u00ab\u00bb ou \u2018\u2019) e seguidas de uma citação.
+	// Nas aspas simples o \u2019 também é apóstrofo (nurses\u2019 workload): fecha o último antes da citação.
+	const QUOTE_DOUBLE = `(?:"|\u201c|\u00ab)([^\\s"\u201c\u201d\u00ab\u00bb|][^"\u201c\u201d\u00ab\u00bb|\\n]{13,498}[^\\s"\u201c\u201d\u00ab\u00bb|])(?:"|\u201d|\u00bb)`;
+	const QUOTE_SINGLE = `\u2018([^\u2018\\n|]{15,500}?)\u2019(?!\\p{L})`;
+	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}|${QUOTE_SINGLE})[^\\[\\n|\u2019]{0,40}?\\[(${CITE_INNER})\\]`, "gu");
+	function quoteMatches(text) {
+		return [...String(text || "").matchAll(QUOTE_RE)].map(m => [m[0], (m[1] || m[2]).trim(), m[3]]);
+	}
+
+	/**
+	 * Transcrição escrita logo antes de uma citação (o texto desde a citação anterior), para a
+	 * destacar no PDF ao abrir a página. null se a citação não vier depois de aspas.
+	 */
+	const QUOTE_BEFORE_RE = new RegExp(`(?:${QUOTE_DOUBLE}|${QUOTE_SINGLE})[^\\[\\n|"\u201c\u00ab\u2018\u2019]{0,40}$`, "u");
+	function quoteBeforeCite(text) {
+		const m = QUOTE_BEFORE_RE.exec(String(text || "").slice(-700));
+		return m ? (m[1] || m[2]).trim() : null;
+	}
+
+	/**
+	 * Pedaço curto da transcrição para a pesquisa do leitor do Zotero (a pesquisa por frase falha em
+	 * frases longas que mudam de linha). Com o texto da página, escolhe as primeiras n palavras
+	 * seguidas que lá estão. Sem ele, as primeiras n palavras do primeiro pedaço (antes de "...").
+	 */
+	function quoteSnippet(quote, pageText, n = 7) {
+		const part = String(quote || "").split(/\s*(?:\.\.\.|\u2026|\[\u2026\]|\[\.\.\.\])\s*/).map(x => x.trim()).filter(Boolean)[0] || "";
+		const words = part.split(/\s+/).filter(w => normForMatch(w));
+		if (!words.length) return null;
+		const take = i => words.slice(i, i + n).join(" ").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}%)]+$/gu, "");
+		if (words.length <= n || !pageText) return take(0) || null;
+		const hay = normForMatch(pageText);
+		for (let i = 0; i + n <= words.length; i++) {
+			if (hay.includes(normForMatch(words.slice(i, i + n).join(" ")))) return take(i);
+		}
+		return take(0);
+	}
+
+	/**
+	 * Ficha guardada como nota: as citações ficaram como ligações ao PDF (zotero://open-pdf/...?page=N,
+	 * N = página no ficheiro) com o número impresso no texto. Volta a pô-las como [Dn:pN], para a
+	 * IA reutilizar a página certa e o addon não somar o desvio das páginas duas vezes.
+	 */
+	function noteCitesToMarkers(html, docId, attachmentKey) {
+		if (!html || !docId || !attachmentKey) return String(html || "");
+		const key = String(attachmentKey).replace(/[^A-Za-z0-9]/g, "");
+		const re = new RegExp(`<a\\b[^>]*\\bhref="zotero://open-pdf/[^"]*/items/${key}(?:\\?page=(\\d+))?"[^>]*>[\\s\\S]*?</a>`, "g");
+		const marker = `\\[${docId}(?::p\\d+)?\\]`;
+		return String(html)
+			.replace(re, (x, page) => `[${docId}${page ? ":p" + page : ""}]`)
+			// "([D3:p5]; [D3:p7])" fica "[D3:p5] [D3:p7]"
+			.replace(new RegExp(`\\(\\s*(${marker}(?:\\s*[;,]\\s*${marker})*)\\s*\\)`, "g"), (x, inner) => inner.replace(/\s*[;,]\s*/g, " "));
+	}
+
 	/**
 	 * Confirma uma resposta no texto dos documentos: páginas citadas que existem, excertos entre
 	 * aspas que aparecem mesmo no PDF (e na página citada) e números que constam dos documentos.
@@ -1489,11 +1560,12 @@ var ZIALib = (function () {
 			pagesN[id] = docs[id].pages.length;
 		}
 		const allNorm = withText.map(id => docNorm[id]).join(" ");
-		const res = { quotes: 0, quotesOK: 0, numbers: 0, badQuotes: [], changedQuotes: [], wrongPage: [], badCites: [], unknownNumbers: [] };
+		const res = { quotes: 0, quotesOK: 0, numbers: 0, cites: 0, badQuotes: [], changedQuotes: [], wrongPage: [], badCites: [], unknownNumbers: [] };
 		// 1. Páginas citadas
 		const seenBad = new Set();
 		for (const m of String(text).matchAll(CITE_GROUP_RE)) {
 			for (const c of parseCiteGroup(m[1])) {
+				res.cites++;
 				const key = c.doc + ":" + c.page;
 				if (seenBad.has(key)) continue;
 				if (!docs[c.doc]) { seenBad.add(key); res.badCites.push({ doc: c.doc, page: c.page }); }
@@ -1501,8 +1573,7 @@ var ZIALib = (function () {
 			}
 		}
 		// 2. Excertos entre aspas seguidos de citação (apresentados como texto literal do PDF)
-		const QUOTE_RE = new RegExp(`(?:"|\u201c|\u00ab)([^\\s"\u201c\u201d\u00ab\u00bb|][^"\u201c\u201d\u00ab\u00bb|\\n]{13,498}[^\\s"\u201c\u201d\u00ab\u00bb|])(?:"|\u201d|\u00bb)[^\\[\\n|]{0,40}?\\[(${CITE_INNER})\\]`, "g");
-		for (const m of String(text).matchAll(QUOTE_RE)) {
+		for (const m of quoteMatches(text)) {
 			const parts = m[1].split(/\s*(?:\.\.\.|\u2026|\[\u2026\]|\[\.\.\.\])\s*/).filter(x => x.trim().length >= 12);
 			if (!parts.length) continue;
 			res.quotes++;
@@ -1529,7 +1600,9 @@ var ZIALib = (function () {
 		}
 		// 3. Contas escritas na resposta (100% - 47% = 53%): só valem se estiverem certas
 		const clean = String(text).replace(CITE_GROUP_RE, " ");
-		const known = new Set(numbersInText(withText.map(id => docs[id].pages.join("\n")).join("\n")));
+		const docText = withText.map(id => docs[id].pages.join("\n")).join("\n");
+		const known = new Set(numbersInText(docText));
+		const decs = docDecimals(docText);
 		const derived = new Set(["100%", "100"]);
 		res.calcs = 0;
 		res.badCalcs = [];
@@ -1540,10 +1613,20 @@ var ZIALib = (function () {
 		}
 		// 4. Números: têm de estar nos documentos ou resultar de uma conta certa
 		const unknown = new Set();
-		const has = n => known.has(n) || known.has(n.replace(/%$/, "")) || known.has(n + "%") || derived.has(n) || derived.has(n.replace(/%$/, ""));
+		const has = n => known.has(n) || known.has(n.replace(/%$/, "")) || known.has(n + "%") || derived.has(n) || derived.has(n.replace(/%$/, ""))
+			|| (!/%$/.test(n) && decs.has(n.replace(/^(\d+),/, (x, a) => parseInt(a, 10) + ",")));
 		for (const n of numbersInText(clean)) {
 			res.numbers++;
 			if (!has(n)) unknown.add(n);
+		}
+		const ints = docIntegers(docText);
+		for (const m of clean.matchAll(STAT_N_RE)) {
+			res.numbers++;
+			if (!ints.has(m[1].replace(/\D/g, "").replace(/^0+(?=\d)/, ""))) unknown.add(m[0].replace(/\s+/g, " ").trim());
+		}
+		for (const m of clean.matchAll(STAT_P_RE)) {
+			res.numbers++;
+			if (!decs.has("0," + m[1].slice(1))) unknown.add(m[0].replace(/\s+/g, " ").trim());
 		}
 		res.unknownNumbers = [...unknown];
 		res.problems = res.badQuotes.length + res.changedQuotes.length + res.wrongPage.length + res.badCites.length + res.unknownNumbers.length + res.badCalcs.length;
@@ -1866,8 +1949,15 @@ var ZIALib = (function () {
 		return e;
 	}
 
+	// Texto simples de uma linha já interpretada (para encontrar a transcrição antes de uma citação)
+	function inlinesPlain(inlines) {
+		return (inlines || []).map(n => n.t === "text" || n.t === "code" ? n.v : (n.c ? inlinesPlain(n.c) : "")).join("");
+	}
+
 	function inlinesToDOM(doc, parent, inlines, ctx) {
+		let before = "";
 		for (const n of inlines || []) {
+			if (n.t !== "cite") before += inlinesPlain([n]);
 			switch (n.t) {
 				case "text": parent.appendChild(doc.createTextNode(replaceDocIds(n.v, ctx && ctx.docsMap))); break;
 				case "code": parent.appendChild(el(doc, "code", null, n.v)); break;
@@ -1884,6 +1974,9 @@ var ZIALib = (function () {
 					break;
 				}
 				case "cite": {
+					// Transcrição logo antes da citação: o clique destaca-a no PDF
+					const quote = quoteBeforeCite(before);
+					before = "";
 					n.cites.forEach((c, k) => {
 						if (k > 0) parent.appendChild(doc.createTextNode(" "));
 						const a = el(doc, "a", "zia-cite", citeLabel(c, ctx.docsMap));
@@ -1895,10 +1988,11 @@ var ZIALib = (function () {
 							const shown = pageLabel(known, c.page);
 							a.title = t("cite.open", { what: known.title || known.ref, n: shown })
 								// O número impresso não é a posição no ficheiro: dizer qual é
-								+ (shown !== c.page ? " " + t("cite.pdfPage", { o: ordinal(c.page) }) : "");
+								+ (shown !== c.page ? " " + t("cite.pdfPage", { o: ordinal(c.page) }) : "")
+								+ (quote ? " " + t("cite.find") : "");
 						}
 						if (!known) a.classList.add("zia-cite-unknown");
-						a.addEventListener("click", ev => { ev.preventDefault(); ctx.onCite && ctx.onCite(c); });
+						a.addEventListener("click", ev => { ev.preventDefault(); ctx.onCite && ctx.onCite(c, quote ? { quote } : null); });
 						parent.appendChild(a);
 					});
 					break;
@@ -2666,7 +2760,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, parseStances, removeStanceLines, studyToAnki, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint, IAEDU_DEFAULT_ENDPOINT, IAEDU_DEFAULT_CHANNEL,
-		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, disambiguateRefs, setCiteFormatter, replaceDocIds, literalDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, quoteBeforeCite, quoteSnippet, noteCitesToMarkers, disambiguateRefs, setCiteFormatter, replaceDocIds, literalDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 

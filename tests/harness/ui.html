@@ -104,7 +104,7 @@
 		doc.pages = att._pages; doc.pagesReliable = true; doc.chars = att._pages.join("").length;
 		return doc;
 	};
-	core.openAtPage = async (d, p) => window.opened.push(`${d.attachmentKey}#${p}`);
+	core.openAtPage = async (d, p, o) => window.opened.push(`${d.attachmentKey}#${p}` + (o && o.find ? "|" + o.find : ""));
 	core.copyToClipboard = t => { window.copied = t; };
 	core.saveNote = async ({ heading }) => { window.lastHeading = heading; return { id: 999, parentID: heading.startsWith("Comparação") ? null : 1 }; };
 	core.saveCSV = async (w, csv, name) => { window.lastCSV = { csv, name }; return "/tmp/tabela.csv"; };

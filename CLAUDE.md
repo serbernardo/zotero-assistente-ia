@@ -122,6 +122,39 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   citadas que nao existem, numeros (decimais e percentagens) que nao estao nos
   PDFs e contas (`findCalculations`, so valem se o resultado estiver certo). O
   resultado (`msg.check`) aparece por baixo da resposta e fica no historico.
+  Termos (a pedido): **transcricao** = texto copiado do PDF entre aspas, **parafrase** = frase da IA
+  com a pagina (em ingles "direct quote" e "paraphrase"). A acao "Excertos citaveis" mantem o nome.
+  Auditoria da 1.0.17:
+  - O visto so diz o que foi confirmado (`_checkBox`): "✓ N transcricoes confirmadas no PDF" ou
+    "✓ N numeros encontrados" (`check.okNumbers`). Sem nada confirmado nao ha visto, so a linha
+    discreta `.zia-check-info` "Parafrases da IA: as paginas citadas existem, confirma o conteudo no
+    PDF" (ou `check.noCites` sem citacoes, `res.cites`). Antes o Simples dizia "✓ Confirmado no PDF"
+    a respostas sem nada verificado.
+  - `normForMatch` usa NFKC: as ligaduras dos PDFs (ﬁ, ﬀ) davam "transcricao nao encontrada".
+  - Aspas simples ‘…’ tambem sao transcricoes (`QUOTE_SINGLE`, `quoteMatches`): o ’ tambem e
+    apostrofo, por isso fecha o ultimo antes da citacao.
+  - `n = 340` / `N = 1,234` (`STAT_N_RE`, inteiros do PDF em `docIntegers`) e valores de p sem zero
+    (`p < .001`, `STAT_P_RE`, `docDecimals`: .001 e 0.001 sao o mesmo). Os outros inteiros continuam
+    de fora (anos e paginas davam falsos alarmes).
+  - Um artigo da conversa sem texto lido entra no `pool` com `pages: null`: as citacoes dele ja nao
+    dao "pagina que nao existe". So um Dn que nao esta na conversa e erro.
+  - Tolerancia de uma pagina e parafrases nunca verificadas: ficam assim (decisao da auditoria).
+- **Destaque da transcricao no PDF:** `inlinesToDOM` guarda o texto desde a citacao anterior e
+  `quoteBeforeCite` encontra a transcricao logo antes (ate 40 caracteres). O clique passa
+  `{ quote }` a `_openCite`, que escolhe as primeiras 7 palavras que estao na pagina
+  (`quoteSnippet`, so o pedaco antes de "...") e `openAtPage(d, page, { find })` abre a pagina e
+  escreve o pedaco na pesquisa do leitor do Zotero (`findInReader`: `reader._internalReader.
+  _handleFindStateChange(true, cloneInto(estado))`, `highlightAll` falso). Nao grava nada no PDF.
+  E uma funcao INTERNA do leitor (zotero/reader `src/common/reader.js`): se mudar, abre so a pagina.
+  Separador do PDF adormecido: `Zotero.Reader.open` devolve undefined, procura-se o leitor em
+  `Zotero.Reader._readers` durante 3 s. Tooltip `cite.find`. As parafrases so abrem a pagina.
+  Ainda nao testado no Zotero real.
+- **Fichas das notas com paginas certas:** a nota guarda as citacoes como ligacoes
+  `zotero://open-pdf/...?page=N` (pagina no ficheiro) com o numero impresso no texto.
+  `noteToText(note, doc)` chama `noteCitesToMarkers` e volta a por `[Dn:pN]` (so as ligacoes desse
+  PDF, pela chave do anexo). Antes a IA via "p. 147" e escrevia [D3:p147]: ligacao errada, aviso falso
+  e o desvio somado duas vezes. Em `_ask` as fichas tambem leem o texto do PDF (so para a verificacao
+  e o `pageOffset`, nao vai no pedido). Se falhar, a ficha segue.
 - **Historico enviado a IA:** as acoes nao levam historico (sao pedidos
   completos). As perguntas livres ficam no separador a vista e levam as ultimas 3 trocas desse
   separador, ate 24 mil caracteres (`selectHistory`): assim da para perguntar "e quanto a amostra?".
@@ -506,6 +539,13 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   faz nada). Esta sessao nao consegue enviar etiquetas, por isso nao ha etiquetas
   manuais. As atualizacoes automaticas so funcionam com o repositorio publico. Botao "Procurar
   atualizacoes agora" (`checkForUpdates`, AddonManager).
+- **Aviso de versao nova** (a pedido): 30 s depois de arrancar, `refreshUpdateState` confirma no
+  maximo uma vez a cada 20 h (pref `update.lastCheck`) com `findUpdates` SEM instalar e guarda
+  `update.available` (versao) e `update.state` (available, ou restart se o Zotero ja a descarregou,
+  `addon.pendingUpgrade`). A roda dentada do painel e da janela (`_gearButton`, observa as prefs)
+  fica verde com um ponto (`.zia-has-update`) e o tooltip diz a versao. Nas definicoes aparece
+  `#zia-update-banner` no topo com "Atualizar agora" (usa o `checkForUpdates`). Uma versao igual
+  ou mais antiga que a instalada apaga o aviso (`_compareVersions`, `Services.vc`).
 - **Contas gratuitas:** ChatGPT (Codex) e Gemini funcionam com contas
   gratuitas. A conta gratuita do Claude nao da acesso ao Claude Code nem a API.
 
@@ -518,7 +558,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (41), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (44), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves

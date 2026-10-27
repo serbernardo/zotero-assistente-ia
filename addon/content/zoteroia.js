@@ -58,6 +58,11 @@ var ZoteroIA = {
 			}
 		}
 		catch (e) { this.log("Modelo Gemini: " + e); }
+		// Versão nova: confirma uma vez por dia, meio minuto depois de o Zotero abrir
+		try {
+			Zotero.Promise.delay(30000).then(() => this.refreshUpdateState()).catch(e => this.log("Atualizações: " + e));
+		}
+		catch (e) { this.log("Atualizações: " + e); }
 	},
 
 	/** Língua da interface: preferência ui.lang ("auto", "pt-PT" ou "en"). */
@@ -298,8 +303,10 @@ var ZoteroIA = {
 		return null;
 	},
 
-	noteToText(note) {
-		const html = note.getNote() || "";
+	/** Texto de uma nota. Com o artigo (doc), as ligações às páginas voltam a ser [Dn:pN]. */
+	noteToText(note, doc) {
+		let html = note.getNote() || "";
+		if (doc) html = this.lib.noteCitesToMarkers(html, doc.id, doc.attachmentKey);
 		try {
 			return Zotero.Utilities.unescapeHTML(html.replace(/<\/(p|h\d|li|tr|div)>/gi, "\n$&").replace(/<\/t[dh]>/gi, " | $&"));
 		}
@@ -512,6 +519,50 @@ var ZoteroIA = {
 	// Atualizações: o Zotero consulta o update_url do manifest.json (releases do GitHub)
 	// ------------------------------------------------------------------
 
+	/**
+	 * Só confirma se há uma versão nova, sem instalar (a instalação fica para o botão das
+	 * definições, ou para o Zotero, que instala sozinho). O resultado vai para as prefs
+	 * update.available e update.state, que a roda dentada do painel e da janela observam.
+	 */
+	async refreshUpdateState({ force } = {}) {
+		const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+		const addon = await AddonManager.getAddonByID(this.id);
+		if (!addon) return;
+		// Já descarregada pelo Zotero, à espera de reiniciar
+		if (addon.pendingUpgrade) return this._setUpdate(addon.pendingUpgrade.version, "restart");
+		const stored = this.pref("update.available");
+		if (stored && this._compareVersions(stored, this.version) <= 0) this._setUpdate(null);
+		const now = Math.floor(Date.now() / 1000);
+		if (!force && now - (this.pref("update.lastCheck") || 0) < 20 * 3600) return;
+		this.setPref("update.lastCheck", now);
+		const version = await new Promise(resolve => {
+			addon.findUpdates({
+				onUpdateAvailable: (a, install) => resolve(install.version),
+				onNoUpdateAvailable: () => resolve(null),
+				onUpdateFinished: () => resolve(undefined),
+			}, AddonManager.UPDATE_WHEN_USER_REQUESTED);
+		});
+		if (version === undefined) return;   // sem resposta (sem internet): fica como estava
+		this._setUpdate(version && this._compareVersions(version, this.version) > 0 ? version : null, "available");
+	},
+
+	_setUpdate(version, state) {
+		this.setPref("update.available", version || "");
+		this.setPref("update.state", version ? state : "");
+	},
+
+	_compareVersions(a, b) {
+		try { return Services.vc.compare(String(a), String(b)); }
+		catch (e) {
+			const pa = String(a).split("."), pb = String(b).split(".");
+			for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+				const d = (parseInt(pa[i], 10) || 0) - (parseInt(pb[i], 10) || 0);
+				if (d) return d;
+			}
+			return 0;
+		}
+	},
+
 	/** Procura já uma versão nova e instala-a. Devolve { status: "installed"|"none"|"failed"|"error", version }. */
 	async checkForUpdates() {
 		const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
@@ -522,14 +573,14 @@ var ZoteroIA = {
 				onUpdateAvailable: (a, install) => {
 					// O código do erro diz porquê (transferência, ficheiro danificado, ficheiro em uso…)
 					install.addListener({
-						onInstallEnded: () => resolve({ status: "installed", version: install.version }),
-						onInstallPostponed: () => resolve({ status: "restart", version: install.version }),
+						onInstallEnded: () => { this._setUpdate(null); resolve({ status: "installed", version: install.version }); },
+						onInstallPostponed: () => { this._setUpdate(install.version, "restart"); resolve({ status: "restart", version: install.version }); },
 						onInstallFailed: () => resolve({ status: "failed", version: install.version, error: install.error }),
 						onDownloadFailed: () => resolve({ status: "failed", version: install.version, error: install.error }),
 					});
 					install.install();
 				},
-				onNoUpdateAvailable: () => resolve({ status: "none" }),
+				onNoUpdateAvailable: () => { this._setUpdate(null); resolve({ status: "none" }); },
 				onUpdateFinished: (a, error) => { if (error) resolve({ status: "error" }); },
 			}, AddonManager.UPDATE_WHEN_USER_REQUESTED);
 		});
@@ -2024,10 +2075,33 @@ var ZoteroIA = {
 		return `zotero://open-pdf/${prefix}/items/${doc.attachmentKey}` + (page ? `?page=${page}` : "");
 	},
 
-	async openAtPage(doc, page) {
+	async openAtPage(doc, page, { find } = {}) {
 		if (!doc || !doc.attachmentID) return;
 		const location = page ? { pageIndex: page - 1 } : null;
-		await Zotero.Reader.open(doc.attachmentID, location);
+		let reader = await Zotero.Reader.open(doc.attachmentID, location);
+		if (!find) return;
+		// Separador do PDF já aberto mas adormecido: o Zotero acorda-o e só depois há leitor
+		for (let i = 0; !reader && i < 20; i++) {
+			await Zotero.Promise.delay(150);
+			reader = (Zotero.Reader._readers || []).find(r => r.itemID === doc.attachmentID && !r._isTabClosed);
+		}
+		this.findInReader(reader, find).catch(e => this.log("Destaque no PDF: " + e));
+	},
+
+	/**
+	 * Escreve o texto na pesquisa do leitor do Zotero, que o pinta na página (como Ctrl+F).
+	 * Não grava nada no PDF. Usa uma função interna do leitor (_handleFindStateChange): se uma
+	 * versão do Zotero a mudar, o PDF continua a abrir na página certa, só sem o destaque.
+	 */
+	async findInReader(reader, query) {
+		if (!reader || !query) return false;
+		if (reader._initPromise) await reader._initPromise;
+		const inner = reader._internalReader;
+		if (!inner || typeof inner._handleFindStateChange !== "function") return false;
+		const state = { popupOpen: true, active: true, query: String(query), highlightAll: false, caseSensitive: false, entireWord: false, index: null, result: null };
+		const win = reader._iframeWindow;
+		inner._handleFindStateChange(true, win && typeof Components !== "undefined" ? Components.utils.cloneInto(state, win) : state);
+		return true;
 	},
 
 	/**

@@ -314,7 +314,9 @@ async function main() {
 		await page.waitForSelector(".zia-check");
 		assert.equal(await page.evaluate(() => window.engineCalls), 1, "um clique, um pedido");
 		assert.match(await page.evaluate(() => window.lastPrompt), /resumo estruturado/i);
-		assert.equal((await page.textContent(".zia-check")).trim(), "✓ Confirmado no PDF", "verificação curta no simples");
+		// Uma paráfrase da IA não é "confirmada": o aviso diz só o que foi verificado
+		assert.equal((await page.textContent(".zia-check")).trim(), "Paráfrases da IA: as páginas citadas existem, confirma o conteúdo no PDF.", "sem visto quando nada foi confirmado");
+		assert.equal(await page.locator(".zia-check-ok").count(), 0);
 		assert.equal(await page.locator(".zia-msg-meta").count(), 0, "sem motor e modelo por baixo da resposta");
 		assert.equal(await page.locator("text=Repetir com").count(), 0, "sem Repetir com no simples");
 		assert.ok(await page.isVisible("text=Guardar como nota"), "guardar como nota continua");
@@ -1365,6 +1367,39 @@ async function main() {
 		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && view.state.convs.length === 2);
 		assert.equal(await page.evaluate(() => window.lastPrompt.includes("<historico>")), false, "as ações não levam histórico");
 		console.log("OK painel: pergunta de seguimento no mesmo separador, com a troca anterior, e a ação no seu separador");
+
+		// Transcrição: o visto conta-a, e clicar na página abre o PDF com o início dela para destacar
+		const tq = await page.evaluate(() => {
+			const d = view.state.allDocs[view.state.docs[0].id];
+			const words = d.pages[0].trim().split(/\s+/);
+			window.MOCK.answer = `Os autores escrevem «${words.slice(0, 9).join(" ")}» [${d.id}:p1]. Outra ideia [${d.id}:p1].`;
+			window.opened.length = 0;
+			return { key: d.attachmentKey, snippet: words.slice(0, 7).join(" ").replace(/[^\p{L}\p{N}%)]+$/u, "") };
+		});
+		await page.fill(".zia-textarea", "Cita uma frase.");
+		await page.click(".zia-send");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && /Outra ideia/.test(document.querySelector(".zia-messages").textContent));
+		assert.match((await page.locator(".zia-msg-assistant .zia-check >> nth=0").textContent()).trim(), /^✓ Verificado nos PDFs: 1 transcrição\(ões\)/);
+		const cq = page.locator(".zia-msg-assistant >> nth=0").locator(".zia-cite");
+		assert.match(await cq.nth(0).getAttribute("title"), /A transcrição fica destacada\./);
+		assert.doesNotMatch(await cq.nth(1).getAttribute("title"), /destacada/, "uma paráfrase só abre a página");
+		await cq.nth(0).click();
+		await cq.nth(1).click();
+		assert.deepEqual(await page.evaluate(() => window.opened), [`${tq.key}#1|${tq.snippet}`, `${tq.key}#1`]);
+		console.log("OK painel: a transcrição é confirmada e destacada no PDF, a paráfrase só abre a página");
+
+		// Versão nova do addon: a roda dentada fica verde e diz porquê
+		const gear = page.locator(".zia-top .zia-gear");
+		assert.equal(await gear.evaluate(b => b.classList.contains("zia-has-update")), false);
+		await page.evaluate(() => { ZoteroIA.setPref("update.available", "9.9.9"); ZoteroIA.setPref("update.state", "available"); view._renderUpdateBadge(); });
+		assert.equal(await gear.evaluate(b => b.classList.contains("zia-has-update")), true);
+		assert.match(await gear.getAttribute("title"), /versão nova do Assistente IA \(9\.9\.9\)/);
+		const [gr, gg, gb] = (await gear.evaluate(b => getComputedStyle(b).color)).match(/\d+/g).map(Number);
+		assert.ok(gg > gr + 40 && gg > gb + 40, "verde: " + [gr, gg, gb]);
+		await page.locator(".zia-top").screenshot({ path: path.join(OUT, "ui_atualizacao.png") });
+		await page.evaluate(() => { ZoteroIA.setPref("update.available", ""); view._renderUpdateBadge(); });
+		assert.equal(await gear.getAttribute("title"), "Definições do Assistente IA");
+		console.log("OK versão nova: roda dentada verde com a explicação, volta ao normal depois de atualizar");
 		await page.close();
 	}
 

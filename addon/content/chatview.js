@@ -223,6 +223,25 @@ var ZIAChatView = class {
 	}
 
 	/** Botão só com ícone (com a dica para quem passa o rato e para leitores de ecrã). */
+	/** Roda dentada das definições: fica verde quando há uma versão nova do addon. */
+	_gearButton() {
+		const b = this._iconButton("gear", "zia-gear", () => this._openPrefs(), this.T("chat.settings.tip"));
+		this._gear = b;
+		this._renderUpdateBadge();
+		return b;
+	}
+
+	_renderUpdateBadge() {
+		const b = this._gear;
+		if (!b) return;
+		const v = this.core.pref("update.available") || "";
+		const restart = this.core.pref("update.state") === "restart";
+		b.classList.toggle("zia-has-update", !!v);
+		const title = v ? this.T(restart ? "chat.update.restart" : "chat.update.available", { v }) : this.T("chat.settings.tip");
+		b.title = title;
+		b.setAttribute("aria-label", title);
+	}
+
 	_iconButton(name, cls, onClick, title) {
 		const b = this._button("", "zia-btn-small zia-btn-icon " + (cls || ""), onClick, title);
 		b.setAttribute("aria-label", title || name);
@@ -258,7 +277,7 @@ var ZIAChatView = class {
 				lang.appendChild(b);
 			}
 			top.appendChild(lang);
-			top.appendChild(this._iconButton("gear", "", () => this._openPrefs(), this.T("chat.settings.tip")));
+			top.appendChild(this._gearButton());
 			root.appendChild(top);
 			const strip = this._button("", "zia-multi-strip", () => this.openInWindow(), this.T("multi.tip"));
 			const ic = this._el("span", "zia-multi-icon");
@@ -314,7 +333,7 @@ var ZIAChatView = class {
 		this.engineSel.hidden = this.mode === "section";
 		tools.appendChild(this.engineSel);
 		// No painel o ⚙ está na linha do título
-		if (this.mode === "window") tools.appendChild(this._iconButton("gear", "", () => this._openPrefs(), this.T("chat.settings.tip")));
+		if (this.mode === "window") tools.appendChild(this._gearButton());
 		if (this._modeSwitch) tools.appendChild(this._modeSwitch);
 		bar.appendChild(tools);
 		root.appendChild(bar);
@@ -417,7 +436,7 @@ var ZIAChatView = class {
 		this._prefObservers = [];
 		const P = Zotero.Prefs;
 		if (!P || !P.registerObserver) return;
-		const keys = ["engine", "anthropic.key", "openai.key", "gemini.key", "iaedu.key", "iaedu.endpoint", "iaedu.channel", "claude.enabled", "codex.enabled", "custom.prompts", "ui.lang", "ui.mode"];
+		const keys = ["engine", "anthropic.key", "openai.key", "gemini.key", "iaedu.key", "iaedu.endpoint", "iaedu.channel", "claude.enabled", "codex.enabled", "custom.prompts", "ui.lang", "ui.mode", "update.available", "update.state"];
 		for (const k of keys) {
 			try {
 				this._prefObservers.push(P.registerObserver(this.core.PREF_BRANCH + k, () => this._onPrefsChanged(k), true));
@@ -430,6 +449,10 @@ var ZIAChatView = class {
 
 	_onPrefsChanged(key) {
 		if (!this.root) return;
+		if (key.startsWith("update.")) {
+			this._renderUpdateBadge();
+			return;
+		}
 		if (key === "ui.lang") {
 			this.core.applyLanguage();
 			this._rebuild();
@@ -2131,7 +2154,7 @@ var ZIAChatView = class {
 		for (const d of docs) {
 			const note = this.core.findFichaNote(d.parentID);
 			if (note) {
-				fichaDocs.push(Object.assign({}, d, { kind: "ficha", fichaText: this.core.noteToText(note) }));
+				fichaDocs.push(Object.assign({}, d, { kind: "ficha", fichaText: this.core.noteToText(note, d) }));
 				reused++;
 				continue;
 			}
@@ -2231,7 +2254,7 @@ var ZIAChatView = class {
 				const pool = {}, offs = {};
 				for (const d of ok) {
 					const src = this.state.allDocs[d.id] || d;
-					if (src.pages) pool[d.id] = { pages: src.pages };
+					pool[d.id] = { pages: src.pages || null };
 					if (typeof src.pageOffset === "number" && src.pageOffset !== 0) offs[d.id] = src.pageOffset;
 				}
 				if (Object.keys(offs).length) botMsg.pageOffsets = offs;
@@ -2555,6 +2578,23 @@ var ZIAChatView = class {
 					if (orig && orig.pages) Object.assign(d, { pages: orig.pages, pagesReliable: orig.pagesReliable, pageOffset: orig.pageOffset });
 				}
 			}
+			// Fichas: o texto do PDF não vai no pedido, só serve para a verificação e para o número
+			// impresso das páginas. Se não se conseguir ler, a ficha segue na mesma.
+			for (const d of docs) {
+				if (d.kind !== "ficha" || d.pages) continue;
+				const orig = this.state.allDocs[d.id];
+				if (orig && orig.pages) {
+					Object.assign(d, { pages: orig.pages, pagesReliable: orig.pagesReliable, pageOffset: orig.pageOffset });
+					continue;
+				}
+				try {
+					await this.core.loadText(d);
+					if (orig && orig !== d) Object.assign(orig, { pages: d.pages, pagesReliable: d.pagesReliable, chars: d.chars, pageOffset: d.pageOffset });
+				}
+				catch (e) {
+					this.core.log("Ficha sem o texto do PDF: " + e);
+				}
+			}
 			// Anotações do utilizador (opcional)
 			const withAnn = !!this.core.pref("context.annotations");
 			for (const d of docs) {
@@ -2619,7 +2659,8 @@ var ZIAChatView = class {
 				const offs = {};
 				for (const d of docs) {
 					const src = d.pages ? d : this.state.allDocs[d.id];
-					if (src && src.pages) pool[d.id] = { pages: src.pages };
+					// Um artigo sem texto lido (ficha) fica na lista: as citações dele não são "páginas que não existem"
+					pool[d.id] = { pages: (src && src.pages) || null };
 					// O número impresso das páginas fica na resposta, para as citações o manterem
 					if (src && typeof src.pageOffset === "number" && src.pageOffset !== 0) offs[d.id] = src.pageOffset;
 				}
@@ -3003,7 +3044,7 @@ var ZIAChatView = class {
 		const body = this._el("div", "zia-md" + (isMap ? " zia-mindmap" : ""));
 		const ctx = {
 			docsMap: this._docsMap(m),
-			onCite: c => this._openCite(c),
+			onCite: (c, extra) => this._openCite(c, extra),
 			onLink: href => this._openLink(href),
 		};
 		if (m.text) {
@@ -3470,9 +3511,14 @@ var ZIAChatView = class {
 			return cs.length ? " (" + cs.map(x => this.L.citeLabel(x, dm)).join("; ") + ")" : "";
 		};
 		if (!c.problems) {
-			if (this.simple) return this._el("div", "zia-check zia-check-ok", this.T("check.simpleOk"));
-			if (!c.quotes && !c.numbers) return this._el("div", "zia-check zia-check-ok", this.T("check.okNoQuotes"));
-			return this._el("div", "zia-check zia-check-ok", this.T(c.calcs ? "check.okCalc" : "check.ok", { q: c.quotesOK, n: c.numbers, c: c.calcs }));
+			// O visto só diz o que foi mesmo confirmado: as paráfrases da IA nunca são
+			const ok = text => this._el("div", "zia-check zia-check-ok", text);
+			if (c.quotesOK) {
+				if (this.simple) return ok(this.T("check.simpleOk", { q: c.quotesOK }));
+				return ok(this.T(c.calcs ? "check.okCalc" : "check.ok", { q: c.quotesOK, n: c.numbers, c: c.calcs }));
+			}
+			if (c.numbers) return ok(this.T("check.okNumbers", { n: c.numbers }));
+			return this._el("div", "zia-check zia-check-info", this.T(c.cites === 0 ? "check.noCites" : "check.okNoQuotes"));
 		}
 		const box = this._el("div", "zia-check zia-check-warn");
 		box.setAttribute("role", "note");
@@ -3713,13 +3759,19 @@ var ZIAChatView = class {
 		}
 	}
 
-	_openCite(c) {
+	_openCite(c, extra) {
 		const d = this._docsMap()[c.doc];
 		if (!d) {
 			this._setStatus(this.T("chat.docMissing", { doc: c.doc }), "warn");
 			return;
 		}
-		this.core.openAtPage(d, c.page).catch(e => this._setStatus(this.T("chat.openError", { e }), "error"));
+		// Depois de uma transcrição: o leitor do Zotero procura o início dela e destaca-o
+		let find = null;
+		if (extra && extra.quote) {
+			const pages = Array.isArray(d.pages) && c.page ? d.pages.slice(Math.max(0, c.page - 2), (c.pageEnd || c.page) + 1).join("\n") : "";
+			find = this.L.quoteSnippet(extra.quote, pages);
+		}
+		this.core.openAtPage(d, c.page, { find }).catch(e => this._setStatus(this.T("chat.openError", { e }), "error"));
 	}
 
 	/** Ligações escritas pela IA: só http(s), abertas no navegador do sistema. */

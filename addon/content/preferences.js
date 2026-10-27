@@ -160,6 +160,7 @@ window.ZIAPrefs = {
 		on("zia-claude-install", () => this.installClaude());
 		on("zia-clear-all", () => this.clearAll());
 		on("zia-update-check", () => this.checkUpdates());
+		on("zia-update-now", () => this.checkUpdates("zia-update-banner-text"));
 		on("zia-history-clear", async () => {
 			try {
 				await this.core().clearAllConversations();
@@ -255,9 +256,10 @@ window.ZIAPrefs = {
 		this.initModelSelect("openai");
 	},
 
-	/** Versão instalada, no cartão dos créditos. */
+	/** Versão instalada, no cartão dos créditos, e o aviso de versão nova no topo. */
 	showBuildInfo() {
 		this.setText("zia-credits-version", this.core().version || "?");
+		this.showUpdateBanner();
 		const box = this.$("zia-credits-coffee");
 		if (box) {
 			while (box.firstChild) box.removeChild(box.firstChild);
@@ -738,8 +740,20 @@ window.ZIAPrefs = {
 		b.hidden = false;
 	},
 
-	async checkUpdates() {
-		const out = "zia-update-result";
+	/** Versão nova encontrada na verificação diária (a mesma que põe a roda dentada verde). */
+	showUpdateBanner() {
+		const banner = this.$("zia-update-banner");
+		if (!banner) return;
+		const v = this.core().pref("update.available") || "";
+		const restart = this.core().pref("update.state") === "restart";
+		banner.hidden = !v;
+		if (!v) return;
+		this.setText("zia-update-banner-text", this.T(restart ? "prefs.update.restart" : "prefs.update.available", { v }));
+		const b = this.$("zia-update-now");
+		if (b) b.hidden = restart;
+	},
+
+	async checkUpdates(out = "zia-update-result") {
 		this.setText(out, this.T("prefs.update.checking"));
 		try {
 			const r = await this.core().checkForUpdates();
@@ -748,8 +762,12 @@ window.ZIAPrefs = {
 				const why = { "-1": "network", "-2": "hash", "-3": "corrupt", "-4": "access" }[String(r.error)];
 				msg += " " + (why ? this.T("prefs.update.why." + why) : this.T("prefs.update.why.code", { c: r.error == null ? "?" : r.error }));
 			}
-			this.setText(out, msg, r.status === "failed" || r.status === "error");
-			this.showManualUpdate(r.status === "failed" || r.status === "error");
+			const bad = r.status === "failed" || r.status === "error";
+			this.setText(out, msg, bad);
+			this.showManualUpdate(bad);
+			// No aviso do topo, o botão sai depois de atualizar
+			const now = this.$("zia-update-now");
+			if (out !== "zia-update-result" && now && !bad) now.hidden = true;
 		}
 		catch (e) {
 			this.setText(out, this.T("prefs.update.error") + "\n" + (e.message || String(e)), true);

@@ -30,7 +30,7 @@ Nas definições do plugin (botão de definições no topo do painel) escolhe um
 
 ## Verificação e privacidade
 
-- O assistente só usa o texto dos teus PDFs e **verifica cada resposta** contra eles: excertos, páginas, números e contas.
+- O assistente só usa o texto dos teus PDFs e **verifica cada resposta** contra eles: transcrições (texto entre aspas), páginas, números e contas. O visto só aparece no que foi confirmado. As paráfrases da IA não são confirmadas: confere-as no PDF. Ao clicar na página de uma transcrição, o PDF abre com ela destacada.
 - Para responder, o texto dos PDFs escolhidos é enviado ao serviço de IA que escolheste. Não há nenhum servidor deste projeto pelo meio e as conversas ficam só no teu computador.
 
 ## Licença
