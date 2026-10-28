@@ -710,3 +710,45 @@ test("ficha guardada como nota: as ligações às páginas voltam a ser [Dn:pN]"
 		"a página do ficheiro (não a impressa, 147) e só as ligações deste PDF");
 	assert.equal(L.noteCitesToMarkers("<p>sem ligações</p>", "D1", "K"), "<p>sem ligações</p>");
 });
+
+test("verificação rigorosa: defeitos dos PDFs reais aceites, qualquer palavra mudada assinalada", () => {
+	// Texto como sai de PDFs reais: espaços partidos dentro das palavras, traços espaçados,
+	// hífen de fim de linha, referências no meio da frase e cabeçalho entre duas páginas
+	const pages = [
+		"Introduction text. The main goal of implementing and using CRM is to optimize and\nautomate bus iness processes of customer relationships based on the effective management. "
+			+ "Highlighting of business processes, their description, research a nd improvement increases the competitiveness of such companies.",
+		"Robots support librarians in different library operations including security (Tella, 2020; Oladokun et al., 2023) and automated storage of library material. "
+			+ "Robots can identify and re-shelve misfiled books and satisfy dif-\nferent reference requests of library users. The provision of potential benefits to library patrons is a prominent factor that encourages",
+		"2 Journal of Librarianship and Information Science 00(0)\nlibrarians to adopt robotic technologies in academic settings. More text here about other topics and results.",
+	];
+	const other = ["Results. The model explained 47.3% of the variance in a completely different study."];
+	const docs = { D1: { pages }, D2: { pages: other } };
+	const ok = (q, c) => L.verifyAnswer(`Diz «${q}» [${c}].`, docs);
+	// Aceites: são cópias certas do PDF
+	assert.equal(ok("optimize and automate business processes of customer relationships", "D1:p1").quotesOK, 1, "espaços partidos (bus iness)");
+	assert.equal(ok("research and improvement increases the competitiveness of such companies", "D1:p1").quotesOK, 1);
+	assert.equal(ok("satisfy different reference requests of library users", "D1:p2").quotesOK, 1, "hífen de fim de linha");
+	assert.equal(ok("satisfy dif-ferent reference requests of library users", "D1:p2").quotesOK, 1);
+	assert.equal(ok("including security and automated storage of library material", "D1:p2").quotesOK, 1, "a IA tirou a referência do meio");
+	assert.equal(ok("a prominent factor that encourages librarians to adopt robotic technologies", "D1:p2").quotesOK, 1, "frase partida entre páginas, com o cabeçalho no meio");
+	// Assinaladas: uma só palavra diferente, mesmo perto do fim (antes passava com 80% de grupos de 4 palavras)
+	assert.equal(ok("optimize and automate business processes of supplier relationships", "D1:p1").quotesOK, 0);
+	assert.equal(ok("Robots can identify and re-shelve misfiled books and satisfy different reference requests of library staff", "D1:p2").quotesOK, 0);
+	assert.equal(ok("Robots cannot identify and re-shelve misfiled books", "D1:p2").quotesOK, 0, "negação");
+	// Transcrição de outro artigo: diz qual, em vez de "noutra página"
+	const r = ok("The model explained 47.3% of the variance", "D1:p2");
+	assert.equal(r.otherDoc.length, 1);
+	assert.equal(r.otherDoc[0].doc, "D2");
+	assert.equal(r.wrongPage.length, 0);
+});
+
+test("números: procurados no artigo citado a seguir, sem citação em todos os PDFs", () => {
+	const docs = { D1: { pages: ["Burnout affected 47.3% of nurses (n = 120)."] }, D2: { pages: ["Turnover was 12.5% (p < .001)."] } };
+	const unk = t => L.verifyAnswer(t, docs).unknownNumbers;
+	assert.deepEqual(unk("O burnout afetou 47,3% dos enfermeiros (n = 120) [D1:p1]."), []);
+	assert.deepEqual(unk("A rotação foi de 47,3% [D2:p1]."), ["47,3%"], "número certo, mas de outro artigo");
+	assert.deepEqual(unk("A rotação foi de 12,5% (p < .001) [D2:p1] e o burnout de 47,3% [D1:p1]."), [], "cada pedaço vai até à sua citação");
+	assert.deepEqual(unk("Sem citação: 12,5% e 47,3%."), [], "sem citação, qualquer dos PDFs serve");
+	assert.deepEqual(unk("| Silva | 47,3% | [D1:p1] |\n| García | 12,5% | [D2:p1] |"), [], "linhas de tabela");
+	assert.deepEqual(unk("| Silva | 12,5% | [D1:p1] |"), ["12,5%"]);
+});

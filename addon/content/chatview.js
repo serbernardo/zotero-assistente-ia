@@ -3528,6 +3528,7 @@ var ZIAChatView = class {
 		for (const q of c.badQuotes.slice(0, 4)) add(this.T("check.badQuote", { q: q.quote }) + ref(q.cite));
 		for (const q of (c.changedQuotes || []).slice(0, 3)) add(this.T("check.changedQuote", { q: q.quote }) + ref(q.cite));
 		for (const q of c.wrongPage.slice(0, 3)) add(this.T("check.wrongPage", { q: q.quote }) + ref(q.cite));
+		for (const q of (c.otherDoc || []).slice(0, 3)) add(this.T("check.otherDoc", { q: q.quote, d: this.L.citeLabel({ doc: q.doc }, dm) }) + ref(q.cite));
 		for (const b of c.badCites.slice(0, 3)) add(this.T("check.badCite", { c: this.L.citeLabel(b, dm, { raw: true }) }));
 		for (const e of (c.badCalcs || []).slice(0, 3)) add(this.T("check.badCalc", { e }));
 		if (c.unknownNumbers.length) add(this.T("check.numbers", { n: c.unknownNumbers.slice(0, 8).join(", ") }));

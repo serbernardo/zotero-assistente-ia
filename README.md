@@ -9,7 +9,7 @@ The interface is available in **English** and **European Portuguese**.
 ## Why it is different
 
 - **Only your PDFs, nothing invented.** The AI is told to use only the text of your PDFs, with no general knowledge or guesses, and to say when something is not in the document.
-- **Every answer is checked.** The plugin checks each answer against the text of the PDFs: quoted passages must exist on the cited page, cited pages must exist, numbers must appear in the PDFs and calculations must be correct. Anything that does not match is shown in a warning below the answer. The check mark only appears for what was actually confirmed (paraphrases cannot be checked automatically), and clicking the page of a direct quote opens the PDF with the quote highlighted.
+- **Every answer is checked.** The plugin checks each answer against the text of the PDFs: quoted passages must exist word for word on the cited page, cited pages must exist, numbers must appear in the cited PDF and calculations must be correct. Anything that does not match is shown in a warning below the answer. The check mark only appears for what was actually confirmed (paraphrases cannot be checked automatically), and clicking the page of a direct quote opens the PDF with the quote highlighted.
 - **Your account, your data.** There is no server in between. The plugin talks directly to the AI service you choose, with your own key or account. API keys are stored encrypted (system key store), never in plain text.
 
 ## Install

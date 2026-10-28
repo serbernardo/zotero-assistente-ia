@@ -139,6 +139,25 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   - Um artigo da conversa sem texto lido entra no `pool` com `pages: null`: as citacoes dele ja nao
     dao "pagina que nao existe". So um Dn que nao esta na conversa e erro.
   - Tolerancia de uma pagina e parafrases nunca verificadas: ficam assim (decisao da auditoria).
+  Verificacao rigorosa (depois da 1.0.17, medida em 3 artigos reais com `run_verif_pdfs.js`):
+  - Uma transcricao so conta se estiver no PDF palavra a palavra (`quoteFound`). Saiu a regra dos
+    80% dos grupos de 4 palavras: deixava passar 21% das palavras trocadas (48% perto do fim), 23% das
+    negacoes e 62% dos numeros trocados dentro da transcricao.
+  - Para nao dar falsos alarmes com os defeitos dos PDFs, compara tambem so letras e algarismos
+    (`compactNorm`: espacos partidos "bus iness", hifens de fim de linha, tracos espacados "22 - 23"),
+    sem as referencias no meio da frase (`INLINE_REF_RE`: "(Silva, 2020)", "[10, 25]") e com a frase
+    partida entre duas paginas (`compactFound`: o inicio a menos de `PAGE_EDGE` = 320 caracteres do fim
+    de uma pagina e o resto a menos de 320 do inicio da seguinte). Paginas preparadas com `matchPage`.
+    Na 1.0.17 havia 5% a 25% de falsos alarmes conforme o PDF, e 39% quando a IA tirava uma referencia.
+  - Transcricao de outro artigo da conversa: `res.otherDoc` ("Transcricao de outro artigo (X)"),
+    antes dizia "noutra pagina".
+  - Numeros: procurados no artigo citado logo a seguir na mesma linha (`segments`, `poolFor`); sem
+    citacao, em todos os PDFs. Antes 0% dos numeros atribuidos ao artigo errado eram apanhados, agora 90%.
+    Os numeros trocados que ainda escapam (24%) existem noutro sitio do mesmo artigo (ex.: secoes 3.1, 3.4).
+  - Resultados (3 artigos reais): 0 falsos alarmes em 120 transcricoes certas, 64 com referencia tirada,
+    6 partidas entre paginas e 94 numeros. Apanha 100% das palavras trocadas, negacoes, paginas a 3 de
+    distancia e artigo errado. Nas 24 respostas reais antigas (`out/ia_real_claude`) continua 1 so aviso,
+    um erro verdadeiro ("nao permite" em vez de "nao permitem"). Antes de mudar a verificacao: medir.
 - **Destaque da transcricao no PDF:** `inlinesToDOM` guarda o texto desde a citacao anterior e
   `quoteBeforeCite` encontra a transcricao logo antes (ate 40 caracteres). O clique passa
   `{ quote }` a `_openCite`, que escolhe as primeiras 7 palavras que estao na pagina
@@ -558,7 +577,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (44), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (46), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -578,6 +597,12 @@ npm install
   de fazer alguma coisa e nenhum pode dar erro). O `run_ui.js` faz o mesmo para
   os botoes do painel
 - `ONLY=<acoes>` corre so essas acoes (ex.: `ONLY=pergunta,critica`).
+- `PDFS="a.pdf:b.pdf" node tests/harness/run_verif_pdfs.js` — mede a verificacao em PDFs reais, sem
+  IA: falsos alarmes com transcricoes certas e deteccao de erros plantados (palavra, negacao, numero,
+  pagina, artigo). Sem `PDFS` usa os dois PDFs de teste (faceis demais para medir)
+- `IAEDU_API_KEY=<chave> [IAEDU_ENDPOINT=... IAEDU_CHANNEL=...] node tests/harness/run_ai_real.js iaedu`
+  e `OPENAI_API_KEY=<chave> [OPENAI_MODEL=...] ... run_ai_real.js openai`, com `PDFS=` para usar
+  artigos proprios (acoes de um artigo correm para cada PDF, `resumo_D2.md`)
 - `CLAUDE_PATH=<exe> node tests/harness/run_ai_real.js claude` ou
   `GEMINI_API_KEY=<chave> node tests/harness/run_ai_real.js gemini` — todas as
   acoes com a IA REAL, mais perguntas-armadilha (informacao que nao existe,

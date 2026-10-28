@@ -1432,19 +1432,57 @@ var ZIALib = (function () {
 	const STAT_N_RE = /\b[nN]\s?=\s?(\d{1,3}(?:[ \u00a0\u202f,.]\d{3})+|\d+)(?![\d.,]?\d)/g;
 	const STAT_P_RE = /\b[pP]\s?(?:<=|>=|[<>=\u2264\u2265])\s?([.,]\d+)/g;
 
+	// Só letras e algarismos: os espaços partidos dentro das palavras ("bus iness"), os hífens de fim de
+	// linha e os traços espaçados ("22 - 23") que alguns PDFs têm deixam de contar
+	const compactNorm = n => n.replace(/[^\p{L}\p{N}]+/gu, "");
+
 	// Um excerto conta como literal se quase todos os seus grupos de 4 palavras estão no texto
-	function quoteFound(quote, hay) {
+	// Referências dentro do texto, "(Silva et al., 2020)" ou "[10, 25]": a IA tira-as muitas vezes das transcrições
+	const INLINE_REF_RE = /\((?=[^()]{0,200}\b(?:1[5-9]|20)\d{2}[a-z]?\b)[^()]{0,200}\)|\[[\d\s,;\u2013-]+\]/g;
+
+	/** Página preparada para a comparação: texto normal, só letras e algarismos, e o mesmo sem referências. */
+	function matchPage(p) {
+		const n = normForMatch(p);
+		return { n, c: compactNorm(n), r: compactNorm(normForMatch(String(p || "").replace(INLINE_REF_RE, " "))) };
+	}
+
+	// O texto compacto está nas páginas, inteiro ou partido entre duas páginas seguidas: o início mesmo
+	// no fim de uma (só pode sobrar o rodapé) e o resto mesmo no início da seguinte (só pode vir antes o
+	// cabeçalho). Sem estes limites, "robotic technologies in literature" passava com "in literature"
+	// noutro sítio da página seguinte.
+	const PAGE_EDGE = 320;
+	function compactFound(c, pages) {
+		if (pages.join("").includes(c)) return true;
+		for (let k = 0; k + 1 < pages.length; k++) {
+			const a = pages[k], b = pages[k + 1];
+			for (let i = 8; i <= c.length - 8; i++) {
+				const head = c.slice(0, i);
+				const at = a.lastIndexOf(head);
+				if (at < 0) break;
+				if (a.length - (at + head.length) > PAGE_EDGE) continue;
+				const bt = b.indexOf(c.slice(i));
+				if (bt >= 0 && bt <= PAGE_EDGE) return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Uma transcrição só conta se estiver mesmo no PDF, palavra a palavra. Não conta a pontuação, os
+	 * espaços, os hífens e os traços (os PDFs partem palavras e linhas) nem as referências que a IA tire
+	 * de dentro da frase. Antes aceitava 80% dos grupos de 4 palavras: deixava passar uma palavra
+	 * trocada perto das pontas e a maior parte das negações (medido em 3 artigos reais).
+	 * pages: páginas preparadas com matchPage.
+	 */
+	function quoteFound(quote, pages) {
 		const q = normForMatch(quote);
 		if (!q) return true;
-		if (hay.includes(q)) return true;
-		const w = q.split(" ");
-		if (w.length < 5) return false;
-		let hit = 0, total = 0;
-		for (let i = 0; i + 4 <= w.length; i++) {
-			total++;
-			if (hay.includes(w.slice(i, i + 4).join(" "))) hit++;
-		}
-		return total > 0 && hit / total >= 0.8;
+		if (pages.map(p => p.n).join(" ").includes(q)) return true;
+		const c = compactNorm(q);
+		if (c.length < 12) return false;
+		if (compactFound(c, pages.map(p => p.c))) return true;
+		const r = compactNorm(normForMatch(String(quote).replace(INLINE_REF_RE, " ")));
+		return r.length >= 12 && compactFound(r, pages.map(p => p.r));
 	}
 
 	const NUM = "\\d+(?:[.,]\\d+)?";
@@ -1554,13 +1592,15 @@ var ZIALib = (function () {
 		const pagesN = {};
 		const pageNorm = {};
 		const docNorm = {};
+		const pageM = {};
 		for (const id of withText) {
-			pageNorm[id] = docs[id].pages.map(normForMatch);
+			pageM[id] = docs[id].pages.map(matchPage);
+			pageNorm[id] = pageM[id].map(p => p.n);
 			docNorm[id] = pageNorm[id].join(" ");
 			pagesN[id] = docs[id].pages.length;
 		}
 		const allNorm = withText.map(id => docNorm[id]).join(" ");
-		const res = { quotes: 0, quotesOK: 0, numbers: 0, cites: 0, badQuotes: [], changedQuotes: [], wrongPage: [], badCites: [], unknownNumbers: [] };
+		const res = { quotes: 0, quotesOK: 0, numbers: 0, cites: 0, badQuotes: [], changedQuotes: [], wrongPage: [], otherDoc: [], badCites: [], unknownNumbers: [] };
 		// 1. Páginas citadas
 		const seenBad = new Set();
 		for (const m of String(text).matchAll(CITE_GROUP_RE)) {
@@ -1578,31 +1618,34 @@ var ZIALib = (function () {
 			if (!parts.length) continue;
 			res.quotes++;
 			const cites = m[2] ? parseCiteGroup(m[2]).filter(c => pageNorm[c.doc]) : [];
-			let ok = true, wrong = false;
+			const inDoc = (part, id) => quoteFound(part, pageM[id]);
+			let ok = true, wrong = false, otherDoc = null;
 			for (const part of parts) {
 				if (cites.length) {
 					const near = cites.some(c => {
-						if (!c.page) return quoteFound(part, docNorm[c.doc]);
+						if (!c.page) return inDoc(part, c.doc);
 						const a = Math.max(0, c.page - 2), b = Math.min(pagesN[c.doc], (c.pageEnd || c.page) + 1);
-						return quoteFound(part, pageNorm[c.doc].slice(a, b).join(" "));
+						return quoteFound(part, pageM[c.doc].slice(a, b));
 					});
 					if (near) continue;
-					if (quoteFound(part, allNorm)) { wrong = true; continue; }
+					const citedIds = cites.map(c => c.doc);
+					if (citedIds.some(id => inDoc(part, id))) { wrong = true; continue; }
+					// Está noutro artigo da conversa: a citação aponta para o artigo errado
+					const elsewhere = withText.find(id => !citedIds.includes(id) && inDoc(part, id));
+					if (elsewhere) { otherDoc = elsewhere; continue; }
 					ok = false;
 				}
-				else if (!quoteFound(part, allNorm)) ok = false;
+				else if (!withText.some(id => inDoc(part, id))) ok = false;
 			}
 			const shown = m[1].length > 90 ? m[1].slice(0, 87) + "…" : m[1];
 			if (!ok && parts.every(part => quoteNearlyFound(part, allNorm))) res.changedQuotes.push({ quote: shown, cite: m[2] || null });
 			else if (!ok) res.badQuotes.push({ quote: shown, cite: m[2] || null });
+			else if (otherDoc) res.otherDoc.push({ quote: shown, cite: m[2] || null, doc: otherDoc });
 			else if (wrong) res.wrongPage.push({ quote: shown, cite: m[2] || null });
 			else res.quotesOK++;
 		}
 		// 3. Contas escritas na resposta (100% - 47% = 53%): só valem se estiverem certas
 		const clean = String(text).replace(CITE_GROUP_RE, " ");
-		const docText = withText.map(id => docs[id].pages.join("\n")).join("\n");
-		const known = new Set(numbersInText(docText));
-		const decs = docDecimals(docText);
 		const derived = new Set(["100%", "100"]);
 		res.calcs = 0;
 		res.badCalcs = [];
@@ -1611,25 +1654,49 @@ var ZIALib = (function () {
 			if (c.ok) for (const n of numbersInText(c.result + (c.percent ? "%" : ""))) derived.add(n);
 			else res.badCalcs.push(c.expr);
 		}
-		// 4. Números: têm de estar nos documentos ou resultar de uma conta certa
+		// 4. Números: têm de estar no artigo citado logo a seguir (sem citação, em qualquer dos PDFs) ou
+		// resultar de uma conta certa. Procurar em todos os PDFs deixava passar 73% dos números atribuídos
+		// ao artigo errado e 30% dos números trocados (medido em 3 artigos reais).
+		const pools = {};
+		const poolFor = key => {
+			if (!pools[key]) {
+				const t = (key === "*" ? withText : key.split(",")).map(id => docs[id].pages.join("\n")).join("\n");
+				pools[key] = { known: new Set(numbersInText(t)), decs: docDecimals(t), ints: docIntegers(t) };
+			}
+			return pools[key];
+		};
+		// Cada pedaço vai até à citação seguinte na mesma linha. O que fica depois da última citação
+		// da linha, ou numa linha sem citações, compara-se com todos os PDFs.
+		const segments = [];
+		for (const line of String(text).split("\n")) {
+			let from = 0;
+			for (const m of line.matchAll(CITE_GROUP_RE)) {
+				const cited = [...new Set(parseCiteGroup(m[1]).map(c => c.doc).filter(id => pageNorm[id]))].sort();
+				segments.push({ text: line.slice(from, m.index), key: cited.length ? cited.join(",") : "*" });
+				from = m.index + m[0].length;
+			}
+			segments.push({ text: line.slice(from), key: "*" });
+		}
 		const unknown = new Set();
-		const has = n => known.has(n) || known.has(n.replace(/%$/, "")) || known.has(n + "%") || derived.has(n) || derived.has(n.replace(/%$/, ""))
-			|| (!/%$/.test(n) && decs.has(n.replace(/^(\d+),/, (x, a) => parseInt(a, 10) + ",")));
-		for (const n of numbersInText(clean)) {
-			res.numbers++;
-			if (!has(n)) unknown.add(n);
-		}
-		const ints = docIntegers(docText);
-		for (const m of clean.matchAll(STAT_N_RE)) {
-			res.numbers++;
-			if (!ints.has(m[1].replace(/\D/g, "").replace(/^0+(?=\d)/, ""))) unknown.add(m[0].replace(/\s+/g, " ").trim());
-		}
-		for (const m of clean.matchAll(STAT_P_RE)) {
-			res.numbers++;
-			if (!decs.has("0," + m[1].slice(1))) unknown.add(m[0].replace(/\s+/g, " ").trim());
+		for (const seg of segments) {
+			const P = poolFor(seg.key);
+			const has = n => P.known.has(n) || P.known.has(n.replace(/%$/, "")) || P.known.has(n + "%") || derived.has(n) || derived.has(n.replace(/%$/, ""))
+				|| (!/%$/.test(n) && P.decs.has(n.replace(/^(\d+),/, (x, a) => parseInt(a, 10) + ",")));
+			for (const n of numbersInText(seg.text)) {
+				res.numbers++;
+				if (!has(n)) unknown.add(n);
+			}
+			for (const m of seg.text.matchAll(STAT_N_RE)) {
+				res.numbers++;
+				if (!P.ints.has(m[1].replace(/\D/g, "").replace(/^0+(?=\d)/, ""))) unknown.add(m[0].replace(/\s+/g, " ").trim());
+			}
+			for (const m of seg.text.matchAll(STAT_P_RE)) {
+				res.numbers++;
+				if (!P.decs.has("0," + m[1].slice(1))) unknown.add(m[0].replace(/\s+/g, " ").trim());
+			}
 		}
 		res.unknownNumbers = [...unknown];
-		res.problems = res.badQuotes.length + res.changedQuotes.length + res.wrongPage.length + res.badCites.length + res.unknownNumbers.length + res.badCalcs.length;
+		res.problems = res.badQuotes.length + res.changedQuotes.length + res.wrongPage.length + res.otherDoc.length + res.badCites.length + res.unknownNumbers.length + res.badCalcs.length;
 		return res;
 	}
 
