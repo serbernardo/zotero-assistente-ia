@@ -3905,10 +3905,14 @@ var ZIAChatView = class {
 						const r = this._el("div", "zia-proof-diff");
 						r.appendChild(this._el("b", null, label));
 						const q = this._el("span", cls);
+						// Palavras separadas por um espaço. As aspas « » ficam coladas ao texto
+						let prev = null;
 						for (const x of parts) {
-							if (typeof x === "string") { q.appendChild(this.doc.createTextNode(x)); continue; }
-							if (q.childNodes.length) q.appendChild(this.doc.createTextNode(" "));
-							q.appendChild(x.diff ? this._el(cls === "zia-proof-q" ? "s" : "b", "zia-diff", x.w) : this.doc.createTextNode(x.w));
+							const w = typeof x === "string" ? x.trim() : x.w;
+							if (!w) continue;
+							if (prev !== null && prev !== "«" && w !== "»") q.appendChild(this.doc.createTextNode(" "));
+							q.appendChild(typeof x !== "string" && x.diff ? this._el(cls === "zia-proof-q" ? "s" : "b", "zia-diff", w) : this.doc.createTextNode(w));
+							prev = w;
 						}
 						card.appendChild(r);
 						r.appendChild(q);
