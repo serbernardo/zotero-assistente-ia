@@ -2157,6 +2157,12 @@ var ZoteroIA = {
 		const existing = Services.wm.getMostRecentWindow(this.WINDOW_TYPE);
 		if (existing && existing.ZIAWindow) {
 			existing.ZIAWindow.receive(args);
+			// Minimizada ou minúscula: volta a ver-se
+			try {
+				if (existing.windowState === existing.STATE_MINIMIZED) existing.restore();
+				existing.ZIAWindow.fixSize();
+			}
+			catch (e) { this.log("Janela: " + e); }
 			existing.focus();
 			return existing;
 		}

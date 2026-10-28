@@ -204,6 +204,10 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   varios modelos em paralelo. As comparacoes (grupo `comparar`) passam `noLite`:
   nunca usam modelos "lite" (nem na troca, nem nos alternativos). Sem modelo
   completo disponivel, erro claro `err.geminiNoFull`.
+- **Janela minuscula (1.0.20):** o `persist` da janela guardava um tamanho minusculo (ou a posicao de uma
+  janela fechada minimizada) e ela abria so com a barra do titulo, uma "caixa preta". `window.xhtml` tem
+  `minwidth`/`minheight` e `ZIAWindow.fixSize` (ao abrir e quando se reutiliza a janela, que tambem sai de
+  minimizada) volta a 820x860 no centro do ecra onde esta, se for mais pequena do que 560x480 ou fora do ecra.
 - **Janela:** "+ Colecao" abre uma lista de todas as colecoes (`listCollections`,
   `collectionItems`), sem ter de selecionar antes no Zotero. A janela carrega o
   `zoteroia.css` pelo rootURI com `?v=<versao>` (o chrome:// ficava em cache
@@ -646,7 +650,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.19.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.20.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica

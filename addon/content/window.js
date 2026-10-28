@@ -14,6 +14,7 @@ var ZIAWindow = {
 			return;
 		}
 		document.title = core.t("app.name");
+		this.fixSize();
 		// A mesma folha de estilos do painel lateral, sempre a versão instalada
 		const css = document.createElementNS("http://www.w3.org/1999/xhtml", "link");
 		css.rel = "stylesheet";
@@ -23,6 +24,27 @@ var ZIAWindow = {
 		this.view = new core.ChatView({ doc: document, win: window, container: host, mode: "window", core });
 		const args = window.arguments && window.arguments[0];
 		await this.receive(args && (args.wrappedJSObject || args));
+	},
+
+	/**
+	 * O Zotero guarda o tamanho e a posição da janela (persist). Se ficou minúscula (ou foi fechada
+	 * minimizada, no Windows) abria só a barra do título: volta ao tamanho normal, no centro do ecrã.
+	 */
+	fixSize() {
+		try {
+			// O ecrã onde a janela está (com dois monitores, não a traz para o primeiro)
+			const sc = window.screen;
+			const left = sc.availLeft || 0, top = sc.availTop || 0, sw = sc.availWidth, sh = sc.availHeight;
+			const tooSmall = window.outerWidth < 560 || window.outerHeight < 480;
+			const off = window.screenX < left - 50 || window.screenY < top - 50 || window.screenX > left + sw - 100 || window.screenY > top + sh - 100;
+			if (!tooSmall && !off) return;
+			const w = Math.min(820, sw - 40), h = Math.min(860, sh - 40);
+			window.resizeTo(w, h);
+			window.moveTo(left + Math.max(0, Math.round((sw - w) / 2)), top + Math.max(0, Math.round((sh - h) / 2)));
+		}
+		catch (e) {
+			Zotero.logError(e);
+		}
 	},
 
 	/** Recebe itens (ao abrir ou quando a janela já existe). */
