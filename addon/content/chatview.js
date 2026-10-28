@@ -3042,9 +3042,14 @@ var ZIAChatView = class {
 		if (m.stances && Object.keys(m.stances).length && !m.pending) el.appendChild(this._stanceMeter(m.stances));
 		const isMap = m.actionID === "mapa" || m.actionID === "temas";
 		const body = this._el("div", "zia-md" + (isMap ? " zia-mindmap" : ""));
+		// Resultado da verificação de cada citação, pela ordem do texto ("D1:p4#2"): marca e cartão de prova
+		const items = {};
+		for (const it of (m.check && m.check.items) || []) items[it.key] = it;
+		const seen = {};
 		const ctx = {
 			docsMap: this._docsMap(m),
-			onCite: (c, extra) => this._openCite(c, extra),
+			citeItem: m.check && m.check.items ? inner => items[inner + "#" + (seen[inner] = (seen[inner] || 0) + 1)] || null : null,
+			onCite: (c, extra) => this._openCite(c, extra && Object.assign({ m }, extra)),
 			onLink: href => this._openLink(href),
 		};
 		if (m.text) {
@@ -3503,7 +3508,54 @@ var ZIAChatView = class {
 	}
 
 	/** Resultado da verificação automática: tudo confirmado, ou o que não foi encontrado nos PDFs. */
+	/**
+	 * Uma linha no fim da resposta: quantas transcrições foram confirmadas e quantas citações rever
+	 * (estas têm a marca ✗ no texto). "N a rever" salta para a primeira e abre o cartão. Só os
+	 * problemas sem citação ao lado (página que não existe, conta errada, número solto) vão numa lista.
+	 */
 	_checkBox(c, m) {
+		if (!c.items) return this._checkBoxOld(c, m);
+		const L = this.L;
+		const dm = this._docsMap(m);
+		const flagged = c.items.filter(it => L.citeState(it) === "bad").length;
+		const loose = [];
+		for (const b of (c.badCites || []).slice(0, 3)) loose.push(this.T("check.badCite", { c: L.citeLabel(b, dm, { raw: true }) }));
+		for (const e of (c.badCalcs || []).slice(0, 3)) loose.push(this.T("check.badCalc", { e }));
+		if ((c.looseNumbers || []).length) loose.push(this.T("check.numbers", { n: c.looseNumbers.slice(0, 8).join(", ") }));
+		const review = flagged + loose.length;
+		const found = c.quotesOK + (c.wrongPage || []).length;
+		if (!review && !c.quotes) {
+			if (c.numbers) return this._el("div", "zia-check zia-check-ok", this.T("check.okNumbers", { n: c.numbers }));
+			return this._el("div", "zia-check zia-check-info", this.T(c.cites === 0 ? "check.noCites" : "check.okNoQuotes"));
+		}
+		const box = this._el("div", "zia-check zia-check-line" + (review ? " zia-check-review" : " zia-check-ok"));
+		box.setAttribute("role", "note");
+		if (c.quotes) box.appendChild(this._el("span", null, (found ? "\u2713 " : "") + this.T("check.sum", { ok: found, n: c.quotes })));
+		let list = null;
+		if (review) {
+			if (c.quotes) box.appendChild(this.doc.createTextNode(" · "));
+			box.appendChild(this._button(this.T("check.review", { k: review }), "zia-check-go", () => {
+				const first = m.el && m.el.querySelector(".zia-cite-bad");
+				if (first) {
+					first.scrollIntoView({ block: "center" });
+					if (!first.classList.contains("zia-cite-open")) first.click();
+				}
+				else if (list) list.scrollIntoView({ block: "center" });
+			}));
+		}
+		if (loose.length) {
+			const wrap = this._el("div");
+			wrap.appendChild(box);
+			list = this._el("ul", "zia-check-loose");
+			for (const t of loose) list.appendChild(this._el("li", null, t));
+			wrap.appendChild(list);
+			return wrap;
+		}
+		return box;
+	}
+
+	/** Respostas guardadas antes da prova por citação: a caixa antiga com a lista de avisos. */
+	_checkBoxOld(c, m) {
 		const dm = this._docsMap(m);
 		const ref = cite => {
 			if (!cite) return "";
@@ -3760,19 +3812,137 @@ var ZIAChatView = class {
 		}
 	}
 
+	/**
+	 * Clique numa citação. Com resultado da verificação (marca ✓, ↪ ou ✗) abre ou fecha o cartão de prova
+	 * logo por baixo. Sem marca (paráfrase) abre o PDF na página. Sem caixa de pesquisa no leitor do
+	 * Zotero (confundia as pessoas): a prova lê-se no próprio cartão.
+	 */
 	_openCite(c, extra) {
+		if (extra && extra.item && extra.el) return this._toggleProof(extra.item, c, extra.el, extra.m);
 		const d = this._docsMap()[c.doc];
 		if (!d) {
 			this._setStatus(this.T("chat.docMissing", { doc: c.doc }), "warn");
 			return;
 		}
-		// Depois de uma transcrição: o leitor do Zotero procura o início dela e destaca-o
-		let find = null;
-		if (extra && extra.quote) {
-			const pages = Array.isArray(d.pages) && c.page ? d.pages.slice(Math.max(0, c.page - 2), (c.pageEnd || c.page) + 1).join("\n") : "";
-			find = this.L.quoteSnippet(extra.quote, pages);
+		this._openPage(d, c.page);
+	}
+
+	_openPage(d, page) {
+		if (!d) return;
+		this.core.openAtPage(d, page).catch(e => this._setStatus(this.T("chat.openError", { e }), "error"));
+	}
+
+	_toggleProof(item, c, chip, m) {
+		if (chip._proof && chip._proof.isConnected) {
+			chip._proof.remove();
+			chip._proof = null;
+			chip.classList.remove("zia-cite-open");
+			return;
 		}
-		this.core.openAtPage(d, c.page, { find }).catch(e => this._setStatus(this.T("chat.openError", { e }), "error"));
+		const card = this._proofCard(item, c, m, () => this._toggleProof(item, c, chip, m));
+		// Por baixo do parágrafo, do item da lista ou da tabela onde está a citação
+		const table = chip.closest("table");
+		const host = (table && (table.closest(".zia-table-wrap") || table)) || chip.closest("li, p, blockquote, h2, h3, h4, h5, h6") || chip.parentNode;
+		if (host.localName === "li") host.appendChild(card);
+		else host.parentNode.insertBefore(card, host.nextSibling);
+		chip._proof = card;
+		chip.classList.add("zia-cite-open");
+	}
+
+	/** Cartão de prova: o parágrafo do PDF com a frase a amarelo, ou o que o PDF diz quando não bate certo. */
+	_proofCard(item, c, m, onClose) {
+		const L = this.L;
+		const dm = this._docsMap(m);
+		const pg = (doc, page) => "p. " + L.pageLabel(dm[doc], page);
+		const ref = doc => L.citeLabel({ doc }, dm);
+		const state = L.citeState(item) || "ok";
+		const card = this._el("div", "zia-proof zia-proof-" + state);
+		const head = this._el("div", "zia-proof-head");
+		const title = this._el("span", "zia-proof-title");
+		head.appendChild(title);
+		head.appendChild(this._button("\u2715", "zia-proof-x", onClose, this.T("proof.close")));
+		card.appendChild(head);
+		const text = t => card.appendChild(this._el("div", "zia-proof-text", t));
+		const join = (a, b) => !a ? b : !b ? a : /\s$/.test(a) || /^\s/.test(b) ? a + b : a + " " + b;
+		const passage = (p, soft) => {
+			if (!p || !p.match) return;
+			const box = this._el("div", "zia-proof-pdf");
+			if (p.before) box.appendChild(this.doc.createTextNode(join(p.before, "")));
+			const mk = this._el("mark", soft ? "zia-proof-soft" : null, p.match);
+			if (p.before && !/\s$/.test(p.before)) box.appendChild(this.doc.createTextNode(" "));
+			box.appendChild(mk);
+			if (p.after) box.appendChild(this.doc.createTextNode(/^\s/.test(p.after) ? p.after : " " + p.after));
+			card.appendChild(box);
+		};
+		const open = (doc, page, label) => {
+			if (!dm[doc]) return;
+			const b = this._button(label || this.T("proof.open"), "zia-proof-open", () => this._openPage(dm[doc], page));
+			card.appendChild(b);
+		};
+		const ev = item.evidence, near = item.near;
+		switch (item.status) {
+			case "ok":
+				title.textContent = this.T("proof.ok", { p: pg((ev && ev.doc) || c.doc, (ev && ev.page) || c.page) });
+				passage(ev);
+				open((ev && ev.doc) || c.doc, (ev && ev.page) || c.page);
+				break;
+			case "moved":
+				title.textContent = this.T("proof.moved", { p: pg(ev.doc, ev.page), q: pg(c.doc, c.page) });
+				passage(ev);
+				open(ev.doc, ev.page, this.T("proof.open"));
+				break;
+			case "otherDoc":
+				title.textContent = this.T("proof.otherDoc");
+				text(this.T("proof.otherDoc.text", { doc: ref(ev.doc), p: ev.page ? ", " + pg(ev.doc, ev.page) : "", cited: ref(c.doc) }));
+				passage(ev);
+				open(ev.doc, ev.page, this.T("proof.openDoc", { doc: ref(ev.doc), p: pg(ev.doc, ev.page) }));
+				break;
+			case "changed": {
+				const d = near && L.wordDiff(item.quote, near.match);
+				title.textContent = this.T("proof.changed", { p: pg(near ? near.doc : c.doc, near ? near.page : c.page) });
+				if (d) {
+					const row = (label, cls, parts) => {
+						const r = this._el("div", "zia-proof-diff");
+						r.appendChild(this._el("b", null, label));
+						const q = this._el("span", cls);
+						for (const x of parts) {
+							if (typeof x === "string") { q.appendChild(this.doc.createTextNode(x)); continue; }
+							if (q.childNodes.length) q.appendChild(this.doc.createTextNode(" "));
+							q.appendChild(x.diff ? this._el(cls === "zia-proof-q" ? "s" : "b", "zia-diff", x.w) : this.doc.createTextNode(x.w));
+						}
+						card.appendChild(r);
+						r.appendChild(q);
+					};
+					row(this.T("proof.answer"), "zia-proof-q", ["«", ...d.a, "»"]);
+					row(this.T("proof.pdf"), "zia-proof-p", [d.bBefore ? d.bBefore + " " : "", ...d.b, d.bAfter ? " " + d.bAfter : ""]);
+					text(this.T("proof.changed.text"));
+				}
+				else text(this.T("proof.bad.none"));
+				open(near ? near.doc : c.doc, near ? near.page : c.page);
+				break;
+			}
+			case "bad":
+				title.textContent = this.T("proof.bad");
+				if (near) {
+					text(this.T("proof.bad.near", { p: pg(near.doc, near.page) }));
+					passage(near, true);
+				}
+				else text(this.T("proof.bad.none"));
+				open(near ? near.doc : c.doc, near ? near.page : c.page);
+				break;
+			case "note":
+				title.textContent = this.T("proof.note");
+				text(this.T("proof.note.text"));
+				break;
+			default:
+				title.textContent = this.T("proof.numbersTitle");
+				open(c.doc, c.page);
+		}
+		if (item.numbers && item.numbers.length) {
+			const n = this._el("div", "zia-proof-text zia-proof-numbers", this.T("proof.numbers", { doc: ref(c.doc), n: item.numbers.join(", ") }));
+			card.insertBefore(n, card.querySelector(".zia-proof-open"));
+		}
+		return card;
 	}
 
 	/** Ligações escritas pela IA: só http(s), abertas no navegador do sistema. */

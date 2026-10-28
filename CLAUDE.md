@@ -93,7 +93,7 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
 - **Fidelidade (o mais importante):** `buildSystemPrompt` comeca pela regra
   "FIDELIDADE AOS DOCUMENTOS": so a informacao escrita nos documentos, sem
   conhecimento geral nem suposicoes. [Inferencia] so para ligacoes diretas entre
-  factos citados. Contas so se forem exatas e escritas por inteiro
+  factos citados (sem [Declarado], ver abaixo). Contas so se forem exatas e escritas por inteiro
   (100% - 47% = 53%). Texto entre aspas e copia exata do PDF.
 - **Numero impresso nas paginas** (`detectPageOffset` e `pageLabel` em `lib.js`): o texto do PDF vem
   por posicao no ficheiro (1, 2, 3...), que muitas vezes nao e o numero impresso no artigo (a 1.a
@@ -158,16 +158,33 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
     6 partidas entre paginas e 94 numeros. Apanha 100% das palavras trocadas, negacoes, paginas a 3 de
     distancia e artigo errado. Nas 24 respostas reais antigas (`out/ia_real_claude`) continua 1 so aviso,
     um erro verdadeiro ("nao permite" em vez de "nao permitem"). Antes de mudar a verificacao: medir.
-- **Destaque da transcricao no PDF:** `inlinesToDOM` guarda o texto desde a citacao anterior e
-  `quoteBeforeCite` encontra a transcricao logo antes (ate 40 caracteres). O clique passa
-  `{ quote }` a `_openCite`, que escolhe as primeiras 7 palavras que estao na pagina
-  (`quoteSnippet`, so o pedaco antes de "...") e `openAtPage(d, page, { find })` abre a pagina e
-  escreve o pedaco na pesquisa do leitor do Zotero (`findInReader`: `reader._internalReader.
-  _handleFindStateChange(true, cloneInto(estado))`, `highlightAll` falso). Nao grava nada no PDF.
-  E uma funcao INTERNA do leitor (zotero/reader `src/common/reader.js`): se mudar, abre so a pagina.
-  Separador do PDF adormecido: `Zotero.Reader.open` devolve undefined, procura-se o leitor em
-  `Zotero.Reader._readers` durante 3 s. Tooltip `cite.find`. As parafrases so abrem a pagina.
-  Ainda nao testado no Zotero real.
+- **Prova de cada citacao (fase 1, a pedido: "simples de ver, mas rigorosa"):** `verifyAnswer` devolve
+  `res.items`, um por citacao com resultado, pela ordem do texto (chave "D1:p4#2" = texto da citacao +
+  ocorrencia, a mesma que `ctx.citeItem` conta ao desenhar). `status`: ok, moved (noutra pagina do mesmo
+  artigo), otherDoc, changed (palavras diferentes), bad (nao esta no PDF), note (a IA copiou uma nota do
+  proprio addon, `isAddonNote`/`ADDON_NOTES`, ex.: "Lista de referencias bibliograficas omitida") e
+  `numbers` (numeros que nao estao no artigo citado). `evidence` = { doc, page, before, match, after }
+  (`evidenceFor`, `locateIn`, `compactIndex`: posicao no texto original, frase inteira a volta, e a
+  transcricao no lugar do texto do PDF quando as letras sao iguais, para nao mostrar "bus iness"). `near`
+  = a frase (ou duas seguidas) com mais palavras em comum na pagina citada e vizinhas (`nearestPassage`).
+  Tudo fica em `msg.check` (historico), por isso funciona depois de reiniciar sem reler o PDF.
+  No ecra (`inlinesToDOM`, `citeState`): marca na citacao ✓ verde, ↪ ambar com "p. 3 → 4", ✗ vermelho,
+  e sem marca nas parafrases. Clicar numa citacao com marca abre ou fecha o cartao `.zia-proof` por baixo
+  do paragrafo, do item ou da tabela (`_toggleProof`, `_proofCard`): o paragrafo do PDF com a frase a
+  amarelo e "Abrir o PDF nesta pagina", ou, quando nao bate certo, "Resposta" e "PDF" com as diferencas
+  (`wordDiff`, LCS palavra a palavra, so o troco alinhado), o mais parecido, ou a explicacao da nota.
+  Sem marca abre logo o PDF. A caixa laranja deu lugar a uma linha (`_checkBox`): "✓ 1 de 2
+  transcricoes confirmadas no PDF · 2 a rever ›" (salta para a primeira ✗ e abre o cartao). So os
+  problemas sem citacao ao lado (pagina inexistente, conta errada, `looseNumbers`) ficam numa lista.
+  Respostas antigas sem `items` usam a caixa antiga (`_checkBoxOld`). Saiu a caixa de pesquisa do leitor
+  do Zotero (`findInReader`, `quoteSnippet`, `quoteBeforeCite`): confundia as pessoas.
+  As parafrases continuam sem prova ate a fase 2 (frase de prova em cada citacao, precisa de teste com
+  a IA real: `run_ai_real.js iaedu`, o ambiente tem de permitir `api.iaedu.pt`).
+- **[Declarado] saiu, [Inferencia] e uma etiqueta:** o que os autores escrevem leva so a citacao. A
+  IA marca com [Inferencia] as ligacoes que ela faz, e o painel mostra a etiqueta cinzenta
+  "interpretacao da IA" (`textToDOM`, `.zia-ia-badge`). Notas e copia: "(interpretacao da IA)"
+  (`tidyMarkers`). As respostas antigas com [Declarado] perdem a marca ao desenhar. A regra 7 das
+  instrucoes diz que o texto da marca `<omitido>` e uma nota do assistente e nunca se cita.
 - **Fichas das notas com paginas certas:** a nota guarda as citacoes como ligacoes
   `zotero://open-pdf/...?page=N` (pagina no ficheiro) com o numero impresso no texto.
   `noteToText(note, doc)` chama `noteCitesToMarkers` e volta a por `[Dn:pN]` (so as ligacoes desse
@@ -382,8 +399,8 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   leitura e Explicar os meus destaques so no Avancado);
   uma acao ja pedida mostra a resposta sem novo pedido (menos a relevancia, que usa o tema escrito na
   caixa e pode repetir-se). Sem "Excertos citaveis" no simples (estudantes devem parafrasear). Sem separadores, lista de motores (usa o das
-  definicoes), "Repetir com" nem motor/modelo por baixo da resposta; verificacao curta
-  ("Confirmado no PDF") quando nao ha problemas, os avisos aparecem inteiros. Mudar de modo nas
+  definicoes), "Repetir com" nem motor/modelo por baixo da resposta. A verificacao e a mesma do
+  Avancado (marcas, cartoes e uma linha no fim). Mudar de modo nas
   definicoes a meio de uma resposta so redesenha no fim (`_rebuildLater`). Mesmas cores do resto.
   Nos testes do painel `ui.html` usa "advanced" por omissao (`?uimode=simple` para o simples).
 - **Mapa mental** (acao `mapa`): a IA devolve so uma lista encaixada (`_mindmapNodes`). So a vista Ramos
@@ -577,7 +594,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (46), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (47), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves

@@ -74,7 +74,7 @@ var ZIALib = (function () {
 		}
 		if (lang.id !== "pt-PT") {
 			lines.push("As instruções abaixo estão em português, mas a resposta segue a língua indicada acima. "
-				+ "Traduz também os títulos, os nomes de campos e os rótulos pedidos, exceto as marcas técnicas [Declarado], [Inferência] e ETIQUETAS.");
+				+ "Traduz também os títulos, os nomes de campos e os rótulos pedidos, exceto as marcas técnicas [Inferência] e ETIQUETAS.");
 		}
 		lines.push(
 			"",
@@ -106,15 +106,15 @@ var ZIALib = (function () {
 			"   de adaptar uma frase, não uses aspas. O texto entre aspas é confirmado automaticamente no PDF.",
 			`3. Se a informação não está nos documentos, escreve ${nr}.`,
 			"   Nunca completes com conhecimento geral nem com suposições.",
-			"4. Em conclusões, comparações e lacunas distingue sempre:",
-			"   [Declarado] o que os autores escrevem, e",
-			"   [Inferência] uma ligação lógica direta entre factos citados dos documentos (por exemplo,",
-			"   D1 e D2 usam amostras de países diferentes), sempre com as citações de apoio.",
+			"4. O que os autores escrevem leva só a citação, sem etiqueta. Marca com [Inferência] uma ligação",
+			"   lógica direta que tu fazes entre factos citados dos documentos (por exemplo, D1 e D2 usam",
+			"   amostras de países diferentes), sempre com as citações de apoio.",
 			"   Uma inferência nunca acrescenta factos novos, causas não referidas ou especulação.",
 			"5. Não inventes DOIs, números, páginas, autores ou citações.",
 			"6. Se um documento não tiver texto legível, di-lo e não o analises.",
 			"7. Se parte de um documento foi omitida por limite de tamanho (marca <omitido>),",
-			"   avisa quando isso puder afetar a resposta.",
+			"   avisa quando isso puder afetar a resposta. O texto da marca <omitido> é uma nota do",
+			"   assistente e não do documento: nunca o copies entre aspas nem o cites com página.",
 			"8. As anotações do utilizador (marca <anotacoes>) mostram o que lhe interessa.",
 			"   Podes usá-las para orientar a resposta, mas as citações referem sempre o texto do PDF.",
 			"",
@@ -278,7 +278,7 @@ var ZIALib = (function () {
 				+ "## Apreciação global: duas a três frases, marcadas como [Inferência]. Termina com a frase: esta é uma "
 				+ "apreciação da IA e não substitui a aplicação formal da grelha. Não uses escalas de certeza da evidência "
 				+ "(como o GRADE), que se aplicam a conjuntos de estudos e não a um documento isolado.\n"
-				+ "Separa [Declarado], o que os autores reconhecem, de [Inferência], a tua avaliação. Sê específico.",
+				+ "O que os autores reconhecem leva só a citação. A tua avaliação leva a marca [Inferência]. Sê específico.",
 		},
 		metodos: {
 			group: "avaliar",
@@ -348,8 +348,8 @@ var ZIALib = (function () {
 				+ "Método, Amostra e contexto, Resultados principais, Limitações. Na coluna Documento "
 				+ "usa o autor e o ano.\n"
 				+ "2. ## Pontos fortes e fracos: para cada documento, uma linha com o que faz bem (método, dados ou "
-				+ "clareza dos resultados) e uma com as fragilidades. Separa [Declarado], o que os autores reconhecem, "
-				+ "de [Inferência].\n"
+				+ "clareza dos resultados) e uma com as fragilidades. O que os autores reconhecem leva só a citação, "
+				+ "a tua avaliação leva a marca [Inferência].\n"
 				+ "3. ## Convergências: pontos em que os documentos concordam, com a lista de documentos em cada ponto.\n"
 				+ "4. ## Divergências: resultados ou interpretações em conflito e possíveis explicações "
 				+ "(método, contexto, amostra), marcadas como [Inferência].\n"
@@ -1387,7 +1387,7 @@ var ZIALib = (function () {
 			if (!cites.length) return all;
 			// Várias fontes numa só citação, separadas por ";" (norma APA)
 			return joinCites(cites, docsMap);
-		}).split("\n").map(line => replaceDocIds(line, docsMap)).join("\n");
+		}).split("\n").map(line => tidyMarkers(replaceDocIds(line, docsMap))).join("\n");
 	}
 
 	// ------------------------------------------------------------------
@@ -1519,9 +1519,11 @@ var ZIALib = (function () {
 
 	// Excerto quase igual ao original (algumas palavras alteradas): quase todas as palavras estão no texto
 	function quoteNearlyFound(quote, hay) {
-		const words = normForMatch(quote).split(" ").filter(w => w.length >= 3);
+		// Palavras sem a pontuação colada ("trade." e "trade" são a mesma)
+		const toks = x => x.match(/[\p{L}\p{N}]+/gu) || [];
+		const words = toks(normForMatch(quote)).filter(w => w.length >= 3);
 		if (words.length < 4) return false;
-		const set = new Set(hay.split(" "));
+		const set = new Set(toks(hay));
 		const stem = w => w.replace(/[sm]$/, "");
 		const stems = new Set([...set].map(stem));
 		const hit = words.filter(w => set.has(w) || stems.has(stem(w))).length;
@@ -1534,35 +1536,165 @@ var ZIALib = (function () {
 	const QUOTE_SINGLE = `\u2018([^\u2018\\n|]{15,500}?)\u2019(?!\\p{L})`;
 	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}|${QUOTE_SINGLE})[^\\[\\n|\u2019]{0,40}?\\[(${CITE_INNER})\\]`, "gu");
 	function quoteMatches(text) {
-		return [...String(text || "").matchAll(QUOTE_RE)].map(m => [m[0], (m[1] || m[2]).trim(), m[3]]);
+		return [...String(text || "").matchAll(QUOTE_RE)].map(m => [m[0], (m[1] || m[2]).trim(), m[3], m.index]);
 	}
 
-	/**
-	 * Transcrição escrita logo antes de uma citação (o texto desde a citação anterior), para a
-	 * destacar no PDF ao abrir a página. null se a citação não vier depois de aspas.
-	 */
-	const QUOTE_BEFORE_RE = new RegExp(`(?:${QUOTE_DOUBLE}|${QUOTE_SINGLE})[^\\[\\n|"\u201c\u00ab\u2018\u2019]{0,40}$`, "u");
-	function quoteBeforeCite(text) {
-		const m = QUOTE_BEFORE_RE.exec(String(text || "").slice(-700));
-		return m ? (m[1] || m[2]).trim() : null;
+	// [Declarado] já não se mostra (tudo o que tem citação é o que os autores escrevem) e [Inferência]
+	// passa a "interpretação da IA". As respostas antigas ainda as têm.
+	const STATED_RE = /\[(?:Declarado|Declared|Stated)\]\s*/g;
+	const INFER_RE = /\[(?:Inferência|Inferencia|Inference)\]/g;
+	function tidyMarkers(x, inferLabel) {
+		return String(x).replace(STATED_RE, "").replace(INFER_RE, inferLabel == null ? "(" + t("cite.inference") + ")" : inferLabel);
 	}
 
-	/**
-	 * Pedaço curto da transcrição para a pesquisa do leitor do Zotero (a pesquisa por frase falha em
-	 * frases longas que mudam de linha). Com o texto da página, escolhe as primeiras n palavras
-	 * seguidas que lá estão. Sem ele, as primeiras n palavras do primeiro pedaço (antes de "...").
-	 */
-	function quoteSnippet(quote, pageText, n = 7) {
-		const part = String(quote || "").split(/\s*(?:\.\.\.|\u2026|\[\u2026\]|\[\.\.\.\])\s*/).map(x => x.trim()).filter(Boolean)[0] || "";
-		const words = part.split(/\s+/).filter(w => normForMatch(w));
-		if (!words.length) return null;
-		const take = i => words.slice(i, i + n).join(" ").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}%)]+$/gu, "");
-		if (words.length <= n || !pageText) return take(0) || null;
-		const hay = normForMatch(pageText);
-		for (let i = 0; i + n <= words.length; i++) {
-			if (hay.includes(normForMatch(words.slice(i, i + n).join(" ")))) return take(i);
+	// ------------------------------------------------------------------
+	// Prova de cada citação: o parágrafo do PDF, o mais parecido e as diferenças
+	// ------------------------------------------------------------------
+
+	// Notas que o próprio addon põe no pedido (marca <omitido>, ficha, sem páginas): não são texto do PDF
+	const ADDON_NOTES = ["Páginas omitidas por limite de tamanho", "Lista de referências bibliográficas omitida",
+		"restantes anotações omitidas", "Sem marcas de página: cita apenas o identificador do documento",
+		"Esta é uma ficha de extração já feita a partir do PDF"];
+	function isAddonNote(quote) {
+		const q = normForMatch(quote);
+		return q.length >= 10 && ADDON_NOTES.some(t => { const n = normForMatch(t); return n.includes(q) || q.includes(n); });
+	}
+
+	// Só letras e algarismos, com a posição de cada um no texto original (para mostrar o parágrafo)
+	// Cada página prepara-se uma vez (a mesma página serve a várias citações da resposta)
+	const pageCache = new Map();
+	function cached(kind, s, make) {
+		const key = kind + "\u0000" + s;
+		let v = pageCache.get(key);
+		if (v === undefined) {
+			v = make(s);
+			if (pageCache.size > 300) pageCache.delete(pageCache.keys().next().value);
+			pageCache.set(key, v);
 		}
-		return take(0);
+		return v;
+	}
+
+	function compactIndex(s) {
+		return cached("ix", String(s), compactIndexOf);
+	}
+
+	function compactIndexOf(s) {
+		let c = "";
+		const map = [];
+		for (const m of String(s).matchAll(/\P{M}\p{M}*/gu)) {
+			const k = m[0].normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+			for (let i = 0; i < k.length; i++) { c += k[i]; map.push([m.index, m.index + m[0].length]); }
+		}
+		return { c, map };
+	}
+
+	const cleanText = x => String(x).replace(/(\p{L})-\s*\n\s*(\p{Ll})/gu, "$1$2").replace(/\s+/g, " ");
+
+	// A frase inteira à volta do que foi encontrado (no máximo 220 caracteres de cada lado)
+	function contextOf(t, a, b) {
+		const head = t.slice(Math.max(0, a - 220), a);
+		const cut = head.search(/[.!?]\s+(?=[^.!?]*$)/);
+		const before = cut >= 0 ? head.slice(cut + 1) : (a > 220 ? "… " + head.replace(/^\S*\s/, "") : head);
+		const tail = t.slice(b, b + 220);
+		const end = tail.search(/[.!?](\s|$)/);
+		const after = end >= 0 ? tail.slice(0, end + 1) : (b + 220 < t.length ? tail.replace(/\s\S*$/, "") + " …" : tail);
+		return { before: cleanText(before).trimStart(), match: cleanText(t.slice(a, b)).trim(), after: cleanText(after).trimEnd() };
+	}
+
+	/** Onde está a transcrição na página: { before, match, after }, ou null. */
+	function locateIn(pageText, part) {
+		const t = String(pageText || "");
+		const tries = [[t, part], [t.replace(INLINE_REF_RE, x => " ".repeat(x.length)), String(part).replace(INLINE_REF_RE, " ")]];
+		for (const [hay, q0] of tries) {
+			const q = compactNorm(normForMatch(q0));
+			if (q.length < 8) return null;
+			const ix = compactIndex(hay);
+			const at = ix.c.indexOf(q);
+			if (at < 0) continue;
+			const ctx = contextOf(t, ix.map[at][0], ix.map[at + q.length - 1][1]);
+			// As mesmas letras e algarismos: mostra a transcrição, sem os espaços partidos do PDF ("bus iness")
+			if (compactNorm(normForMatch(ctx.match)) === compactNorm(normForMatch(part))) ctx.match = String(part).trim();
+			return ctx;
+		}
+		return null;
+	}
+
+	/** A primeira página da lista ([doc, página]) onde a transcrição está, com o parágrafo. */
+	function evidenceFor(part, docs, order) {
+		for (const [id, p] of order) {
+			const page = docs[id] && Array.isArray(docs[id].pages) ? docs[id].pages[p - 1] : null;
+			if (page == null) continue;
+			const loc = locateIn(page, part);
+			if (loc) return Object.assign({ doc: id, page: p }, loc);
+		}
+		return null;
+	}
+
+	const wordsOf = x => normForMatch(x).match(/[\p{L}\p{N}]{3,}/gu) || [];
+	const capText = (x, n, fromEnd) => x.length <= n ? x : (fromEnd ? "… " + x.slice(-n).replace(/^\S*\s/, "") : x.slice(0, n).replace(/\s\S*$/, "") + " …");
+
+	/** A frase (ou duas seguidas) com mais palavras em comum, nas páginas da lista. null se nada for parecido. */
+	function nearestPassage(part, docs, order) {
+		const qw = new Set(wordsOf(part));
+		if (qw.size < 3) return null;
+		// Uma frase só, a não ser que duas seguidas tenham claramente mais palavras em comum
+		let best = null, pair = null;
+		for (const [id, p] of order) {
+			const page = docs[id] && Array.isArray(docs[id].pages) ? docs[id].pages[p - 1] : null;
+			if (!page) continue;
+			const sents = cached("st", page, pg => cleanText(pg).split(/(?<=[.!?])\s+/).filter(Boolean));
+			const sets = cached("sw", page, () => sents.map(x => new Set(wordsOf(x))));
+			const scoreAt = (i, j) => { let hit = 0; for (const k of qw) if (sets[i].has(k) || (j != null && sets[j].has(k))) hit++; return hit / qw.size; };
+			sents.forEach((x, i) => {
+				const one = scoreAt(i);
+				if (!best || one > best.score) best = { score: one, doc: id, page: p, sents, i, j: i };
+				if (i + 1 < sents.length) {
+					const two = scoreAt(i, i + 1);
+					if (!pair || two > pair.score) pair = { score: two, doc: id, page: p, sents, i, j: i + 1 };
+				}
+			});
+		}
+		if (pair && best && pair.score >= best.score + 0.1) best = pair;
+		if (!best || best.score < 0.3) return null;
+		const x = best.sents;
+		return { doc: best.doc, page: best.page, before: best.i > 0 ? capText(x[best.i - 1], 160, true) : "",
+			match: x.slice(best.i, best.j + 1).join(" "), after: best.j + 1 < x.length ? capText(x[best.j + 1], 160) : "" };
+	}
+
+	/**
+	 * Diferenças palavra a palavra entre a transcrição (a) e a frase do PDF (b). Da frase do PDF fica só o
+	 * troço alinhado com a transcrição (o resto vai em bBefore e bAfter). null se não houver nada em comum.
+	 */
+	function wordDiff(a, b) {
+		const A = String(a || "").split(/\s+/).filter(Boolean), B = String(b || "").split(/\s+/).filter(Boolean);
+		const key = w => compactNorm(normForMatch(w));
+		const ka = A.map(key), kb = B.map(key);
+		const n = A.length, m = B.length;
+		if (!n || !m || n * m > 60000) return null;
+		const L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+		for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = ka[i] && ka[i] === kb[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+		const inA = new Array(n).fill(false), inB = new Array(m).fill(false);
+		for (let i = 0, j = 0; i < n && j < m;) {
+			if (ka[i] && ka[i] === kb[j]) { inA[i] = inB[j] = true; i++; j++; }
+			else if (L[i + 1][j] >= L[i][j + 1]) i++;
+			else j++;
+		}
+		const first = inB.indexOf(true), last = inB.lastIndexOf(true);
+		if (first < 0) return null;
+		return {
+			a: A.map((w, i) => ({ w, diff: !inA[i] && !!ka[i] })),
+			b: B.slice(first, last + 1).map((w, j) => ({ w, diff: !inB[first + j] && !!kb[first + j] })),
+			bBefore: B.slice(0, first).join(" "),
+			bAfter: B.slice(last + 1).join(" "),
+		};
+	}
+
+	/** Estado da marca de uma citação: ok (✓), moved (↪ noutra página), bad (✗) ou null (sem marca). */
+	function citeState(item) {
+		if (!item) return null;
+		if (["bad", "changed", "note", "otherDoc"].includes(item.status) || (item.numbers && item.numbers.length)) return "bad";
+		if (item.status === "moved") return "moved";
+		return item.status === "ok" ? "ok" : null;
 	}
 
 	/**
@@ -1600,10 +1732,17 @@ var ZIALib = (function () {
 			pagesN[id] = docs[id].pages.length;
 		}
 		const allNorm = withText.map(id => docNorm[id]).join(" ");
-		const res = { quotes: 0, quotesOK: 0, numbers: 0, cites: 0, badQuotes: [], changedQuotes: [], wrongPage: [], otherDoc: [], badCites: [], unknownNumbers: [] };
+		const res = { quotes: 0, quotesOK: 0, numbers: 0, cites: 0, badQuotes: [], changedQuotes: [], wrongPage: [], otherDoc: [], badCites: [], unknownNumbers: [], looseNumbers: [] };
+		// Cada citação, pela ordem do texto. A chave junta o texto da citação e a ocorrência ("D1:p4#2"):
+		// a marca e o cartão de prova do painel encontram-na assim, mesmo depois de reiniciar o Zotero
+		const groups = [];
+		const seenKey = {};
+		const groupEndingAt = pos => groups.find(g => g.end === pos);
 		// 1. Páginas citadas
 		const seenBad = new Set();
 		for (const m of String(text).matchAll(CITE_GROUP_RE)) {
+			const nth = seenKey[m[1]] = (seenKey[m[1]] || 0) + 1;
+			groups.push({ end: m.index + m[0].length, item: { key: m[1] + "#" + nth } });
 			for (const c of parseCiteGroup(m[1])) {
 				res.cites++;
 				const key = c.doc + ":" + c.page;
@@ -1619,6 +1758,7 @@ var ZIALib = (function () {
 			res.quotes++;
 			const cites = m[2] ? parseCiteGroup(m[2]).filter(c => pageNorm[c.doc]) : [];
 			const inDoc = (part, id) => quoteFound(part, pageM[id]);
+			const group = groupEndingAt(m[3] + m[0].length);
 			let ok = true, wrong = false, otherDoc = null;
 			for (const part of parts) {
 				if (cites.length) {
@@ -1638,11 +1778,38 @@ var ZIALib = (function () {
 				else if (!withText.some(id => inDoc(part, id))) ok = false;
 			}
 			const shown = m[1].length > 90 ? m[1].slice(0, 87) + "…" : m[1];
-			if (!ok && parts.every(part => quoteNearlyFound(part, allNorm))) res.changedQuotes.push({ quote: shown, cite: m[2] || null });
+			const changed = !ok && parts.every(part => quoteNearlyFound(part, allNorm));
+			if (changed) res.changedQuotes.push({ quote: shown, cite: m[2] || null });
 			else if (!ok) res.badQuotes.push({ quote: shown, cite: m[2] || null });
 			else if (otherDoc) res.otherDoc.push({ quote: shown, cite: m[2] || null, doc: otherDoc });
 			else if (wrong) res.wrongPage.push({ quote: shown, cite: m[2] || null });
 			else res.quotesOK++;
+			// A prova para o cartão do painel: onde está, ou o que o PDF diz de mais parecido
+			if (group) {
+				const it = group.item;
+				it.quote = m[1].length > 400 ? m[1].slice(0, 397) + "…" : m[1];
+				const near = [];
+				const docPages = id => docs[id].pages.map((x, i) => [id, i + 1]);
+				for (const c of cites) {
+					if (!c.page) { near.push(...docPages(c.doc)); continue; }
+					for (const pg of [c.page, c.page - 1, (c.pageEnd || c.page) + 1, c.pageEnd]) if (pg >= 1 && pg <= pagesN[c.doc]) near.push([c.doc, pg]);
+				}
+				const citedPages = [...new Set(cites.map(c => c.doc))].flatMap(docPages);
+				if (!ok) {
+					it.status = isAddonNote(m[1]) ? "note" : changed ? "changed" : "bad";
+					if (it.status !== "note") it.near = nearestPassage(parts[0], docs, near);
+				}
+				else if (otherDoc) { it.status = "otherDoc"; it.evidence = evidenceFor(parts[0], docs, docPages(otherDoc)) || { doc: otherDoc, page: null }; }
+				else if (wrong) {
+					it.status = "moved";
+					it.evidence = evidenceFor(parts[0], docs, citedPages)
+						|| (() => { const f = citedPages.find(([id, pg]) => quoteFound(parts[0], [pageM[id][pg - 1]])); return f ? { doc: f[0], page: f[1] } : null; })();
+				}
+				else {
+					it.status = "ok";
+					it.evidence = evidenceFor(parts[0], docs, near) || nearestPassage(parts[0], docs, near);
+				}
+			}
 		}
 		// 3. Contas escritas na resposta (100% - 47% = 53%): só valem se estiverem certas
 		const clean = String(text).replace(CITE_GROUP_RE, " ");
@@ -1668,33 +1835,44 @@ var ZIALib = (function () {
 		// Cada pedaço vai até à citação seguinte na mesma linha. O que fica depois da última citação
 		// da linha, ou numa linha sem citações, compara-se com todos os PDFs.
 		const segments = [];
+		let lineAt = 0;
 		for (const line of String(text).split("\n")) {
 			let from = 0;
 			for (const m of line.matchAll(CITE_GROUP_RE)) {
 				const cited = [...new Set(parseCiteGroup(m[1]).map(c => c.doc).filter(id => pageNorm[id]))].sort();
-				segments.push({ text: line.slice(from, m.index), key: cited.length ? cited.join(",") : "*" });
+				segments.push({ text: line.slice(from, m.index), key: cited.length ? cited.join(",") : "*", group: groupEndingAt(lineAt + m.index + m[0].length) });
 				from = m.index + m[0].length;
 			}
 			segments.push({ text: line.slice(from), key: "*" });
+			lineAt += line.length + 1;
 		}
 		const unknown = new Set();
+		const loose = new Set();
 		for (const seg of segments) {
+			const flag = n => {
+				unknown.add(n);
+				if (!seg.group) { loose.add(n); return; }
+				const it = seg.group.item;
+				if (!(it.numbers = it.numbers || []).includes(n)) it.numbers.push(n);
+			};
 			const P = poolFor(seg.key);
 			const has = n => P.known.has(n) || P.known.has(n.replace(/%$/, "")) || P.known.has(n + "%") || derived.has(n) || derived.has(n.replace(/%$/, ""))
 				|| (!/%$/.test(n) && P.decs.has(n.replace(/^(\d+),/, (x, a) => parseInt(a, 10) + ",")));
 			for (const n of numbersInText(seg.text)) {
 				res.numbers++;
-				if (!has(n)) unknown.add(n);
+				if (!has(n)) flag(n);
 			}
 			for (const m of seg.text.matchAll(STAT_N_RE)) {
 				res.numbers++;
-				if (!P.ints.has(m[1].replace(/\D/g, "").replace(/^0+(?=\d)/, ""))) unknown.add(m[0].replace(/\s+/g, " ").trim());
+				if (!P.ints.has(m[1].replace(/\D/g, "").replace(/^0+(?=\d)/, ""))) flag(m[0].replace(/\s+/g, " ").trim());
 			}
 			for (const m of seg.text.matchAll(STAT_P_RE)) {
 				res.numbers++;
-				if (!P.decs.has("0," + m[1].slice(1))) unknown.add(m[0].replace(/\s+/g, " ").trim());
+				if (!P.decs.has("0," + m[1].slice(1))) flag(m[0].replace(/\s+/g, " ").trim());
 			}
 		}
+		res.looseNumbers = [...loose];
+		res.items = groups.map(g => g.item).filter(it => it.status || (it.numbers && it.numbers.length));
 		res.unknownNumbers = [...unknown];
 		res.problems = res.badQuotes.length + res.changedQuotes.length + res.wrongPage.length + res.otherDoc.length + res.badCites.length + res.unknownNumbers.length + res.badCalcs.length;
 		return res;
@@ -1948,7 +2126,7 @@ var ZIALib = (function () {
 	function inlinesToHTML(inlines, ctx) {
 		return (inlines || []).map(n => {
 			switch (n.t) {
-				case "text": return escapeHTML(replaceDocIds(n.v, ctx && ctx.docsMap));
+				case "text": return escapeHTML(tidyMarkers(replaceDocIds(n.v, ctx && ctx.docsMap)));
 				case "code": return `<code>${escapeHTML(n.v)}</code>`;
 				case "strong": return `<strong>${inlinesToHTML(n.c, ctx)}</strong>`;
 				case "em": return `<em>${inlinesToHTML(n.c, ctx)}</em>`;
@@ -2016,17 +2194,25 @@ var ZIALib = (function () {
 		return e;
 	}
 
-	// Texto simples de uma linha já interpretada (para encontrar a transcrição antes de uma citação)
-	function inlinesPlain(inlines) {
-		return (inlines || []).map(n => n.t === "text" || n.t === "code" ? n.v : (n.c ? inlinesPlain(n.c) : "")).join("");
+	// Texto com a etiqueta "interpretação da IA" no lugar de [Inferência] (e sem [Declarado])
+	function textToDOM(doc, parent, text) {
+		const parts = String(text).replace(STATED_RE, "").split(INFER_RE);
+		parts.forEach((x, i) => {
+			if (i > 0) {
+				const b = el(doc, "span", "zia-ia-badge", t("cite.inference"));
+				b.title = t("cite.inference.tip");
+				parent.appendChild(b);
+			}
+			if (x) parent.appendChild(doc.createTextNode(x));
+		});
 	}
 
+	const CITE_MARK = { ok: "\u2713", moved: "\u21aa", bad: "\u2717" };
+
 	function inlinesToDOM(doc, parent, inlines, ctx) {
-		let before = "";
 		for (const n of inlines || []) {
-			if (n.t !== "cite") before += inlinesPlain([n]);
 			switch (n.t) {
-				case "text": parent.appendChild(doc.createTextNode(replaceDocIds(n.v, ctx && ctx.docsMap))); break;
+				case "text": textToDOM(doc, parent, replaceDocIds(n.v, ctx && ctx.docsMap)); break;
 				case "code": parent.appendChild(el(doc, "code", null, n.v)); break;
 				case "strong": { const e = el(doc, "strong"); inlinesToDOM(doc, e, n.c, ctx); parent.appendChild(e); break; }
 				case "em": { const e = el(doc, "em"); inlinesToDOM(doc, e, n.c, ctx); parent.appendChild(e); break; }
@@ -2041,25 +2227,29 @@ var ZIALib = (function () {
 					break;
 				}
 				case "cite": {
-					// Transcrição logo antes da citação: o clique destaca-a no PDF
-					const quote = quoteBeforeCite(before);
-					before = "";
+					// O resultado da verificação desta citação (pela ordem no texto): marca e cartão de prova
+					const item = ctx.citeItem && n.raw ? ctx.citeItem(n.raw.slice(1, -1)) : null;
+					const state = citeState(item);
 					n.cites.forEach((c, k) => {
 						if (k > 0) parent.appendChild(doc.createTextNode(" "));
-						const a = el(doc, "a", "zia-cite", citeLabel(c, ctx.docsMap));
+						let label = citeLabel(c, ctx.docsMap);
+						const ev = item && item.evidence;
+						if (state === "moved" && ev && ev.page && ev.doc === c.doc && ev.page !== c.page) label += " \u2192 " + pageLabel(ctx.docsMap && ctx.docsMap[c.doc], ev.page);
+						const a = el(doc, "a", "zia-cite" + (state ? " zia-cite-" + state : ""), label);
 						a.setAttribute("href", "#");
+						if (state) a.appendChild(el(doc, "span", "zia-cite-mk", CITE_MARK[state]));
 						const known = ctx.docsMap && ctx.docsMap[c.doc];
-						if (!known) a.title = t("cite.unknown");
+						if (state) a.title = t(state === "ok" ? "proof.tip" : "proof.tip.bad");
+						else if (!known) a.title = t("cite.unknown");
 						else if (!c.page) a.title = t("cite.openNoPage", { what: known.title || known.ref });
 						else {
 							const shown = pageLabel(known, c.page);
 							a.title = t("cite.open", { what: known.title || known.ref, n: shown })
 								// O número impresso não é a posição no ficheiro: dizer qual é
-								+ (shown !== c.page ? " " + t("cite.pdfPage", { o: ordinal(c.page) }) : "")
-								+ (quote ? " " + t("cite.find") : "");
+								+ (shown !== c.page ? " " + t("cite.pdfPage", { o: ordinal(c.page) }) : "");
 						}
 						if (!known) a.classList.add("zia-cite-unknown");
-						a.addEventListener("click", ev => { ev.preventDefault(); ctx.onCite && ctx.onCite(c, quote ? { quote } : null); });
+						a.addEventListener("click", e => { e.preventDefault(); ctx.onCite && ctx.onCite(c, item ? { item, el: a } : null); });
 						parent.appendChild(a);
 					});
 					break;
@@ -2132,7 +2322,7 @@ var ZIALib = (function () {
 	function inlinesToText(inlines, ctx) {
 		return (inlines || []).map(n => {
 			switch (n.t) {
-				case "text": return replaceDocIds(n.v, ctx && ctx.docsMap);
+				case "text": return tidyMarkers(replaceDocIds(n.v, ctx && ctx.docsMap));
 				case "code": return n.v;
 				case "strong": case "em": case "link": return inlinesToText(n.c, ctx);
 				case "br": return "\n";
@@ -2827,7 +3017,7 @@ var ZIALib = (function () {
 		parseInline, parseMarkdown, markdownToHTML, renderMarkdownInto, inlinesToText,
 		extractTables, tablesToCSV,
 		createClaudeStreamParser, createGeminiSSEParser, createAnthropicSSEParser, createOpenAISSEParser, createCodexStreamParser, CODEX_TOOL_ITEMS, parseStances, removeStanceLines, studyToAnki, createIAEduStreamParser, classifyIAEduError, isIAEduEndpoint, IAEDU_DEFAULT_ENDPOINT, IAEDU_DEFAULT_CHANNEL,
-		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, quoteBeforeCite, quoteSnippet, noteCitesToMarkers, disambiguateRefs, setCiteFormatter, replaceDocIds, literalDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
+		classifyClaudeError, classifyGeminiError, parseGeminiQuota, geminiFallbacks, geminiModelInfo, isHeavyTask, geminiStrongCandidates, selectHistory, verifyAnswer, normForMatch, wordDiff, citeState, tidyMarkers, noteCitesToMarkers, disambiguateRefs, setCiteFormatter, replaceDocIds, literalDocIds, findCalculations, geminiProbeState, sortGeminiModels, GEMINI_DEFAULT, classifyAnthropicError, classifyOpenAIError, classifyCodexError, formatRateLimit, formatUsage,
 	};
 })();
 

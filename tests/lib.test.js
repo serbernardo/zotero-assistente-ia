@@ -688,17 +688,58 @@ test("verificação: ligaduras, aspas simples, n = e valores de p, artigos sem t
 	assert.equal(v("Sem citações nenhumas.").cites, 0);
 });
 
-test("transcrição antes de uma citação e pedaço para a pesquisa do leitor", () => {
-	assert.equal(L.quoteBeforeCite("Os autores dizem que «a carga de trabalho foi o principal preditor» "), "a carga de trabalho foi o principal preditor");
-	assert.equal(L.quoteBeforeCite("“the workload was the main predictor”, segundo "), "the workload was the main predictor");
-	assert.equal(L.quoteBeforeCite("‘the nurses’ workload was high indeed’, "), "the nurses’ workload was high indeed");
-	assert.equal(L.quoteBeforeCite("sem aspas, uma paráfrase "), null);
-	assert.equal(L.quoteBeforeCite("«uma transcrição antiga com muitas palavras» e depois uma frase longa por palavras da IA que já não é a transcrição "), null, "mais de 40 caracteres depois das aspas");
-	const page = "Results. Burnout findings were reported by 47.3% of participants in the study.";
-	assert.equal(L.quoteSnippet("Burnout findings were reported by 47.3% of participants in the study", page), "Burnout findings were reported by 47.3% of");
-	assert.equal(L.quoteSnippet("X Y Burnout findings were reported by 47.3% of", page), "Burnout findings were reported by 47.3% of", "começa nas palavras que estão na página");
-	assert.equal(L.quoteSnippet("The nurses’ workload … main predictor", null), "The nurses’ workload", "só o pedaço antes das reticências");
-	assert.equal(L.quoteSnippet("curta.", null), "curta");
+test("prova de cada citação: parágrafo do PDF, o mais parecido, diferenças, nota do assistente e números", () => {
+	const pages = [
+		"Introduction. Modern IT is used at different stages of working with clients. Currently, CRM systems are popular in services and trade. "
+			+ "The main goal of implementing and using CRM is to optimize and\nautomate bus iness processes of customer relationships based on the effective management.",
+		"Results. The model explained 47.3% of the variance.",
+	];
+	const docs = { D1: { pages }, D2: { pages: ["Robots support librarians in different library operations including security."] } };
+	const r = L.verifyAnswer([
+		"O objetivo é «optimize and automate business processes of customer relationships» [D1:p1].",
+		"Segundo os autores, «CRM systems are popular only in services and trade» [D1:p1].",
+		"«CRM reduces customer churn by half» [D1:p1].",
+		"«Lista de referências bibliográficas omitida» [D1:p2].",
+		"Explicou 51,2% da variância [D1:p2] e 47,3% [D1:p2].",
+		"«Robots support librarians in different library operations» [D1:p2].",
+		"Uma paráfrase [D1:p1].",
+	].join("\n"), docs);
+	const by = k => r.items.find(i => i.key === k);
+	// Certa: o parágrafo do PDF, com a transcrição limpa dos espaços partidos ("bus iness")
+	const ok = by("D1:p1#1");
+	assert.equal(L.citeState(ok), "ok");
+	assert.equal(ok.evidence.page, 1);
+	assert.equal(ok.evidence.match, "optimize and automate business processes of customer relationships");
+	assert.match(ok.evidence.before, /^The main goal of implementing and using CRM is to $/);
+	assert.match(ok.evidence.after, /^ based on the effective management\.$/);
+	// Diferente: a frase do PDF mais parecida, e a palavra a mais marcada
+	const ch = by("D1:p1#2");
+	assert.equal(ch.status, "changed");
+	assert.equal(ch.near.match, "Currently, CRM systems are popular in services and trade.");
+	const d = L.wordDiff(ch.quote, ch.near.match);
+	assert.deepEqual(d.a.filter(x => x.diff).map(x => x.w), ["only"]);
+	assert.deepEqual(d.b.filter(x => x.diff).map(x => x.w), []);
+	assert.equal(d.bBefore, "Currently,");
+	// Inventada: estado ✗ (o mais parecido pode existir ou não)
+	assert.equal(by("D1:p1#3").status, "bad");
+	assert.equal(L.citeState(by("D1:p1#3")), "bad");
+	// Nota que o addon põe no pedido, copiada pela IA
+	assert.equal(by("D1:p2#1").status, "note");
+	// Números: cada um fica na citação que o segue
+	assert.deepEqual(by("D1:p2#2").numbers, ["51,2%"]);
+	assert.equal(by("D1:p2#3"), undefined, "47,3% está no artigo: sem marca");
+	// Outro artigo: diz qual e onde
+	const od = by("D1:p2#4");
+	assert.equal(od.status, "otherDoc");
+	assert.deepEqual([od.evidence.doc, od.evidence.page], ["D2", 1]);
+	// Uma paráfrase não tem item (fica sem marca)
+	assert.equal(r.items.filter(i => i.key.startsWith("D1:p1#4")).length, 0);
+});
+
+test("[Declarado] sai e [Inferência] passa a interpretação da IA", () => {
+	L.I18N.setLang("pt-PT");
+	assert.equal(L.tidyMarkers("[Declarado] Os autores dizem X. [Inferência] Isto sugere Y."), "Os autores dizem X. (interpretação da IA) Isto sugere Y.");
+	assert.equal(L.citesToText("[Declarado] Dizem X [D1:p2].", { D1: { ref: "Silva, 2021" } }), "Dizem X (Silva, 2021, p. 2).");
 });
 
 test("ficha guardada como nota: as ligações às páginas voltam a ser [Dn:pN]", () => {

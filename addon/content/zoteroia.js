@@ -2075,33 +2075,10 @@ var ZoteroIA = {
 		return `zotero://open-pdf/${prefix}/items/${doc.attachmentKey}` + (page ? `?page=${page}` : "");
 	},
 
-	async openAtPage(doc, page, { find } = {}) {
+	async openAtPage(doc, page) {
 		if (!doc || !doc.attachmentID) return;
 		const location = page ? { pageIndex: page - 1 } : null;
-		let reader = await Zotero.Reader.open(doc.attachmentID, location);
-		if (!find) return;
-		// Separador do PDF já aberto mas adormecido: o Zotero acorda-o e só depois há leitor
-		for (let i = 0; !reader && i < 20; i++) {
-			await Zotero.Promise.delay(150);
-			reader = (Zotero.Reader._readers || []).find(r => r.itemID === doc.attachmentID && !r._isTabClosed);
-		}
-		this.findInReader(reader, find).catch(e => this.log("Destaque no PDF: " + e));
-	},
-
-	/**
-	 * Escreve o texto na pesquisa do leitor do Zotero, que o pinta na página (como Ctrl+F).
-	 * Não grava nada no PDF. Usa uma função interna do leitor (_handleFindStateChange): se uma
-	 * versão do Zotero a mudar, o PDF continua a abrir na página certa, só sem o destaque.
-	 */
-	async findInReader(reader, query) {
-		if (!reader || !query) return false;
-		if (reader._initPromise) await reader._initPromise;
-		const inner = reader._internalReader;
-		if (!inner || typeof inner._handleFindStateChange !== "function") return false;
-		const state = { popupOpen: true, active: true, query: String(query), highlightAll: false, caseSensitive: false, entireWord: false, index: null, result: null };
-		const win = reader._iframeWindow;
-		inner._handleFindStateChange(true, win && typeof Components !== "undefined" ? Components.utils.cloneInto(state, win) : state);
-		return true;
+		await Zotero.Reader.open(doc.attachmentID, location);
 	},
 
 	/**

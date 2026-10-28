@@ -1368,25 +1368,61 @@ async function main() {
 		assert.equal(await page.evaluate(() => window.lastPrompt.includes("<historico>")), false, "as ações não levam histórico");
 		console.log("OK painel: pergunta de seguimento no mesmo separador, com a troca anterior, e a ação no seu separador");
 
-		// Transcrição: o visto conta-a, e clicar na página abre o PDF com o início dela para destacar
-		const tq = await page.evaluate(() => {
-			const d = view.state.allDocs[view.state.docs[0].id];
-			const words = d.pages[0].trim().split(/\s+/);
-			window.MOCK.answer = `Os autores escrevem «${words.slice(0, 9).join(" ")}» [${d.id}:p1]. Outra ideia [${d.id}:p1].`;
+		// Verificação por citação: marca, cartão de prova por baixo, linha no fim, sem caixa de pesquisa
+		const vk = await page.evaluate(async () => {
+			const V = window.paper("Features of automation of business processes", 2020, ["Volik", "Kovaleva"], "VPDF", [
+				"Introduction. Modern IT is used at different stages of working with clients. Currently, CRM systems are popular in services and trade. "
+					+ "The main goal of implementing and using CRM is to optimize and automate bus iness processes of customer relationships based on the effective management. " + "Texto. ".repeat(30),
+				"Results. The share of firms using CRM was 47.3% in the sample. " + "Texto. ".repeat(30),
+			]);
+			await view.showItem(V);
 			window.opened.length = 0;
-			return { key: d.attachmentKey, snippet: words.slice(0, 7).join(" ").replace(/[^\p{L}\p{N}%)]+$/u, "") };
+			window.MOCK.answer = [
+				"O objetivo é «optimize and automate business processes of customer relationships» [D1:p1].",
+				"",
+				"[Declarado] Segundo os autores, «CRM systems are popular only in services and trade» [D1:p1].",
+				"",
+				"A proporção foi de 51,2% [D1:p2]. [Inferência] Isto sugere uma adoção ainda parcial [D1:p2].",
+			].join("\n");
+			return V.getBestAttachment ? (await V.getBestAttachment()).key : "VPDF";
 		});
-		await page.fill(".zia-textarea", "Cita uma frase.");
+		await page.fill(".zia-textarea", "Cita frases.");
 		await page.click(".zia-send");
-		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && /Outra ideia/.test(document.querySelector(".zia-messages").textContent));
-		assert.match((await page.locator(".zia-msg-assistant .zia-check >> nth=0").textContent()).trim(), /^✓ Verificado nos PDFs: 1 transcrição\(ões\)/);
-		const cq = page.locator(".zia-msg-assistant >> nth=0").locator(".zia-cite");
-		assert.match(await cq.nth(0).getAttribute("title"), /A transcrição fica destacada\./);
-		assert.doesNotMatch(await cq.nth(1).getAttribute("title"), /destacada/, "uma paráfrase só abre a página");
-		await cq.nth(0).click();
-		await cq.nth(1).click();
-		assert.deepEqual(await page.evaluate(() => window.opened), [`${tq.key}#1|${tq.snippet}`, `${tq.key}#1`]);
-		console.log("OK painel: a transcrição é confirmada e destacada no PDF, a paráfrase só abre a página");
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && /adoção ainda parcial/.test(document.querySelector(".zia-messages").textContent));
+		const msg = page.locator(".zia-msg-assistant >> nth=0");
+		const chips = msg.locator(".zia-cite");
+		assert.deepEqual(await chips.evaluateAll(cs => cs.map(c => (c.className.match(/zia-cite-(ok|moved|bad)/) || [, "-"])[1] + ":" + c.textContent)),
+			["ok:Volik e Kovaleva, 2020, p. 1\u2713", "bad:Volik e Kovaleva, 2020, p. 1\u2717", "bad:Volik e Kovaleva, 2020, p. 2\u2717", "-:Volik e Kovaleva, 2020, p. 2"],
+			"✓ na certa, ✗ na alterada e no número, paráfrase sem marca");
+		assert.equal((await msg.locator(".zia-check").textContent()).trim(), "\u2713 1 de 2 transcrições confirmadas no PDF · 2 a rever ›");
+		// [Declarado] sai, [Inferência] passa a etiqueta
+		assert.doesNotMatch(await msg.textContent(), /Declarado|Inferência\]/);
+		assert.equal(await msg.locator(".zia-ia-badge").textContent(), "interpretação da IA");
+		// ✓: o cartão mostra a frase do PDF a amarelo (sem os espaços partidos) e abre a página sem pesquisa
+		await chips.nth(0).click();
+		const card = msg.locator(".zia-proof >> nth=0");
+		assert.equal(await card.locator(".zia-proof-title").textContent(), "Prova no PDF · p. 1");
+		assert.equal(await card.locator("mark").textContent(), "optimize and automate business processes of customer relationships");
+		assert.match(await card.locator(".zia-proof-pdf").textContent(), /^The main goal of implementing and using CRM is to optimize .* based on the effective management\.$/);
+		await card.locator(".zia-proof-open").click();
+		assert.deepEqual(await page.evaluate(() => window.opened), [`${vk}#1`], "abre a página, sem texto para a caixa de pesquisa");
+		await chips.nth(0).click();
+		assert.equal(await msg.locator(".zia-proof").count(), 0, "um segundo clique fecha o cartão");
+		// "2 a rever" salta para a primeira com problema e abre o cartão com as diferenças
+		await msg.locator(".zia-check-go").click();
+		const bad = msg.locator(".zia-proof-bad >> nth=0");
+		assert.equal(await bad.locator(".zia-proof-title").textContent(), "Diferente do PDF · p. 1");
+		assert.equal(await bad.locator("s.zia-diff").textContent(), "only");
+		assert.match(await bad.locator(".zia-proof-p").textContent(), /Currently, CRM systems are popular in services and trade\./);
+		// Número que não está no artigo: diz qual
+		await chips.nth(2).click();
+		assert.match(await msg.locator(".zia-proof-numbers").textContent(), /Números que não aparecem em Volik e Kovaleva, 2020: 51,2%/);
+		await msg.screenshot({ path: path.join(OUT, "ui_prova.png") });
+		// Uma paráfrase sem marca abre logo o PDF
+		await page.evaluate(() => { window.opened.length = 0; });
+		await chips.nth(3).click();
+		assert.deepEqual(await page.evaluate(() => window.opened), [`${vk}#2`]);
+		console.log("OK verificação por citação: marcas ✓ e ✗, cartão de prova com a frase do PDF, diferenças marcadas, linha no fim, sem caixa de pesquisa");
 
 		// Versão nova do addon: a roda dentada fica verde e diz porquê
 		const gear = page.locator(".zia-top .zia-gear");
