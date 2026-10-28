@@ -8,11 +8,6 @@
 				<html:select id="zia-ui-lang"/>
 			</html:div>
 		</html:div>
-		<!-- Versão nova do addon (verificação diária): aparece só quando há uma -->
-		<html:div id="zia-update-banner" class="zia-update-banner" hidden="true">
-			<html:span id="zia-update-banner-text"/>
-			<button id="zia-update-now" class="zia-main-btn" data-zia-label="prefs.update.now"/>
-		</html:div>
 		<html:div class="zia-hero-steps" data-zia="prefs.hero.steps"/>
 
 		<html:div class="zia-step" data-zia="prefs.step1"/>
@@ -258,6 +253,11 @@
 				<html:div class="zia-credits-meta">
 					<html:span class="zia-credits-label" data-zia="prefs.credits.version"/> <html:span id="zia-credits-version" class="zia-credits-value"/>
 				</html:div>
+			</html:div>
+			<!-- Versão nova do addon (verificação diária), junto da versão instalada. A roda dentada verde abre aqui -->
+			<html:div id="zia-update-banner" class="zia-update-banner" hidden="true">
+				<html:span id="zia-update-banner-text"/>
+				<button id="zia-update-now" class="zia-main-btn" data-zia-label="prefs.update.now"/>
 			</html:div>
 			<html:div class="zia-credits-body">
 				<html:div class="zia-credits-name">Sérgio Bernardo</html:div>

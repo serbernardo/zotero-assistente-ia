@@ -95,11 +95,14 @@ var ZIALib = (function () {
 			"- Em caso de dúvida entre dizer algo e não dizer, não digas.",
 			"",
 			"REGRAS DE EVIDÊNCIA (obrigatórias)",
-			"1. Cada afirmação sobre um documento termina com uma citação no formato [D1:p5],",
-			"   que significa documento D1, página 5 do PDF. Para intervalos usa [D1:p5-6].",
-			"   Para várias fontes usa [D1:p5, D2:p3]. Usa apenas identificadores de documento",
-			"   e números de página que existam nas marcas <documento id=...> e <p n=...>.",
-			"   Se o documento não tiver marcas de página, cita apenas [D1].",
+			"1. Cada afirmação sobre um documento termina com uma citação no formato [D1:p5 «frase de base»],",
+			"   que significa documento D1, página 5 do PDF. A frase de base, entre « », são 5 a 15 palavras",
+			"   seguidas copiadas palavra a palavra do documento, na língua do documento, de onde tiraste a",
+			"   afirmação. Por exemplo: [D1:p5 «the model explained 47% of the variance»]. Quem lê não a vê:",
+			"   serve para o assistente confirmar a citação no PDF, por isso tem de ser uma cópia exata.",
+			"   Para intervalos usa [D1:p5-6 «…»]. Para várias fontes usa [D1:p5 «…»; D2:p3 «…»].",
+			"   Usa apenas identificadores de documento e números de página que existam nas marcas",
+			"   <documento id=...> e <p n=...>. Se o documento não tiver marcas de página, cita apenas [D1].",
 			"2. Quando for útil, inclui antes da citação um excerto curto e literal entre aspas",
 			"   (no máximo 25 palavras), na língua original do documento. O que está entre aspas é uma",
 			"   cópia exata do PDF, palavra a palavra (mesmo singular ou plural, mesma ordem). Se precisares",
@@ -1307,27 +1310,37 @@ var ZIALib = (function () {
 	// Uma citação começa sempre por um documento (D1, D1:p5) e pode continuar com
 	// páginas soltas que herdam o documento anterior: [D1:p1, p5, D2:p3]
 	const PAGE_PART = "p{1,2}\\.?\\s*\\d+(?:\\s*[-–]\\s*(?:p{1,2}\\.?\\s*)?\\d+)?";
-	const ONE_CITE = `D\\d+(?:\\s*:\\s*${PAGE_PART})?`;
-	const ANY_CITE = `(?:${ONE_CITE}|${PAGE_PART})`;
+	// Frase de base: as palavras exatas do PDF em que a IA se baseou, dentro da citação e escondidas de
+	// quem lê, [D1:p5 «the model explained 47% of the variance»]. O addon confirma-as no PDF (marca ≈)
+	const ANCHOR = `\\s*(?:«[^«»\\]\\[|\\n]{3,300}»|\u201c[^\u201c\u201d\\]\\[|\\n]{3,300}\u201d|"[^"\\]\\[|\\n]{3,300}")`;
+	const ONE_CITE = `D\\d+(?:\\s*:\\s*${PAGE_PART})?(?:${ANCHOR})?`;
+	const ANY_CITE = `(?:${ONE_CITE}|${PAGE_PART}(?:${ANCHOR})?)`;
 	const CITE_INNER = `${ONE_CITE}(?:\\s*[,;]\\s*${ANY_CITE})*`;
 	const CITE_GROUP_RE = new RegExp(`\\[(${CITE_INNER})\\]`, "g");
 	const DOC_PART_RE = /^D(\d+)(?:\s*:\s*p{1,2}\.?\s*(\d+)(?:\s*[-–]\s*(?:p{1,2}\.?\s*)?(\d+))?)?$/;
 	const PAGE_ONLY_RE = /^p{1,2}\.?\s*(\d+)(?:\s*[-–]\s*(?:p{1,2}\.?\s*)?(\d+))?$/;
 
+	const ANCHOR_RE = /\s*(?:«([^«»\]\[|\n]{3,300})»|\u201c([^\u201c\u201d\]\[|\n]{3,300})\u201d|"([^"\]\[|\n]{3,300})")/g;
+
 	function parseCiteGroup(inner) {
 		const out = [];
 		let lastDoc = null;
-		for (const raw of inner.split(/\s*[,;]\s*/)) {
-			const part = raw.trim();
+		// As frases de base podem ter vírgulas: saem antes de separar as citações
+		const anchors = [];
+		const plain = String(inner).replace(ANCHOR_RE, (x, a, b, c) => "\u0001" + (anchors.push((a || b || c).trim()) - 1) + "\u0002");
+		for (const raw of plain.split(/\s*[,;]\s*/)) {
+			let anchor = null;
+			const part = raw.replace(/\u0001(\d+)\u0002/, (x, i) => { anchor = anchors[+i]; return ""; }).trim();
+			const add = c => out.push(anchor ? Object.assign(c, { anchor }) : c);
 			let m = DOC_PART_RE.exec(part);
 			if (m) {
 				lastDoc = "D" + m[1];
-				out.push({ doc: lastDoc, page: m[2] ? parseInt(m[2], 10) : null, pageEnd: m[3] ? parseInt(m[3], 10) : null });
+				add({ doc: lastDoc, page: m[2] ? parseInt(m[2], 10) : null, pageEnd: m[3] ? parseInt(m[3], 10) : null });
 				continue;
 			}
 			m = PAGE_ONLY_RE.exec(part);
 			if (m && lastDoc) {
-				out.push({ doc: lastDoc, page: parseInt(m[1], 10), pageEnd: m[2] ? parseInt(m[2], 10) : null });
+				add({ doc: lastDoc, page: parseInt(m[1], 10), pageEnd: m[2] ? parseInt(m[2], 10) : null });
 			}
 		}
 		return out;
@@ -1534,11 +1547,13 @@ var ZIALib = (function () {
 	// Nas aspas simples o \u2019 também é apóstrofo (nurses\u2019 workload): fecha o último antes da citação.
 	const QUOTE_DOUBLE = `(?:"|\u201c|\u00ab)([^\\s"\u201c\u201d\u00ab\u00bb|][^"\u201c\u201d\u00ab\u00bb|\\n]{13,498}[^\\s"\u201c\u201d\u00ab\u00bb|])(?:"|\u201d|\u00bb)`;
 	const QUOTE_SINGLE = `\u2018([^\u2018\\n|]{15,500}?)\u2019(?!\\p{L})`;
+	// (O pedaço entre as aspas e a citação também não pode ter "]": as frases de base «…» estão dentro
+	// das citações e não podem ser lidas como transcrições.)
 	// Entre as aspas e a citação pode vir o resto da frase, até 160 caracteres («five males and five
 	// females,» including line workers, occasional users, and managers [D1:p7]), sem outras aspas pelo
 	// meio. Depois de aspas simples esse pedaço também não pode ter ’, que fecharia a transcrição mais à frente
 	const QUOTE_TAIL = 160;
-	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}([^\\[\\n|"\u201c\u201d\u00ab\u00bb]{0,${QUOTE_TAIL}}?)|${QUOTE_SINGLE}([^\\[\\n|\u2018\u2019]{0,${QUOTE_TAIL}}?))\\[(${CITE_INNER})\\]`, "gu");
+	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}([^\\[\\]\\n|"\u201c\u201d\u00ab\u00bb]{0,${QUOTE_TAIL}}?)|${QUOTE_SINGLE}([^\\[\\]\\n|\u2018\u2019]{0,${QUOTE_TAIL}}?))\\[(${CITE_INNER})\\]`, "gu");
 	// [texto completo, transcrição, citação, posição, caracteres entre as aspas e a citação]
 	function quoteMatches(text) {
 		return [...String(text || "").matchAll(QUOTE_RE)].map(m => [m[0], (m[1] || m[3]).trim(), m[5], m.index, (m[2] != null ? m[2] : m[4] || "").length]);
@@ -1694,12 +1709,24 @@ var ZIALib = (function () {
 		};
 	}
 
-	/** Estado da marca de uma citação: ok (✓), moved (↪ noutra página), bad (✗) ou null (sem marca). */
-	function citeState(item) {
+	/**
+	 * Estado da marca de uma citação: ok (✓ transcrição igual ao PDF), based (≈ a frase de base está nessa
+	 * página), moved (↪ noutra página), bad (✗) ou null (sem marca). k: a citação dentro do grupo
+	 * ([D1:p4 «…»; D2:p3 «…»] tem duas). Sem k, o pior do grupo.
+	 */
+	const STATE_RANK = { bad: 3, moved: 2, based: 1, ok: 0 };
+	function stateOf(st) {
+		if (["bad", "changed", "note", "otherDoc"].includes(st)) return "bad";
+		return st === "moved" ? "moved" : st === "based" ? "based" : st === "ok" ? "ok" : null;
+	}
+	function citeState(item, k) {
 		if (!item) return null;
-		if (["bad", "changed", "note", "otherDoc"].includes(item.status) || (item.numbers && item.numbers.length)) return "bad";
-		if (item.status === "moved") return "moved";
-		return item.status === "ok" ? "ok" : null;
+		if (item.numbers && item.numbers.length) return "bad";
+		if (item.parts && !item.status) {
+			if (k != null) return item.parts[k] ? stateOf(item.parts[k].status) : null;
+			return item.parts.map(p => p && stateOf(p.status)).filter(Boolean).sort((a, b) => STATE_RANK[b] - STATE_RANK[a])[0] || null;
+		}
+		return stateOf(item.status);
 	}
 
 	/**
@@ -1747,7 +1774,7 @@ var ZIALib = (function () {
 		const seenBad = new Set();
 		for (const m of String(text).matchAll(CITE_GROUP_RE)) {
 			const nth = seenKey[m[1]] = (seenKey[m[1]] || 0) + 1;
-			groups.push({ end: m.index + m[0].length, item: { key: m[1] + "#" + nth } });
+			groups.push({ end: m.index + m[0].length, cites: parseCiteGroup(m[1]), item: { key: m[1] + "#" + nth } });
 			for (const c of parseCiteGroup(m[1])) {
 				res.cites++;
 				const key = c.doc + ":" + c.page;
@@ -1819,7 +1846,38 @@ var ZIALib = (function () {
 				}
 			}
 		}
-		// 3. Contas escritas na resposta (100% - 47% = 53%): só valem se estiverem certas
+		// 3. Frases de base das paráfrases: as palavras do PDF que a IA junta a cada citação. Uma transcrição
+		// antes da citação já decide (é mais forte). Precisam de pelo menos 3 palavras para dizerem alguma coisa
+		res.anchors = 0;
+		res.anchorsOK = 0;
+		res.anchorProblems = 0;
+		for (const g of groups) {
+			if (g.item.status) continue;
+			if (!g.cites.some(c => c.anchor)) continue;
+			g.item.parts = g.cites.map(c => {
+				if (!c.anchor || !pageM[c.doc] || c.anchor.split(/\s+/).length < 3) return null;
+				res.anchors++;
+				const a = c.anchor;
+				const all = docs[c.doc].pages.map((x, i) => [c.doc, i + 1]);
+				const near = c.page ? [c.page, c.page - 1, (c.pageEnd || c.page) + 1, c.pageEnd].filter(pg => pg >= 1 && pg <= pagesN[c.doc]).map(pg => [c.doc, pg]) : all;
+				const part = { anchor: a.length > 300 ? a.slice(0, 297) + "…" : a };
+				if (quoteFound(a, near.map(([, pg]) => pageM[c.doc][pg - 1]))) {
+					res.anchorsOK++;
+					return Object.assign(part, { status: "based", evidence: evidenceFor(a, docs, near) || nearestPassage(a, docs, near) });
+				}
+				if (quoteFound(a, pageM[c.doc])) {
+					res.anchorsOK++;
+					const f = all.find(([, pg]) => quoteFound(a, [pageM[c.doc][pg - 1]]));
+					return Object.assign(part, { status: "moved", evidence: evidenceFor(a, docs, all) || (f ? { doc: c.doc, page: f[1] } : null) });
+				}
+				res.anchorProblems++;
+				const other = withText.find(id => id !== c.doc && quoteFound(a, pageM[id]));
+				if (other) return Object.assign(part, { status: "otherDoc", evidence: evidenceFor(a, docs, docs[other].pages.map((x, i) => [other, i + 1])) || { doc: other, page: null } });
+				if (isAddonNote(a)) return Object.assign(part, { status: "note" });
+				return Object.assign(part, { status: quoteNearlyFound(a, docNorm[c.doc]) ? "changed" : "bad", near: nearestPassage(a, docs, near) });
+			});
+		}
+		// 4. Contas escritas na resposta (100% - 47% = 53%): só valem se estiverem certas
 		const clean = String(text).replace(CITE_GROUP_RE, " ");
 		const derived = new Set(["100%", "100"]);
 		res.calcs = 0;
@@ -1880,9 +1938,15 @@ var ZIALib = (function () {
 			}
 		}
 		res.looseNumbers = [...loose];
-		res.items = groups.map(g => g.item).filter(it => it.status || (it.numbers && it.numbers.length));
+		res.items = groups.map(g => g.item).filter(it => it.status || (it.numbers && it.numbers.length) || (it.parts && it.parts.some(Boolean)));
+		// Citações sem nenhuma verificação (paráfrases sem frase de base e sem números a confirmar)
+		res.unmarked = groups.reduce((n, g) => {
+			const it = g.item;
+			if (it.status || (it.numbers && it.numbers.length)) return n;
+			return n + g.cites.filter((c, k) => !(it.parts && it.parts[k])).length;
+		}, 0);
 		res.unknownNumbers = [...unknown];
-		res.problems = res.badQuotes.length + res.changedQuotes.length + res.wrongPage.length + res.otherDoc.length + res.badCites.length + res.unknownNumbers.length + res.badCalcs.length;
+		res.problems = res.badQuotes.length + res.changedQuotes.length + res.wrongPage.length + res.otherDoc.length + res.anchorProblems + res.badCites.length + res.unknownNumbers.length + res.badCalcs.length;
 		return res;
 	}
 
@@ -2215,7 +2279,7 @@ var ZIALib = (function () {
 		});
 	}
 
-	const CITE_MARK = { ok: "\u2713", moved: "\u21aa", bad: "\u2717" };
+	const CITE_MARK = { ok: "\u2713", based: "\u2248", moved: "\u21aa", bad: "\u2717" };
 
 	function inlinesToDOM(doc, parent, inlines, ctx) {
 		for (const n of inlines || []) {
@@ -2237,27 +2301,30 @@ var ZIALib = (function () {
 				case "cite": {
 					// O resultado da verificação desta citação (pela ordem no texto): marca e cartão de prova
 					const item = ctx.citeItem && n.raw ? ctx.citeItem(n.raw.slice(1, -1)) : null;
-					const state = citeState(item);
 					n.cites.forEach((c, k) => {
+						const state = citeState(item, k);
+						const part = item && item.parts ? item.parts[k] : null;
 						if (k > 0) parent.appendChild(doc.createTextNode(" "));
 						let label = citeLabel(c, ctx.docsMap);
-						const ev = item && item.evidence;
+						const ev = part ? part.evidence : item && item.evidence;
 						if (state === "moved" && ev && ev.page && ev.doc === c.doc && ev.page !== c.page) label += " \u2192 " + pageLabel(ctx.docsMap && ctx.docsMap[c.doc], ev.page);
 						const a = el(doc, "a", "zia-cite" + (state ? " zia-cite-" + state : ""), label);
 						a.setAttribute("href", "#");
 						if (state) a.appendChild(el(doc, "span", "zia-cite-mk", CITE_MARK[state]));
 						const known = ctx.docsMap && ctx.docsMap[c.doc];
-						if (state) a.title = t(state === "ok" ? "proof.tip" : "proof.tip.bad");
+						if (state) a.title = t(state === "bad" ? "proof.tip.bad" : "proof.tip");
 						else if (!known) a.title = t("cite.unknown");
 						else if (!c.page) a.title = t("cite.openNoPage", { what: known.title || known.ref });
 						else {
 							const shown = pageLabel(known, c.page);
 							a.title = t("cite.open", { what: known.title || known.ref, n: shown })
 								// O número impresso não é a posição no ficheiro: dizer qual é
-								+ (shown !== c.page ? " " + t("cite.pdfPage", { o: ordinal(c.page) }) : "");
+								+ (shown !== c.page ? " " + t("cite.pdfPage", { o: ordinal(c.page) }) : "")
+								// Resposta verificada, mas esta citação não tem prova: dizê-lo, para não parecer errada
+								+ (ctx.citeItem ? " " + t("cite.unchecked") : "");
 						}
 						if (!known) a.classList.add("zia-cite-unknown");
-						a.addEventListener("click", e => { e.preventDefault(); ctx.onCite && ctx.onCite(c, item ? { item, el: a } : null); });
+						a.addEventListener("click", e => { e.preventDefault(); ctx.onCite && ctx.onCite(c, state ? { item, el: a, k } : null); });
 						parent.appendChild(a);
 					});
 					break;

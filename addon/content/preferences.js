@@ -748,6 +748,9 @@ window.ZIAPrefs = {
 		const restart = this.core().pref("update.state") === "restart";
 		banner.hidden = !v;
 		if (!v) return;
+		// Os créditos (versão instalada e aviso) ficam abertos para o aviso se ver
+		const fold = banner.closest(".zia-pfold");
+		if (fold && !fold.classList.contains("open")) this.openFold(fold, true);
 		this.setText("zia-update-banner-text", this.T(restart ? "prefs.update.restart" : "prefs.update.available", { v }));
 		const b = this.$("zia-update-now");
 		if (b) b.hidden = restart;

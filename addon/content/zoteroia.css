@@ -1931,7 +1931,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 	content: ""; position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; border-radius: 50%;
 	background: var(--zia-green); box-shadow: 0 0 0 1.5px var(--zia-bg, #fff);
 }
-.zia-update-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 4px; padding: 8px 12px;
+.zia-update-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 16px 10px; padding: 8px 12px;
 	border: 1px solid var(--zia-green); border-left-width: 3px; border-radius: 6px; background: rgba(46, 139, 61, 0.08); }
 .zia-update-banner[hidden] { display: none; }
 
@@ -1966,3 +1966,7 @@ collapsible-section[data-pane$="zoteroia-section"] > .head .title {
 .zia-check-line.zia-check-ok { color: var(--zia-green); }
 .zia-check .zia-check-go { border: none; background: none; padding: 0; min-width: 0; color: var(--zia-red); font-weight: 700; cursor: pointer; font-size: 12px; }
 .zia-check-loose { margin: 2px 0 4px; padding-inline-start: 18px; font-size: 12px; color: var(--zia-fg2); }
+.zia-cite.zia-cite-based .zia-cite-mk { color: var(--zia-green); }
+.zia-check .zia-check-info-btn { border: none; background: none; padding: 0 4px; min-width: 0; color: var(--zia-fg2); cursor: pointer; font-size: 13px; vertical-align: -1px; }
+.zia-check-legend { margin: 2px 0 6px; padding-inline-start: 18px; font-size: 11.5px; color: var(--zia-fg2); }
+.zia-check-legend[hidden] { display: none; }

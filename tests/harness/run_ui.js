@@ -1383,18 +1383,34 @@ async function main() {
 				"[Declarado] Segundo os autores, «CRM systems are popular only in services and trade» [D1:p1].",
 				"",
 				"A proporção foi de 51,2% [D1:p2]. [Inferência] Isto sugere uma adoção ainda parcial [D1:p2].",
+				"",
+				"O CRM serve sobretudo a relação com os clientes [D1:p1 «The main goal of implementing and using CRM»].",
 			].join("\n");
 			return V.getBestAttachment ? (await V.getBestAttachment()).key : "VPDF";
 		});
 		await page.fill(".zia-textarea", "Cita frases.");
 		await page.click(".zia-send");
-		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && /adoção ainda parcial/.test(document.querySelector(".zia-messages").textContent));
+		await page.waitForFunction(() => !document.querySelector(".zia-send.zia-stop") && /relação com os clientes/.test(document.querySelector(".zia-messages").textContent));
 		const msg = page.locator(".zia-msg-assistant >> nth=0");
 		const chips = msg.locator(".zia-cite");
-		assert.deepEqual(await chips.evaluateAll(cs => cs.map(c => (c.className.match(/zia-cite-(ok|moved|bad)/) || [, "-"])[1] + ":" + c.textContent)),
-			["ok:Volik e Kovaleva, 2020, p. 1\u2713", "bad:Volik e Kovaleva, 2020, p. 1\u2717", "bad:Volik e Kovaleva, 2020, p. 2\u2717", "-:Volik e Kovaleva, 2020, p. 2"],
-			"✓ na certa, ✗ na alterada e no número, paráfrase sem marca");
-		assert.equal((await msg.locator(".zia-check").textContent()).trim(), "\u2713 1 de 2 transcrições confirmadas no PDF · 2 a rever ›");
+		assert.deepEqual(await chips.evaluateAll(cs => cs.map(c => (c.className.match(/zia-cite-(ok|based|moved|bad)/) || [, "-"])[1] + ":" + c.textContent)),
+			["ok:Volik e Kovaleva, 2020, p. 1\u2713", "bad:Volik e Kovaleva, 2020, p. 1\u2717", "bad:Volik e Kovaleva, 2020, p. 2\u2717",
+				"-:Volik e Kovaleva, 2020, p. 2", "based:Volik e Kovaleva, 2020, p. 1\u2248"],
+			"✓ na certa, ✗ na alterada e no número, ≈ na paráfrase com frase de base, sem marca a paráfrase sem ela");
+		assert.equal((await msg.locator(".zia-check").textContent()).trim(),
+			"\u2713 1 de 2 transcrições confirmadas no PDF · \u2248 1 de 1 paráfrases com base no PDF · 1 sem verificação · 2 a rever ›\u24d8");
+		assert.doesNotMatch(await msg.locator(".zia-md").textContent(), /The main goal of implementing/, "a frase de base não aparece a quem lê");
+		assert.match(await chips.nth(3).getAttribute("title"), /Sem verificação automática/);
+		// ⓘ: a legenda das marcas
+		await msg.locator(".zia-check-info-btn").click();
+		assert.match(await msg.locator(".zia-check-legend").textContent(), /≈ a frase em que a IA se baseou está nessa página.*Sem marca: não verificada/);
+		// ≈: o cartão mostra a frase de base no PDF
+		await chips.nth(4).click();
+		const based = msg.locator(".zia-proof-based");
+		assert.equal(await based.locator(".zia-proof-title").textContent(), "Base no PDF · p. 1");
+		assert.equal(await based.locator("mark").textContent(), "The main goal of implementing and using CRM");
+		assert.match(await based.textContent(), /Confirma que a paráfrase diz o mesmo/);
+		await chips.nth(4).click();
 		// [Declarado] sai, [Inferência] passa a etiqueta
 		assert.doesNotMatch(await msg.textContent(), /Declarado|Inferência\]/);
 		assert.equal(await msg.locator(".zia-ia-badge").textContent(), "interpretação da IA");
@@ -1430,6 +1446,9 @@ async function main() {
 		await page.evaluate(() => { ZoteroIA.setPref("update.available", "9.9.9"); ZoteroIA.setPref("update.state", "available"); view._renderUpdateBadge(); });
 		assert.equal(await gear.evaluate(b => b.classList.contains("zia-has-update")), true);
 		assert.match(await gear.getAttribute("title"), /versão nova do Assistente IA \(9\.9\.9\)/);
+		await page.evaluate(() => { window.opened.length = 0; });
+		await gear.click();
+		assert.deepEqual(await page.evaluate(() => window.opened), ["prefs#zia-update-banner"], "abre as definições já no aviso, junto da versão");
 		const [gr, gg, gb] = (await gear.evaluate(b => getComputedStyle(b).color)).match(/\d+/g).map(Number);
 		assert.ok(gg > gr + 40 && gg > gb + 40, "verde: " + [gr, gg, gb]);
 		await page.locator(".zia-top").screenshot({ path: path.join(OUT, "ui_atualizacao.png") });

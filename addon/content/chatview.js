@@ -225,7 +225,8 @@ var ZIAChatView = class {
 	/** Botão só com ícone (com a dica para quem passa o rato e para leitores de ecrã). */
 	/** Roda dentada das definições: fica verde quando há uma versão nova do addon. */
 	_gearButton() {
-		const b = this._iconButton("gear", "zia-gear", () => this._openPrefs(), this.T("chat.settings.tip"));
+		// Com versão nova, abre as definições já no aviso, junto da versão instalada
+		const b = this._iconButton("gear", "zia-gear", () => this._openPrefs(this.core.pref("update.available") ? "#zia-update-banner" : null), this.T("chat.settings.tip"));
 		this._gear = b;
 		this._renderUpdateBadge();
 		return b;
@@ -3524,16 +3525,24 @@ var ZIAChatView = class {
 		if ((c.looseNumbers || []).length) loose.push(this.T("check.numbers", { n: c.looseNumbers.slice(0, 8).join(", ") }));
 		const review = flagged + loose.length;
 		const found = c.quotesOK + (c.wrongPage || []).length;
-		if (!review && !c.quotes) {
+		if (!review && !c.quotes && !c.anchors) {
 			if (c.numbers) return this._el("div", "zia-check zia-check-ok", this.T("check.okNumbers", { n: c.numbers }));
 			return this._el("div", "zia-check zia-check-info", this.T(c.cites === 0 ? "check.noCites" : "check.okNoQuotes"));
 		}
 		const box = this._el("div", "zia-check zia-check-line" + (review ? " zia-check-review" : " zia-check-ok"));
 		box.setAttribute("role", "note");
-		if (c.quotes) box.appendChild(this._el("span", null, (found ? "\u2713 " : "") + this.T("check.sum", { ok: found, n: c.quotes })));
+		// Transcrições (✓), paráfrases com frase de base (≈) e as que ficaram sem verificação
+		const bits = [];
+		if (c.quotes) bits.push((found ? "\u2713 " : "") + this.T("check.sum", { ok: found, n: c.quotes }));
+		if (c.anchors) bits.push((c.anchorsOK ? "\u2248 " : "") + this.T("check.sumBased", { ok: c.anchorsOK, n: c.anchors }));
+		if (c.unmarked && (c.quotes || c.anchors)) bits.push(this.T("check.unmarked", { n: c.unmarked }));
+		bits.forEach((t, i) => {
+			if (i) box.appendChild(this.doc.createTextNode(" · "));
+			box.appendChild(this._el("span", null, t));
+		});
 		let list = null;
 		if (review) {
-			if (c.quotes) box.appendChild(this.doc.createTextNode(" · "));
+			if (bits.length) box.appendChild(this.doc.createTextNode(" · "));
 			box.appendChild(this._button(this.T("check.review", { k: review }), "zia-check-go", () => {
 				const first = m.el && m.el.querySelector(".zia-cite-bad");
 				if (first) {
@@ -3543,15 +3552,22 @@ var ZIAChatView = class {
 				else if (list) list.scrollIntoView({ block: "center" });
 			}));
 		}
+		// ⓘ: o que querem dizer as marcas (para "sem marca" não parecer "errado")
+		const wrap = this._el("div", "zia-check-wrap");
+		wrap.appendChild(box);
+		const legend = this._el("ul", "zia-check-legend");
+		legend.hidden = true;
+		for (const k of ["ok", "based", "moved", "bad", "none"]) legend.appendChild(this._el("li", null, this.T("check.legend." + k)));
+		const info = this._button("\u24d8", "zia-check-info-btn", () => { legend.hidden = !legend.hidden; }, this.T("check.legend.tip"));
+		info.setAttribute("aria-label", this.T("check.legend.tip"));
+		box.appendChild(info);
 		if (loose.length) {
-			const wrap = this._el("div");
-			wrap.appendChild(box);
 			list = this._el("ul", "zia-check-loose");
 			for (const t of loose) list.appendChild(this._el("li", null, t));
 			wrap.appendChild(list);
-			return wrap;
 		}
-		return box;
+		wrap.appendChild(legend);
+		return wrap;
 	}
 
 	/** Respostas guardadas antes da prova por citação: a caixa antiga com a lista de avisos. */
@@ -3818,7 +3834,7 @@ var ZIAChatView = class {
 	 * Zotero (confundia as pessoas): a prova lê-se no próprio cartão.
 	 */
 	_openCite(c, extra) {
-		if (extra && extra.item && extra.el) return this._toggleProof(extra.item, c, extra.el, extra.m);
+		if (extra && extra.item && extra.el) return this._toggleProof(extra.item, c, extra.el, extra.m, extra.k);
 		const d = this._docsMap()[c.doc];
 		if (!d) {
 			this._setStatus(this.T("chat.docMissing", { doc: c.doc }), "warn");
@@ -3832,14 +3848,14 @@ var ZIAChatView = class {
 		this.core.openAtPage(d, page).catch(e => this._setStatus(this.T("chat.openError", { e }), "error"));
 	}
 
-	_toggleProof(item, c, chip, m) {
+	_toggleProof(item, c, chip, m, k) {
 		if (chip._proof && chip._proof.isConnected) {
 			chip._proof.remove();
 			chip._proof = null;
 			chip.classList.remove("zia-cite-open");
 			return;
 		}
-		const card = this._proofCard(item, c, m, () => this._toggleProof(item, c, chip, m));
+		const card = this._proofCard(item, c, m, () => this._toggleProof(item, c, chip, m, k), k);
 		// Por baixo do parágrafo, do item da lista ou da tabela onde está a citação
 		const table = chip.closest("table");
 		const host = (table && (table.closest(".zia-table-wrap") || table)) || chip.closest("li, p, blockquote, h2, h3, h4, h5, h6") || chip.parentNode;
@@ -3850,12 +3866,16 @@ var ZIAChatView = class {
 	}
 
 	/** Cartão de prova: o parágrafo do PDF com a frase a amarelo, ou o que o PDF diz quando não bate certo. */
-	_proofCard(item, c, m, onClose) {
+	_proofCard(item, c, m, onClose, k) {
 		const L = this.L;
 		const dm = this._docsMap(m);
 		const pg = (doc, page) => "p. " + L.pageLabel(dm[doc], page);
 		const ref = doc => L.citeLabel({ doc }, dm);
-		const state = L.citeState(item) || "ok";
+		const state = L.citeState(item, k) || "ok";
+		// Paráfrase com frase de base: o resultado desta citação do grupo
+		const part = item.parts && k != null ? item.parts[k] : null;
+		const src = part || item;
+		const said = part ? part.anchor : item.quote;
 		const card = this._el("div", "zia-proof zia-proof-" + state);
 		const head = this._el("div", "zia-proof-head");
 		const title = this._el("span", "zia-proof-title");
@@ -3879,8 +3899,14 @@ var ZIAChatView = class {
 			const b = this._button(label || this.T("proof.open"), "zia-proof-open", () => this._openPage(dm[doc], page));
 			card.appendChild(b);
 		};
-		const ev = item.evidence, near = item.near;
-		switch (item.status) {
+		const ev = src.evidence, near = src.near;
+		switch (src.status) {
+			case "based":
+				title.textContent = this.T("proof.based", { p: pg((ev && ev.doc) || c.doc, (ev && ev.page) || c.page) });
+				passage(ev);
+				text(this.T("proof.based.text"));
+				open((ev && ev.doc) || c.doc, (ev && ev.page) || c.page);
+				break;
 			case "ok":
 				title.textContent = this.T("proof.ok", { p: pg((ev && ev.doc) || c.doc, (ev && ev.page) || c.page) });
 				passage(ev);
@@ -3898,7 +3924,7 @@ var ZIAChatView = class {
 				open(ev.doc, ev.page, this.T("proof.openDoc", { doc: ref(ev.doc), p: pg(ev.doc, ev.page) }));
 				break;
 			case "changed": {
-				const d = near && L.wordDiff(item.quote, near.match);
+				const d = near && L.wordDiff(said, near.match);
 				title.textContent = this.T("proof.changed", { p: pg(near ? near.doc : c.doc, near ? near.page : c.page) });
 				if (d) {
 					const row = (label, cls, parts) => {
@@ -3917,18 +3943,19 @@ var ZIAChatView = class {
 						card.appendChild(r);
 						r.appendChild(q);
 					};
-					row(this.T("proof.answer"), "zia-proof-q", ["«", ...d.a, "»"]);
+					row(this.T(part ? "proof.anchor" : "proof.answer"), "zia-proof-q", ["«", ...d.a, "»"]);
 					row(this.T("proof.pdf"), "zia-proof-p", [d.bBefore ? d.bBefore + " " : "", ...d.b, d.bAfter ? " " + d.bAfter : ""]);
-					text(this.T("proof.changed.text"));
+					text(this.T(part ? "proof.changed.anchorText" : "proof.changed.text"));
 				}
 				else text(this.T("proof.bad.none"));
 				open(near ? near.doc : c.doc, near ? near.page : c.page);
 				break;
 			}
 			case "bad":
-				title.textContent = this.T("proof.bad");
+				title.textContent = this.T(part ? "proof.anchorBad" : "proof.bad");
+				if (part) text(this.T("proof.anchorBad.text"));
 				if (near) {
-					text(this.T("proof.bad.near", { p: pg(near.doc, near.page) }));
+					text(this.T(part ? "proof.near" : "proof.bad.near", { p: pg(near.doc, near.page) }));
 					passage(near, true);
 				}
 				else text(this.T("proof.bad.none"));
@@ -3972,9 +3999,9 @@ var ZIAChatView = class {
 		}
 	}
 
-	_openPrefs() {
+	_openPrefs(scrollTo) {
 		try {
-			Zotero.Utilities.Internal.openPreferences(this.core.PREFS_PANE_ID);
+			Zotero.Utilities.Internal.openPreferences(this.core.PREFS_PANE_ID, scrollTo ? { scrollTo } : undefined);
 		}
 		catch (e) {
 			this.core.log("openPreferences: " + e);

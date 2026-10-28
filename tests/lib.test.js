@@ -811,3 +811,34 @@ test("transcrição no meio da frase, com a citação no fim (até 160 caractere
 	assert.equal(v("\u201cRobots support librarians in different library operations\u201d [D1:p2].").items[0].status, "otherDoc");
 });
 
+
+test("frase de base em cada citação: lida, escondida e confirmada no PDF (≈)", () => {
+	// Formato: dentro da citação, com vírgulas e várias fontes
+	assert.deepEqual(L.parseCiteGroup("D1:p5 «the model, explained 47%; of the variance», D2:p3 “robots support librarians”, p4"), [
+		{ doc: "D1", page: 5, pageEnd: null, anchor: "the model, explained 47%; of the variance" },
+		{ doc: "D2", page: 3, pageEnd: null, anchor: "robots support librarians" },
+		{ doc: "D2", page: 4, pageEnd: null },
+	]);
+	// Quem lê não a vê (copiar, notas)
+	assert.equal(L.citesToText("Texto [D1:p2 «The model explained»].", { D1: { ref: "Silva, 2021" } }), "Texto (Silva, 2021, p. 2).");
+	const docs = { D1: { pages: ["Intro. Currently, CRM systems are popular in services and trade.", "Results. The model explained 47.3% of the variance in burnout scores. Workload mattered most."] },
+		D2: { pages: ["Robots support librarians in different library operations."] } };
+	const r = L.verifyAnswer([
+		"O modelo explica quase metade [D1:p2 «The model explained 47.3% of the variance»].",
+		"Os robôs ajudam [D1:p2 «Robots support librarians in different»].",
+		"Inventado [D1:p2 «workload was the only factor that mattered»].",
+		"Duas fontes [D1:p2 «Workload mattered most»; D2:p1 «support librarians in different library»].",
+		"Sem base [D1:p2].",
+	].join("\n"), docs);
+	assert.deepEqual([r.anchors, r.anchorsOK, r.unmarked], [5, 3, 1]);
+	const st = r.items.map(it => (it.parts || []).map(p => p && p.status));
+	assert.deepEqual(st, [["based"], ["otherDoc"], ["bad"], ["based", "based"]]);
+	assert.equal(L.citeState(r.items[0], 0), "based");
+	assert.equal(L.citeState(r.items[1]), "bad");
+	assert.equal(r.items[0].parts[0].evidence.match, "The model explained 47.3% of the variance");
+	// A frase de base dentro da citação nunca é lida como transcrição
+	assert.equal(r.quotes, 0);
+	// Uma transcrição antes da citação decide (é mais forte do que a frase de base)
+	const q = L.verifyAnswer("«Currently, CRM systems are popular in services» [D1:p1 «CRM systems are popular in services»].", docs);
+	assert.deepEqual([q.quotes, q.quotesOK, q.anchors], [1, 1, 0]);
+});

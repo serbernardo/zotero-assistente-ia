@@ -182,8 +182,22 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   problemas sem citacao ao lado (pagina inexistente, conta errada, `looseNumbers`) ficam numa lista.
   Respostas antigas sem `items` usam a caixa antiga (`_checkBoxOld`). Saiu a caixa de pesquisa do leitor
   do Zotero (`findInReader`, `quoteSnippet`, `quoteBeforeCite`): confundia as pessoas.
-  As parafrases continuam sem prova ate a fase 2 (frase de prova em cada citacao, precisa de teste com
-  a IA real: `run_ai_real.js iaedu`, o ambiente tem de permitir `api.iaedu.pt`).
+  As parafrases ganharam prova na fase 2 (ver abaixo).
+- **Frase de base em cada citacao (fase 2, ≈):** a instrucao 1 pede `[D1:p5 «5 a 15 palavras exatas do
+  documento, na lingua dele»]`, tambem com varias fontes `[D1:p5 «…»; D2:p3 «…»]`. `ANCHOR` faz parte de
+  `ONE_CITE`/`ANY_CITE` (aceita « », “ ” e " ", sem "]", "[", "|" nem mudanca de linha) e `parseCiteGroup`
+  tira as frases antes de separar por virgulas (`c.anchor`). Quem le nunca a ve: os botoes, as notas, a
+  copia e o CSV usam so a pagina. `verifyAnswer` (passo 3) confirma cada frase com pelo menos 3 palavras
+  (`item.parts[k]` por citacao do grupo): based (na pagina citada ou vizinha, marca ≈ verde), moved,
+  otherDoc, changed, bad (com `near`) ou note. Uma transcricao antes da citacao decide (mais forte).
+  `res.anchors`, `res.anchorsOK`, `res.anchorProblems`, `res.unmarked` (citacoes sem nada verificado).
+  `citeState(item, k)`: estado de cada citacao do grupo (sem k, o pior). Cartao ≈ "Base no PDF · p. 4" com
+  a frase a amarelo e "Confirma que a parafrase diz o mesmo": o addon so prova que a frase de base existe,
+  nunca que a parafrase lhe e fiel, por isso ≈ e nao ✓. Linha do fim: "✓ 1 de 2 transcricoes … · ≈ 9 de 10
+  parafrases com base no PDF · 1 sem verificacao · 2 a rever ›" e ⓘ com a legenda das marcas
+  (`check.legend.*`). Citacao sem marca numa resposta verificada: tooltip `cite.unchecked`. A frase de
+  base dentro da citacao nunca e lida como transcricao (o pedaco entre aspas e citacao nao pode ter "]").
+  Por testar com a IA real (GPT-5.5 pelo IAEdu): se os modelos seguem o formato e quantas bases sao exatas.
 - **[Declarado] saiu, [Inferencia] e uma etiqueta:** o que os autores escrevem leva so a citacao. A
   IA marca com [Inferencia] as ligacoes que ela faz, e o painel mostra a etiqueta cinzenta
   "interpretacao da IA" (`textToDOM`, `.zia-ia-badge`). Notas e copia: "(interpretacao da IA)"
@@ -583,12 +597,15 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
   faz nada). Esta sessao nao consegue enviar etiquetas, por isso nao ha etiquetas
   manuais. As atualizacoes automaticas so funcionam com o repositorio publico. Botao "Procurar
   atualizacoes agora" (`checkForUpdates`, AddonManager).
+- **Roda dentada verde abre o aviso:** com versao nova, `_openPrefs("#zia-update-banner")` abre as
+  definicoes com `openPreferences(pane, { scrollTo })` e o aviso esta no cartao dos Creditos, logo por baixo
+  da versao instalada (antes estava no topo). `showUpdateBanner` abre o bloco dos Creditos se estiver fechado.
 - **Aviso de versao nova** (a pedido): 30 s depois de arrancar, `refreshUpdateState` confirma no
   maximo uma vez a cada 20 h (pref `update.lastCheck`) com `findUpdates` SEM instalar e guarda
   `update.available` (versao) e `update.state` (available, ou restart se o Zotero ja a descarregou,
   `addon.pendingUpgrade`). A roda dentada do painel e da janela (`_gearButton`, observa as prefs)
   fica verde com um ponto (`.zia-has-update`) e o tooltip diz a versao. Nas definicoes aparece
-  `#zia-update-banner` no topo com "Atualizar agora" (usa o `checkForUpdates`). Uma versao igual
+  `#zia-update-banner` nos Creditos com "Atualizar agora" (usa o `checkForUpdates`). Uma versao igual
   ou mais antiga que a instalada apaga o aviso (`_compareVersions`, `Services.vc`).
 - **Contas gratuitas:** ChatGPT (Codex) e Gemini funcionam com contas
   gratuitas. A conta gratuita do Claude nao da acesso ao Claude Code nem a API.
@@ -602,7 +619,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (48), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (49), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves

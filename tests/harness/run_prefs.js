@@ -284,8 +284,12 @@ async function main() {
 		});
 		assert.ok(await pg.isVisible("#zia-update-banner"));
 		assert.match(await pg.textContent("#zia-update-banner"), /versão nova do Assistente IA: 9\.9\.9/);
-		const top = await pg.evaluate(() => document.getElementById("zia-update-banner").getBoundingClientRect().top);
-		assert.ok(top < 200, "no topo das definições: " + top);
+		// Nos créditos, logo por baixo da versão instalada
+		assert.ok(await pg.evaluate(() => {
+			const b = document.getElementById("zia-update-banner");
+			const v = document.getElementById("zia-credits-version");
+			return !!b.closest(".zia-credits") && (v.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) > 0;
+		}), "o aviso está nos créditos, depois da versão instalada");
 		await pg.click("#zia-update-now");
 		await pg.waitForFunction(() => /9\.9\.9 instalada/.test(document.getElementById("zia-update-banner-text").textContent));
 		assert.equal(await pg.evaluate(() => window.updCalls), 1);
