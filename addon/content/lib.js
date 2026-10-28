@@ -1534,7 +1534,9 @@ var ZIALib = (function () {
 	// Nas aspas simples o \u2019 também é apóstrofo (nurses\u2019 workload): fecha o último antes da citação.
 	const QUOTE_DOUBLE = `(?:"|\u201c|\u00ab)([^\\s"\u201c\u201d\u00ab\u00bb|][^"\u201c\u201d\u00ab\u00bb|\\n]{13,498}[^\\s"\u201c\u201d\u00ab\u00bb|])(?:"|\u201d|\u00bb)`;
 	const QUOTE_SINGLE = `\u2018([^\u2018\\n|]{15,500}?)\u2019(?!\\p{L})`;
-	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}|${QUOTE_SINGLE})[^\\[\\n|\u2019]{0,40}?\\[(${CITE_INNER})\\]`, "gu");
+	// Entre as aspas e a citação podem vir até 40 caracteres ("…» from the workers’ perspective [D1:p9]").
+	// Só depois de aspas simples esse pedaço não pode ter ’, que fecharia a transcrição mais à frente
+	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}[^\\[\\n|]{0,40}?|${QUOTE_SINGLE}[^\\[\\n|\u2019]{0,40}?)\\[(${CITE_INNER})\\]`, "gu");
 	function quoteMatches(text) {
 		return [...String(text || "").matchAll(QUOTE_RE)].map(m => [m[0], (m[1] || m[2]).trim(), m[3], m.index]);
 	}

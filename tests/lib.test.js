@@ -672,6 +672,8 @@ test("verificação: ligaduras, aspas simples, n = e valores de p, artigos sem t
 	assert.equal(v("«Burnout findings were reported by 47.3% of participants» [D1:p2]").quotesOK, 1);
 	// Aspas simples: o apóstrofo (nurses’ workload) não fecha a transcrição
 	assert.equal(v("‘The nurses’ workload was the main predictor of burnout’ [D1:p2]").quotesOK, 1);
+	// Aspas duplas com um apóstrofo entre a transcrição e a citação (caso real com o GPT-5.5)
+	assert.equal(v("because “the main predictor of burnout in this sample” from the workers’ perspective [D1:p2]").quotesOK, 1);
 	const inv = v("‘The nurses’ salary was the main predictor of everything here’ [D1:p2]");
 	assert.equal(inv.quotes, 1);
 	assert.equal(inv.badQuotes.length, 1);
