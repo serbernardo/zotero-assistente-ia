@@ -1534,11 +1534,14 @@ var ZIALib = (function () {
 	// Nas aspas simples o \u2019 também é apóstrofo (nurses\u2019 workload): fecha o último antes da citação.
 	const QUOTE_DOUBLE = `(?:"|\u201c|\u00ab)([^\\s"\u201c\u201d\u00ab\u00bb|][^"\u201c\u201d\u00ab\u00bb|\\n]{13,498}[^\\s"\u201c\u201d\u00ab\u00bb|])(?:"|\u201d|\u00bb)`;
 	const QUOTE_SINGLE = `\u2018([^\u2018\\n|]{15,500}?)\u2019(?!\\p{L})`;
-	// Entre as aspas e a citação podem vir até 40 caracteres ("…» from the workers’ perspective [D1:p9]").
-	// Só depois de aspas simples esse pedaço não pode ter ’, que fecharia a transcrição mais à frente
-	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}[^\\[\\n|]{0,40}?|${QUOTE_SINGLE}[^\\[\\n|\u2019]{0,40}?)\\[(${CITE_INNER})\\]`, "gu");
+	// Entre as aspas e a citação pode vir o resto da frase, até 160 caracteres («five males and five
+	// females,» including line workers, occasional users, and managers [D1:p7]), sem outras aspas pelo
+	// meio. Depois de aspas simples esse pedaço também não pode ter ’, que fecharia a transcrição mais à frente
+	const QUOTE_TAIL = 160;
+	const QUOTE_RE = new RegExp(`(?:${QUOTE_DOUBLE}([^\\[\\n|"\u201c\u201d\u00ab\u00bb]{0,${QUOTE_TAIL}}?)|${QUOTE_SINGLE}([^\\[\\n|\u2018\u2019]{0,${QUOTE_TAIL}}?))\\[(${CITE_INNER})\\]`, "gu");
+	// [texto completo, transcrição, citação, posição, caracteres entre as aspas e a citação]
 	function quoteMatches(text) {
-		return [...String(text || "").matchAll(QUOTE_RE)].map(m => [m[0], (m[1] || m[2]).trim(), m[3], m.index]);
+		return [...String(text || "").matchAll(QUOTE_RE)].map(m => [m[0], (m[1] || m[3]).trim(), m[5], m.index, (m[2] != null ? m[2] : m[4] || "").length]);
 	}
 
 	// [Declarado] já não se mostra (tudo o que tem citação é o que os autores escrevem) e [Inferência]
@@ -1779,6 +1782,9 @@ var ZIALib = (function () {
 				}
 				else if (!withText.some(id => inDoc(part, id))) ok = false;
 			}
+			// Longe da citação (mais de 40 caracteres) e de outro artigo: a frase pode citar duas fontes,
+			// por isso não se diz que a citação está errada (fica sem marca)
+			if (ok && otherDoc && m[4] > 40) { res.quotes--; continue; }
 			const shown = m[1].length > 90 ? m[1].slice(0, 87) + "…" : m[1];
 			const changed = !ok && parts.every(part => quoteNearlyFound(part, allNorm));
 			if (changed) res.changedQuotes.push({ quote: shown, cite: m[2] || null });

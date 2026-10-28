@@ -149,6 +149,10 @@ verbo quando ha um natural (`button`, so Resumir), a resposta e a nota ficam com
     partida entre duas paginas (`compactFound`: o inicio a menos de `PAGE_EDGE` = 320 caracteres do fim
     de uma pagina e o resto a menos de 320 do inicio da seguinte). Paginas preparadas com `matchPage`.
     Na 1.0.17 havia 5% a 25% de falsos alarmes conforme o PDF, e 39% quando a IA tirava uma referencia.
+  - Transcricao no meio da frase (1.0.21): entre as aspas e a citacao podem vir ate `QUOTE_TAIL` = 160
+    caracteres sem outras aspas (antes 40, e "five males and five females," ficava sem marca). Mais de 40 e
+    encontrada so noutro artigo: fica sem marca (a frase pode citar duas fontes). Nas 24 respostas antigas
+    passou de 95 para 106 transcricoes verificadas, com o mesmo unico aviso.
   - Transcricao de outro artigo da conversa: `res.otherDoc` ("Transcricao de outro artigo (X)"),
     antes dizia "noutra pagina".
   - Numeros: procurados no artigo citado logo a seguir na mesma linha (`segments`, `poolFor`); sem
@@ -598,7 +602,7 @@ cd tests/harness
 npm install
 ```
 
-- `node --test tests/lib.test.js` — testes unitarios puros (47), incluindo
+- `node --test tests/lib.test.js` — testes unitarios puros (48), incluindo
   a paridade PT-PT/ingles
 - `node tests/harness/run_anthropic.js` — motor Claude API contra um
   servidor SSE simulado no formato oficial da Anthropic, e cofre de chaves
@@ -650,7 +654,7 @@ contra servidores e programas simulados).
 python build.py
 ```
 
-Gera `dist/assistente-ia-1.0.20.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
+Gera `dist/assistente-ia-1.0.21.xpi` e `dist/updates.json`. O `.xpi` fica pronto a instalar em
 **Ferramentas -> Plugins -> Install Plugin From File...**
 
 ## Licenca e documentacao publica

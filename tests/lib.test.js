@@ -795,3 +795,19 @@ test("números: procurados no artigo citado a seguir, sem citação em todos os 
 	assert.deepEqual(unk("| Silva | 47,3% | [D1:p1] |\n| García | 12,5% | [D2:p1] |"), [], "linhas de tabela");
 	assert.deepEqual(unk("| Silva | 12,5% | [D1:p1] |"), ["12,5%"]);
 });
+
+test("transcrição no meio da frase, com a citação no fim (até 160 caracteres depois)", () => {
+	const docs = { D1: { pages: ["x", "The sample comprised ten workers, five males and five females, from the billing process."] },
+		D2: { pages: ["Robots support librarians in different library operations including security."] } };
+	const v = t => L.verifyAnswer(t, docs);
+	const ok = v("The sample includes 10 workers, with \u201cfive males and five females,\u201d including line workers, occasional users, and managers [D1:p2].");
+	assert.deepEqual([ok.quotes, ok.quotesOK], [1, 1]);
+	// Longe da citação e de outro artigo: a frase pode citar duas fontes, fica sem marca (sem falso alarme)
+	const two = v("Silva says \u201cRobots support librarians in different library operations\u201d while this study looks at billing workers [D1:p2].");
+	assert.deepEqual([two.quotes, two.items.length], [0, 0]);
+	// Longe da citação e em artigo nenhum: continua a ser assinalada
+	assert.equal(v("Invented \u201cthe robots replaced all librarians in Brazil\u201d and many more words follow here [D1:p2].").items[0].status, "bad");
+	// Logo antes da citação e de outro artigo: continua a dizer que é de outro artigo
+	assert.equal(v("\u201cRobots support librarians in different library operations\u201d [D1:p2].").items[0].status, "otherDoc");
+});
+
